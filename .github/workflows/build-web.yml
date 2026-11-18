@@ -1,0 +1,49 @@
+name: Сборка под WebAssembly
+
+on:
+  push:
+    branches: [ "ai-rework" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Компиляция движка
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Скачиваем код репозитория
+        uses: actions/checkout@v4
+
+      - name: Устанавливаем Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Подтягиваем зависимости (Squirrel)
+        run: sh tools/bootstrap-dependencies.sh game
+
+      - name: Устанавливаем компилятор Emscripten SDK (с кэшем)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          cache: true
+
+      - name: Собираем порты Emscripten (SDL2, libpng)
+        run: embuilder build sdl2 libpng
+
+      - name: Настраиваем проект (CMake + Ninja)
+        run: |
+          emcmake cmake -S . -B build-web -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDARK_OPENGL_ES=ON \
+            -DDARK_EMSCRIPTEN_PORT_INCLUDE="$(em-config CACHE)/sysroot/include" \
+            -DCMAKE_CXX_FLAGS="-O3 -sUSE_SDL=2 -sUSE_LIBPNG=1" \
+            -DCMAKE_C_FLAGS="-O3 -sUSE_SDL=2 -sUSE_LIBPNG=1" \
+            -DCMAKE_EXE_LINKER_FLAGS="-O3 -sUSE_SDL=2 -sUSE_LIBPNG=1 -sFULL_ES3=1 -sASYNCIFY -sASYNCIFY_STACK_SIZE=524288 -sALLOW_MEMORY_GROWTH=1 -sFORCE_FILESYSTEM=1 -sINVOKE_RUN=0 -sEXPORTED_RUNTIME_METHODS=FS,callMain"
+
+      - name: Собираем веб-версию
+        run: cmake --build build-web -j$(nproc)
+
+      - name: Сохраняем готовые файлы
+        uses: actions/upload-artifact@v4
+        with:
+          name: dark-engine-web
+          path: build-web/
