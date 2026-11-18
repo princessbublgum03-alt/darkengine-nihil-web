@@ -2,6 +2,10 @@
 #include <tmftab.h>
 #include <platform_services.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/html5.h>
+#endif
+
 #pragma pack(push, 8)
 #include <array>
 #include <atomic>
@@ -17,7 +21,11 @@ struct TimerProcess
     pfv callback = nullptr;
     std::atomic<bool> running{false};
     unsigned periodMs = 1;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    long intervalId = -1;
+#else
     std::thread worker;
+#endif
 };
 
 std::array<TimerProcess, 16> g_processes;
@@ -26,8 +34,16 @@ std::mutex g_mutex;
 void Stop(TimerProcess &process)
 {
     process.running = false;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    if (process.intervalId >= 0)
+    {
+        emscripten_clear_interval(process.intervalId);
+        process.intervalId = -1;
+    }
+#else
     if (process.worker.joinable())
         process.worker.join();
+#endif
 }
 
 int AddProcess(pfv callback, int, long denominator)
@@ -57,6 +73,12 @@ int ActivateProcess(int id)
     TimerProcess &process = g_processes[id];
     Stop(process);
     process.running = true;
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    process.intervalId = emscripten_set_interval([](void *userData) {
+        auto *proc = static_cast<TimerProcess *>(userData);
+        if (proc->running && proc->callback) proc->callback();
+    }, process.periodMs, &process);
+#else
     process.worker = std::thread([&process] {
         while (process.running)
         {
@@ -64,6 +86,7 @@ int ActivateProcess(int id)
             if (process.running && process.callback) process.callback();
         }
     });
+#endif
     return 0;
 }
 
@@ -93,6 +116,10 @@ pfv g_timerFunctions[TMC_TIMER_FNS] = {
     reinterpret_cast<pfv>(SetPeriod)
 };
 }
+
+#undef tm_get_millisec_unrecorded
+#undef tm_get_millisec
+#undef tm_get_fix
 
 extern "C" long tm_get_millisec_unrecorded()
 {
