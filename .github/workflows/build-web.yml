@@ -30,7 +30,10 @@ jobs:
         run: |
           emcmake cmake -S . -B build-web -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DDARK_OPENGL_ES=ON
+            -DDARK_OPENGL_ES=ON \
+            -DCMAKE_CXX_FLAGS="-sUSE_SDL=2" \
+            -DCMAKE_C_FLAGS="-sUSE_SDL=2" \
+            -DCMAKE_EXE_LINKER_FLAGS="-sUSE_SDL=2 -sFULL_ES3=1"
 
       - name: Собираем веб-версию
         run: cmake --build build-web -j$(nproc)
