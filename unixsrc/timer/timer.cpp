@@ -117,10 +117,6 @@ pfv g_timerFunctions[TMC_TIMER_FNS] = {
 };
 }
 
-#undef tm_get_millisec_unrecorded
-#undef tm_get_millisec
-#undef tm_get_fix
-
 extern "C" long tm_get_millisec_unrecorded()
 {
     return static_cast<long>(PlatformMilliseconds());
