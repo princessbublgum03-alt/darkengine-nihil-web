@@ -1,14 +1,26 @@
-name: Сборка под WebAssembly
+name: Сборка и публикация WebAssembly
 
 on:
   push:
     branches: [ "ai-rework" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   build:
-    name: Компиляция движка
+    name: Компиляция и деплой сайта
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Скачиваем код репозитория
@@ -42,8 +54,24 @@ jobs:
       - name: Собираем веб-версию
         run: cmake --build build-web -j$(nproc)
 
-      - name: Сохраняем готовые файлы
+      - name: Сохраняем артефакт для отладки
         uses: actions/upload-artifact@v4
         with:
           name: dark-engine-web
           path: build-web/
+
+      - name: Подготавливаем папку сайта
+        run: |
+          mkdir -p site
+          cp build-web/thief-runner.js site/
+          cp build-web/thief-runner.wasm site/
+          cp web/index.html site/
+
+      - name: Упаковываем сайт для GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - name: Публикуем на GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
