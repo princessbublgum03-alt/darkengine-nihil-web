@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dark Engine Web — Thief</title>
+  <style>
+    :root {
+      --bg: #0a0908;
+      --panel: #15120f;
+      --border: #3d3326;
+      --gold: #d4af37;
+      --gold-dim: #8a7020;
+      --text: #e6dec8;
+      --muted: #8e8577;
+      --accent: #1f3d2f;
+      --accent-hover: #2a523f;
+    }
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at center, #181410 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.85), inset 0 0 30px rgba(212,175,55,0.03);
+      border-radius: 14px;
+      padding: 28px;
+      max-width: 460px;
+      width: 92%;
+      text-align: center;
+      position: relative;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--gold);
+      text-shadow: 0 2px 10px rgba(212,175,55,0.25);
+    }
+    p {
+      margin: 0 0 20px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+      color: #fff;
+      border: 1px solid #3c6e56;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.2s;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(1.15); }
+    .btn:active:not(:disabled) { transform: scale(0.98); }
+    .btn:disabled {
+      background: #1e1b18;
+      border-color: #2e2924;
+      color: #665e54;
+      cursor: not-allowed;
+    }
+    .progress-wrap {
+      display: none;
+      margin-top: 18px;
+      background: #0d0b09;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+      transition: width 0.15s;
+    }
+    #status {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--text);
+      min-height: 1.3em;
+    }
+    .console-toggle {
+      margin-top: 16px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    #log-box {
+      display: none;
+      margin-top: 10px;
+      background: #070605;
+      border: 1px solid #262019;
+      border-radius: 6px;
+      padding: 8px;
+      height: 110px;
+      overflow-y: auto;
+      text-align: left;
+      font-family: monospace;
+      font-size: 0.72rem;
+      color: #9e9589;
+    }
+
+    /* Игровой экран */
+    #game-wrap {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+    }
+    canvas#canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    /* Сенсорное управление для телефона */
+    #touch-controls {
+      display: none;
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @media (pointer: coarse) {
+      #touch-controls { display: block; }
+    }
+    .touch-zone {
+      position: absolute;
+      bottom: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 52px);
+      grid-template-rows: repeat(3, 52px);
+      gap: 6px;
+      pointer-events: auto;
+    }
+    #dpad { left: 20px; }
+    #actions { right: 20px; grid-template-columns: repeat(2, 58px); }
+    .t-btn {
+      background: rgba(25, 22, 18, 0.55);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 12px;
+      color: var(--gold);
+      font-weight: bold;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .t-btn:active { background: rgba(212, 175, 55, 0.35); }
+    #btn-fs {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      pointer-events: auto;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="setup-panel">
+    <div class="badge">WebAssembly • WebGL 2.0</div>
+    <h1>Dark Engine Web</h1>
+    <p>Запуск классического движка <b>Thief Gold / Thief II</b> прямо в браузере.<br>Укажите папку с установленной игрой (где лежит <code>cam.cfg</code>).</p>
+
+    <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none">
+    <button class="btn" id="pick-btn" disabled>Загрузка ядра движка...</button>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div id="status">Инициализация WebAssembly...</div>
+
+    <button class="console-toggle" id="toggle-log">Показать лог движка</button>
+    <div id="log-box"></div>
+  </div>
+
+  <div id="game-wrap">
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <button class="t-btn" id="btn-fs">⛶ Полный экран</button>
+
+    <div id="touch-controls">
+      <div class="touch-zone" id="dpad">
+        <div></div><div class="t-btn" data-key="KeyW" data-code="87">W</div><div></div>
+        <div class="t-btn" data-key="KeyA" data-code="65">A</div>
+        <div class="t-btn" data-key="KeyS" data-code="83">S</div>
+        <div class="t-btn" data-key="KeyD" data-code="68">D</div>
+        <div></div><div></div><div></div>
+      </div>
+      <div class="touch-zone" id="actions">
+        <div class="t-btn" data-key="Space" data-code="32">Прыжок</div>
+        <div class="t-btn" data-key="KeyE" data-code="69">Взять</div>
+        <div class="t-btn" data-key="KeyX" data-code="88">Присесть</div>
+        <div class="t-btn" data-key="Escape" data-code="27">Меню</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const pickBtn = document.getElementById('pick-btn');
+    const folderInput = document.getElementById('folder-input');
+    const statusEl = document.getElementById('status');
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressBar = document.getElementById('progress-bar');
+    const setupPanel = document.getElementById('setup-panel');
+    const gameWrap = document.getElementById('game-wrap');
+    const canvas = document.getElementById('canvas');
+    const logBox = document.getElementById('log-box');
+
+    document.getElementById('toggle-log').onclick = () => {
+      logBox.style.display = logBox.style.display === 'block' ? 'none' : 'block';
+    };
+
+    function appendLog(msg, isErr = false) {
+      const line = document.createElement('div');
+      if (isErr) line.style.color = '#e06c75';
+      line.textContent = msg;
+      logBox.appendChild(line);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    var Module = {
+      canvas: canvas,
+      print: (t) => { console.log(t); appendLog(t); },
+      printErr: (t) => { console.error(t); appendLog(t, true); },
+      onRuntimeInitialized: () => {
+        statusEl.textContent = 'Ядро готово. Выберите папку с игрой.';
+        pickBtn.textContent = 'Выбрать папку с Thief';
+        pickBtn.disabled = false;
+      }
+    };
+
+    pickBtn.onclick = () => folderInput.click();
+
+    folderInput.onchange = async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+
+      pickBtn.disabled = true;
+      progressWrap.style.display = 'block';
+      statusEl.textContent = `Подготовка файлов (${files.length})...`;
+
+      try {
+        try { FS.mkdir('/game'); } catch (err) {}
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const parts = file.webkitRelativePath.split('/');
+          parts.shift();
+          if (!parts.length) continue;
+
+          let currentDir = '/game';
+          for (let j = 0; j < parts.length - 1; j++) {
+            currentDir += '/' + parts[j];
+            try { FS.mkdir(currentDir); } catch (err) {}
+          }
+
+          const buffer = await file.arrayBuffer();
+          FS.writeFile('/game/' + parts.join('/'), new Uint8Array(buffer));
+
+          if (i % 30 === 0 || i === files.length - 1) {
+            const pct = Math.round(((i + 1) / files.length) * 100);
+            progressBar.style.width = pct + '%';
+            statusEl.textContent = `Загрузка в память: ${pct}% (${i + 1}/${files.length})`;
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
+
+        statusEl.textContent = 'Запуск Dark Engine...';
+        setupPanel.style.display = 'none';
+        gameWrap.style.display = 'block';
+        canvas.focus();
+
+        Module.callMain([]);
+      } catch (err) {
+        statusEl.textContent = 'Ошибка: ' + err.message;
+        appendLog(err.stack || err.message, true);
+        pickBtn.disabled = false;
+      }
+    };
+
+    // Полноэкранный режим
+    document.getElementById('btn-fs').onclick = () => {
+      if (!document.fullscreenElement) gameWrap.requestFullscreen().catch(() => {});
+      else document.exitFullscreen().catch(() => {});
+    };
+
+    // Эмуляция клавиатуры для экранных кнопок телефона
+    document.querySelectorAll('.t-btn[data-key]').forEach(btn => {
+      const code = btn.dataset.key;
+      const keyCode = parseInt(btn.dataset.code, 10);
+      const fire = (type) => {
+        const ev = new KeyboardEvent(type, { code, key: code.replace('Key', '').toLowerCase(), keyCode, which: keyCode, bubbles: true });
+        canvas.dispatchEvent(ev);
+        window.dispatchEvent(ev);
+      };
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); fire('keydown'); });
+      btn.addEventListener('pointerup', (e) => { e.preventDefault(); fire('keyup'); });
+      btn.addEventListener('pointerleave', (e) => { e.preventDefault(); fire('keyup'); });
+      btn.addEventListener('pointercancel', (e) => { e.preventDefault(); fire('keyup'); });
+    });
+  </script>
+</body>
+</html>
