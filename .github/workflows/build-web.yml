@@ -1,0 +1,42 @@
+name: Сборка под WebAssembly
+
+on:
+  push:
+    branches: [ "ai-rework" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Компиляция движка
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Скачиваем код репозитория
+        uses: actions/checkout@v4
+
+      - name: Устанавливаем Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Подтягиваем зависимости (Squirrel)
+        run: sh tools/bootstrap-dependencies.sh game
+
+      - name: Устанавливаем компилятор Emscripten SDK (с кэшем)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          cache: true
+
+      - name: Настраиваем проект (CMake + Ninja)
+        run: |
+          emcmake cmake -S . -B build-web -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDARK_OPENGL_ES=ON
+
+      - name: Собираем веб-версию
+        run: cmake --build build-web -j$(nproc)
+
+      - name: Сохраняем готовые файлы
+        uses: actions/upload-artifact@v4
+        with:
+          name: dark-engine-web
+          path: build-web/
