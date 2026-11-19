@@ -3487,7 +3487,31 @@
         window.addEventListener('unhandledrejection', (ev) => {
           const reason = ev.reason;
           const msg = reason && reason.message ? reason.message : String(reason || 'Unhandled rejection');
-          logDiag('error', 'CRASH', 'Unhandled Promise rejection: ' + msg, reason && reason.stack ? reason.stack : '');
+          const stack = reason && reason.stack ? String(reason.stack) : '';
+          logDiag('error', 'CRASH', 'Unhandled Promise rejection: ' + msg, stack);
+          if (appState.gameRunning && !appState.isPreviewMode && (/RuntimeError|wasm:|function signature mismatch|unreachable|memory access out of bounds/i.test(msg + ' ' + stack))) {
+            try {
+              const FS = window.Module && window.Module.FS;
+              if (FS && typeof FS.readFile === 'function') {
+                const text = FS.readFile(GAMEDATA_DIR + '/darkengine-diagnostics.log', { encoding: 'utf8' });
+                if (text && text.trim()) {
+                  const tail = text.trim().split(/\r?\n/).slice(-40).join('\n');
+                  logDiag('info', 'ENGINE', 'Содержимое /gamedata/darkengine-diagnostics.log после сбоя WASM', tail);
+                }
+              }
+            } catch (_) {}
+            setBootOverlayState(true, {
+              title: 'Сбой выполнения Dark Engine',
+              status: msg,
+              metrics: 'Сбой WASM',
+              pct: 100,
+              busy: false,
+              error: true,
+              speed: 'RuntimeError',
+              eta: 'Скопируйте логи и выйдите в лаунчер',
+              log: stack ? stack.split('\n').slice(0, 2).join(' · ') : msg
+            });
+          }
         });
         canvas.addEventListener('webglcontextlost', (ev) => {
           ev.preventDefault();

@@ -23,7 +23,7 @@ typedef void (gdubm_func)(grs_bitmap *bm, int x, int y);
 typedef gdubm_func *gdubm_func_p;
 typedef gdubm_func_p (gdubm_expose_func)(grs_bitmap *bm, int x, int y);
 
-typedef int (gdbm_func)(grs_bitmap *bm, int x, int y, int code, gdubm_func *ubm_func);
+typedef void (gdbm_func)(grs_bitmap *bm, int x, int y, int code, gdubm_func *ubm_func);
 
 #ifdef __cplusplus
 };
