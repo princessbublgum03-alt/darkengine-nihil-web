@@ -1,0 +1,27 @@
+=== DARK ENGINE WEB DIAGNOSTIC REPORT ===
+Generated: 2026-11-19T11:44:04.743Z
+URL: https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+UserAgent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Mobile Safari/537.36
+Viewport: 432x872 @2.50x
+Hardware: 8 ядер · 8 ГБ ОЗУ · Touch
+GPU: Google Inc. (ARM) / ANGLE (ARM, Mali-G610 MC6, OpenGL ES 3.2) (maxTex=8192) · WebGPU=arm valhall
+Storage: Диск: 2647.1 / 12887.1 МБ
+WASM: ready (8.4 МБ) | Cache: 3885 файлов · 2779.4 МБ (Thief II: The Metal Age)
+Settings: api=webgl2 quality=high fps=0 fit=stretch touch=auto sens=1.2
+Entries: 15 (errors=0, warns=1)
+-----------------------------------------
+[+00:00.051] [INFO ] [SYS   ] Инициализация лаунчера Dark Engine Web | {"viewport":"432x872@2.50x","touchDevice":true,"decompressionStream":true,"indexedDB":true}
+[+00:00.090] [INFO ] [GPU   ] Диагностика GPU завершена | {"webgl2":true,"renderer":"Google Inc. (ARM) / ANGLE (ARM, Mali-G610 MC6, OpenGL ES 3.2)","maxTextureSize":8192,"webgpu":"arm valhall"}
+[+00:00.093] [INFO ] [WASM  ] Запрос модуля thief-runner.wasm...
+[+00:00.094] [DEBUG] [WASM  ] Скрипт thief-runner.js загружен
+[+00:00.097] [DEBUG] [CACHE ] Квота хранилища браузера: 2647.1 / 12887.1 МБ
+[+00:00.098] [DEBUG] [WASM  ] Ответ HTTP 200, Content-Type="application/wasm" | {"contentLengthMB":"2.5","streamingCompile":true}
+[+00:00.099] [INFO ] [CACHE ] Обнаружен кэш IndexedDB за 21 мс: Thief II: The Metal Age | {"files":3885,"sizeMB":"2779.4"}
+[+00:00.140] [WARN ] [IDB   ] Предупреждение синхронизации /gamedata/saves | TypeError: Cannot read properties of undefined (reading 'buffer')
+[+00:00.165] [INFO ] [WASM  ] Потоковая компиляция WASM завершена за 72 мс | {"bytesMB":"8.4"}
+[+00:00.169] [INFO ] [WASM  ] Emscripten runtime инициализирован (FS=true, IDBFS=true)
+[+00:00.177] [INFO ] [CACHE ] Обнаружен кэш IndexedDB за 8 мс: Thief II: The Metal Age | {"files":3885,"sizeMB":"2779.4"}
+[+00:07.502] [INFO ] [ENGINE] [web][diag] Verbose engine logging enabled (backend=webgl2, scale=1.00, fps=0, stretch=1)
+[+00:09.491] [INFO ] [ENGINE] [web][diag] Verbose engine logging enabled (backend=webgl2, scale=1.00, fps=0, stretch=1)
+[+00:10.024] [INFO ] [ENGINE] [web][diag] Verbose engine logging enabled (backend=webgl2, scale=1.00, fps=0, stretch=1)
+[+00:10.807] [INFO ] [ENGINE] [web][diag] Verbose engine logging enabled (backend=webgl2, scale=1.00, fps=0, stretch=1)

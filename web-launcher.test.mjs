@@ -29,6 +29,7 @@ function loadDarkWebCoreFromHtml() {
     TextDecoder,
     Blob,
     Response,
+    URLSearchParams,
     DecompressionStream: globalThis.DecompressionStream
   };
   vm.runInNewContext(scriptMatch[1], sandbox);
@@ -579,40 +580,76 @@ test('single-threaded Emscripten sound mixer avoids std::thread abort() in SndSt
   );
 });
 
-test('borderless fullscreen stretch mode fills every device aspect ratio (phones, tablets, PCs) without black bars and wires C++ cleanly', () => {
-  assert.equal(Core.normalizeDisplayFit(undefined), 'stretch');
+test('adaptive native-aspect 3D, direct touch look injection, and safe re-launch/IDBFS gating work across phones, tablets, and PCs', () => {
+  // 1. Adaptive display mode defaults and viewport math
+  assert.equal(Core.normalizeDisplayFit(undefined), 'adaptive');
+  assert.equal(Core.normalizeDisplayFit('adaptive'), 'adaptive');
   assert.equal(Core.normalizeDisplayFit('stretch'), 'stretch');
   assert.equal(Core.normalizeDisplayFit('fit'), 'fit');
-  assert.equal(Core.normalizeDisplayFit('unknown'), 'stretch');
+  assert.equal(Core.normalizeDisplayFit('unknown'), 'adaptive');
 
-  // Stretch mode fills 100% of every device viewport with zero letterbox/pillarbox bars
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 640, 480, 'stretch') }, { x: 0, y: 0, width: 432, height: 872 });
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(872, 432, 640, 480, 'stretch') }, { x: 0, y: 0, width: 872, height: 432 });
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(1024, 768, 640, 480, 'stretch') }, { x: 0, y: 0, width: 1024, height: 768 });
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'stretch') }, { x: 0, y: 0, width: 1920, height: 1080 });
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(2560, 1080, 640, 480, 'stretch') }, { x: 0, y: 0, width: 2560, height: 1080 });
+  // Native-aspect 3D logical resolution preserves exact proportions across all devices
+  assert.deepEqual({ ...Core.computeAdaptiveLogicalSize(432, 872) }, { width: 480, height: 968 });
+  assert.deepEqual({ ...Core.computeAdaptiveLogicalSize(872, 432) }, { width: 872, height: 432 });
+  assert.deepEqual({ ...Core.computeAdaptiveLogicalSize(1024, 768) }, { width: 1024, height: 768 });
+  assert.deepEqual({ ...Core.computeAdaptiveLogicalSize(1920, 1080) }, { width: 1600, height: 900 });
+  assert.deepEqual({ ...Core.computeAdaptiveLogicalSize(2560, 1080) }, { width: 1600, height: 674 });
 
-  // Classic 4:3 fit mode centers cleanly when explicitly selected
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'fit') }, { x: 240, y: 0, width: 1440, height: 1080 });
-  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 640, 480, 'fit') }, { x: 0, y: 274, width: 432, height: 324 });
+  // Adaptive mode fills 100% in 3D without black bars AND keeps 2D menus undistorted
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 1600, 900, 'adaptive', true) }, { x: 0, y: 0, width: 1920, height: 1080 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 480, 968, 'adaptive', true) }, { x: 0, y: 0, width: 432, height: 872 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'adaptive', false) }, { x: 240, y: 0, width: 1440, height: 1080 });
 
-  // End-to-end C++ + HTML contract verification
+  // Stretch mode fills 100% even for 2D menus; classic 4:3 preserves 4:3
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 640, 480, 'stretch', false) }, { x: 0, y: 0, width: 432, height: 872 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'fit', true) }, { x: 240, y: 0, width: 1440, height: 1080 });
+
+  // 2. Touch camera look gain & flick acceleration
+  assert.deepEqual({ ...Core.computeTouchLookDelta(0, 0, 1.2, false) }, { dx: 0, dy: 0 });
+  const slowLook = Core.computeTouchLookDelta(10, 0, 1.2, false);
+  assert.ok(slowLook.dx > 30, 'Touch camera turn must scale smoothly for mobile Dark Engine counts');
+  const fastLook = Core.computeTouchLookDelta(40, -10, 1.2, true);
+  assert.ok(fastLook.dx > slowLook.dx * 4, 'Fast thumb flick should accelerate smoothly for 180-degree turns');
+  assert.ok(fastLook.dy > 0, 'invertY must negate vertical touch drag');
+
+  // 3. Safe re-launch state machine (never calls Emscripten callMain twice)
+  assert.deepEqual({ ...Core.resolveLaunchButtonState({ wasmState: 'ready', cachedFiles: 10, wasmLaunched: false, wasmTerminated: false }) }, {
+    label: 'Запустить Thief',
+    action: 'launch',
+    showRestart: false
+  });
+  assert.deepEqual({ ...Core.resolveLaunchButtonState({ wasmState: 'ready', cachedFiles: 10, wasmLaunched: true, wasmTerminated: false }) }, {
+    label: 'Продолжить Thief',
+    action: 'resume',
+    showRestart: true
+  });
+  assert.deepEqual({ ...Core.resolveLaunchButtonState({ wasmState: 'ready', cachedFiles: 10, wasmLaunched: true, wasmTerminated: true }) }, {
+    label: 'Запустить Thief',
+    action: 'reload-launch',
+    showRestart: false
+  });
+
+  // 4. End-to-end C/C++ + HTML contract verification
+  const gamemodeC = fs.readFileSync(new URL('./src/framewrk/gamemode.c', import.meta.url), 'utf8');
   const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
   const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
   const gameshellCpp = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
 
-  assert.ok(openglCpp.includes('bool g_stretchFill = true;'), 'opengl.cpp must default g_stretchFill to true under Emscripten');
-  assert.ok(openglCpp.includes('if (g_stretchFill)\n      return;'), 'viewport() must return full client rect without black bars when g_stretchFill is active');
-  assert.ok(openglCpp.includes('if (!g_stretchFill)'), 'DarkRenderPresentMovieFrame must stretch movies fullscreen when g_stretchFill is active');
-  assert.ok(openglCpp.includes('void RenderBackendSetStretchToFill(int enabled)'), 'opengl.cpp must export RenderBackendSetStretchToFill');
-  assert.ok(openglCpp.includes('emscripten_get_element_css_size("#canvas"'), 'DarkRenderOpen must initialize SDL window to full #canvas CSS size on Emscripten');
-  assert.ok(mainCpp.includes('dark_web_set_stretch_fill'), 'main.cpp must export dark_web_set_stretch_fill');
-  assert.ok(gameshellCpp.includes('dark_web_notify_canvas_resized'), 'gameshell.cpp must notify JS to preserve quality scale after SDL_SetWindowSize');
-  assert.ok(html.includes('dark_web_set_stretch_fill'), 'web/index.html must pass displayFit stretch mode to C++');
-  assert.ok(html.includes('data-display-fit="stretch"'), 'web/index.html must expose Fullscreen Stretch vs 4:3 selector');
-  assert.ok(html.includes('window.__onDarkCanvasResized'), 'web/index.html must handle C++ canvas resize notifications');
+  assert.ok(gamemodeC.includes('RenderBackendAdaptiveAspect()'), 'gamemode.c must enable adaptive native-aspect 3D resolution on Emscripten');
+  assert.ok(openglCpp.includes('bool g_adaptiveAspect = true;'), 'opengl.cpp must default g_adaptiveAspect to true under Emscripten');
+  assert.ok(openglCpp.includes('void RenderBackendInjectRelativeLook(int dx, int dy)'), 'opengl.cpp must export RenderBackendInjectRelativeLook');
+  assert.ok(openglCpp.includes('DarkInputMouseRelative(dx, dy, g_buttons);'), 'RenderBackendInjectRelativeLook must feed DarkInputMouseRelative directly without Pointer Lock');
+  assert.ok(mainCpp.includes('dark_web_inject_look'), 'main.cpp must export dark_web_inject_look');
+  assert.ok(mainCpp.includes('dark_web_set_adaptive_aspect'), 'main.cpp must export dark_web_set_adaptive_aspect');
+  assert.ok(mainCpp.includes('__onDarkEngineExited'), 'main.cpp must notify JS when main() exits');
+  assert.ok(gameshellCpp.includes('window.__darkEnginePaused'), 'gameshell.cpp must pause cleanly while user is in launcher');
+  assert.ok(html.includes("if (appState.wasmState !== 'ready') return;"), 'mountSavesIdbfsIfAvailable must wait for WASM runtime initialization before IDBFS syncfs');
+  assert.ok(html.includes('dark_web_inject_look'), 'dispatchMouseLook must inject relative camera turns directly into C++');
+  assert.ok(html.includes('id="relaunchBtn"'), 'web/index.html must include clean restart button when paused in launcher');
+  assert.ok(html.includes('data-display-fit="adaptive"'), 'web/index.html must expose Adaptive / Stretch / 4:3 display selector');
 });
+
 
 
 

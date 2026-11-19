@@ -38,7 +38,9 @@ int LGAPI _AppMain(int argc, const char *argv[]);
 #ifdef __EMSCRIPTEN__
 extern "C" void DarkGameShellSetTargetFps(int targetFps);
 extern "C" void DarkGameShellConfigureInput(float mouseSensitivity, int invertY);
+extern "C" void RenderBackendSetAdaptiveAspect(int enabled);
 extern "C" void RenderBackendSetStretchToFill(int enabled);
+extern "C" void RenderBackendInjectRelativeLook(int dx, int dy);
 #endif
 
 namespace
@@ -51,7 +53,8 @@ float g_webMouseSensitivity = 1.0f;
 float g_webGamepadDeadzone = 0.15f;
 int g_webInvertY = 0;
 int g_webTargetFps = 0;
-int g_webStretchFill = 1;
+int g_webAdaptiveAspect = 1;
+int g_webStretchFill = 0;
 int g_webVerboseLogging = 0;
 
 bool DirectoryExists(const char *path)
@@ -144,8 +147,8 @@ void ConfigureEmscriptenRuntime()
         const char *cwd = getcwd(cwdBuf, sizeof(cwdBuf)) ? cwdBuf : "<unknown>";
         char diagBuf[512];
         std::snprintf(diagBuf, sizeof(diagBuf),
-                      "[web][diag] Runtime ready: cwd=%s backend=%s scale=%.2f fps=%d stretch=%d input=%s sens=%.2f dz=%.2f invY=%d\n",
-                      cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webStretchFill,
+                      "[web][diag] Runtime ready: cwd=%s backend=%s scale=%.2f fps=%d adaptive=%d stretch=%d input=%s sens=%.2f dz=%.2f invY=%d\n",
+                      cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webAdaptiveAspect, g_webStretchFill,
                       g_webInputProfile, g_webMouseSensitivity, g_webGamepadDeadzone, g_webInvertY);
         PlatformDebugOutput(diagBuf);
         std::fflush(stderr);
@@ -235,11 +238,36 @@ void dark_web_sync_saves(void)
 }
 
 EMSCRIPTEN_KEEPALIVE
+void dark_web_set_adaptive_aspect(int enabled)
+{
+    g_webAdaptiveAspect = enabled ? 1 : 0;
+    setenv("DARK_WEB_ADAPTIVE_ASPECT", g_webAdaptiveAspect ? "1" : "0", 1);
+    RenderBackendSetAdaptiveAspect(g_webAdaptiveAspect);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void dark_web_set_stretch_fill(int enabled)
 {
     g_webStretchFill = enabled ? 1 : 0;
     setenv("DARK_WEB_STRETCH_FILL", g_webStretchFill ? "1" : "0", 1);
     RenderBackendSetStretchToFill(g_webStretchFill);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dark_web_inject_look(float dx, float dy)
+{
+    static float s_accumX = 0.0f;
+    static float s_accumY = 0.0f;
+    s_accumX += dx;
+    s_accumY += dy;
+    const int ix = static_cast<int>(s_accumX >= 0.0f ? (s_accumX + 0.5f) : (s_accumX - 0.5f));
+    const int iy = static_cast<int>(s_accumY >= 0.0f ? (s_accumY + 0.5f) : (s_accumY - 0.5f));
+    if (ix != 0 || iy != 0)
+    {
+        s_accumX -= static_cast<float>(ix);
+        s_accumY -= static_cast<float>(iy);
+        RenderBackendInjectRelativeLook(ix, iy);
+    }
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -251,8 +279,8 @@ void dark_web_set_verbose_logging(int enabled)
     {
         char msg[256];
         std::snprintf(msg, sizeof(msg),
-                      "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d, stretch=%d)\n",
-                      g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webStretchFill);
+                      "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d, adaptive=%d, stretch=%d)\n",
+                      g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webAdaptiveAspect, g_webStretchFill);
         PlatformDebugOutput(msg);
         std::fflush(stderr);
     }
@@ -284,6 +312,11 @@ int main(int argc, char *argv[])
 
 #ifdef __EMSCRIPTEN__
     PersistIdbfsToBrowser();
+    EM_ASM({
+        if (typeof window.__onDarkEngineExited === 'function') {
+            try { window.__onDarkEngineExited($0); } catch (_) {}
+        }
+    }, exitCode);
 #endif
 
     return exitCode;

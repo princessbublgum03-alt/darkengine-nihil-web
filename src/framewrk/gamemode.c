@@ -410,6 +410,10 @@ static sLoopInstantiator _instantiator =
    _InitContext,
 };
 
+#ifdef __EMSCRIPTEN__
+extern int RenderBackendAdaptiveAspect(void);
+#endif
+
 static BOOL build_fit_screen_mode(sScrnMode* mode)
 {
    const sScrnMode* selected = GetGameScreenMode();
@@ -418,6 +422,29 @@ static BOOL build_fit_screen_mode(sScrnMode* mode)
    int height;
    int registered;
 
+#ifdef __EMSCRIPTEN__
+   fit = RenderBackendAdaptiveAspect();
+   if (!fit || !RenderBackendGetSettledClientSize(&width, &height) ||
+       width <= 0 || height <= 0)
+      return FALSE;
+   // Preserve the exact device aspect ratio while keeping the CPU HUD canvas
+   // crisp on narrow phones (>=480x360) and fast on 4K/ultrawide screens (<=1600x1200).
+   {
+      double scale = 1.0;
+      if (width < 480)
+         scale = 480.0 / (double)width;
+      if ((double)height * scale < 360.0)
+         scale = 360.0 / (double)height;
+      if ((double)width * scale > 1600.0)
+         scale = 1600.0 / (double)width;
+      if ((double)height * scale > 1200.0)
+         scale = 1200.0 / (double)height;
+      width = ((int)((double)width * scale + 0.5)) & ~1;
+      height = ((int)((double)height * scale + 0.5)) & ~1;
+   }
+   if (width < 400 || height < 300 || width > 8191 || height > 8191)
+      return FALSE;
+#else
    if (!config_get_int("game_screen_fit", &fit) || !fit ||
 #ifndef __ANDROID__
        !(selected->flags & kScrnModeWindowed) ||
@@ -425,6 +452,7 @@ static BOOL build_fit_screen_mode(sScrnMode* mode)
        !RenderBackendGetSettledClientSize(&width, &height) ||
        width < 400 || height < 300 || width > 8191 || height > 8191)
       return FALSE;
+#endif
 
    registered = gr_register_mode(width, height, 16);
    if (registered < 0)
@@ -620,7 +648,11 @@ static eLoopMessageResult LGAPI _LoopFunc(void* data, eLoopMessage msg, tLoopMes
       case kMsgEnterMode:
       {
          int fit = 0;
+#ifdef __EMSCRIPTEN__
+         fit = RenderBackendAdaptiveAspect();
+#else
          config_get_int("game_screen_fit", &fit);
+#endif
          // DromEd and the retail game share this loop client. Fixed modes are
          // aspect-fitted to the host; Fit mode replaces the logical canvas
          // with the settled client size so its CPU HUD overlay stays 1:1.
@@ -662,7 +694,11 @@ static eLoopMessageResult LGAPI _LoopFunc(void* data, eLoopMessage msg, tLoopMes
       case kMsgResumeMode:
       {
          int fit = 0;
+#ifdef __EMSCRIPTEN__
+         fit = RenderBackendAdaptiveAspect();
+#else
          config_get_int("game_screen_fit", &fit);
+#endif
          RenderBackendSetScaleToWindow(TRUE);
          RenderBackendSetFitToViewport(fit != 0);
          RenderBackendSetPreserveCanvas(FALSE);

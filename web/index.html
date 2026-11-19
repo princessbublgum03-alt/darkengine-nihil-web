@@ -1720,20 +1720,24 @@
           </div>
         </div>
 
-        <!-- Display Aspect / Borderless Fullscreen Stretch -->
+        <!-- Display Aspect / Native Adaptive Fullscreen -->
         <div class="setting-group">
           <div class="setting-label-row">
             <span class="setting-label">Экран и пропорции</span>
-            <span class="setting-hint" id="displayFitDescText">Без чёрных полос · Все экраны</span>
+            <span class="setting-hint" id="displayFitDescText">Весь экран · Без искажений 3D</span>
           </div>
-          <div class="segmented" role="group" aria-label="Режим заполнения экрана">
-            <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="true">
-              <span>Весь экран</span>
-              <small>Без полос (растянуть)</small>
+          <div class="segmented cols-3" role="group" aria-label="Режим заполнения экрана">
+            <button type="button" class="seg-btn" data-display-fit="adaptive" aria-pressed="true">
+              <span>Адаптивный</span>
+              <small>Весь экран 1:1</small>
+            </button>
+            <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="false">
+              <span>Растянуть</span>
+              <small>И 2D-меню</small>
             </button>
             <button type="button" class="seg-btn" data-display-fit="fit" aria-pressed="false">
-              <span>Пропорции 4:3</span>
-              <small>Классика (полосы)</small>
+              <span>4:3</span>
+              <small>Классика</small>
             </button>
           </div>
         </div>
@@ -1834,13 +1838,14 @@
         <span class="launch-readout-sub" id="launchReadoutSub">Загрузите .zip или папку с игрой, либо используйте сохранённый кэш</span>
       </div>
       <div class="launch-cta-group">
+        <button type="button" id="relaunchBtn" class="btn-secondary" style="display: none;">Перезапустить</button>
         <button type="button" id="launchBtn" class="btn-primary-launch" disabled>Запустить Thief</button>
       </div>
     </section>
   </main>
 
   <!-- Fullscreen Gameplay Viewport + Touch/Gesture Controls Overlay -->
-  <section id="game-stage" data-touch-layout="buttons" data-preview="false" data-input-mode="menu" data-display-fit="stretch" aria-label="Игровой экран Dark Engine">
+  <section id="game-stage" data-touch-layout="buttons" data-preview="false" data-input-mode="menu" data-display-fit="adaptive" aria-label="Игровой экран Dark Engine">
     <!-- Dedicated WebGL 2.0 canvas for Emscripten/SDL2 (never polluted with 2D context) -->
     <canvas id="canvas" data-testid="game-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <!-- Dedicated 2D canvas strictly for Control Test preview mode -->
@@ -1923,8 +1928,9 @@
       </div>
       <div class="setting-group">
         <span class="setting-label">Экран</span>
-        <div class="segmented" role="group" aria-label="Режим заполнения экрана в игре">
-          <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="true"><span>Весь экран</span></button>
+        <div class="segmented cols-3" role="group" aria-label="Режим заполнения экрана в игре">
+          <button type="button" class="seg-btn" data-display-fit="adaptive" aria-pressed="true"><span>Адапт.</span></button>
+          <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="false"><span>Растян.</span></button>
           <button type="button" class="seg-btn" data-display-fit="fit" aria-pressed="false"><span>4:3</span></button>
         </div>
       </div>
@@ -2164,14 +2170,30 @@
         },
 
         normalizeDisplayFit(mode) {
-          return mode === 'fit' ? 'fit' : 'stretch';
+          if (mode === 'stretch' || mode === 'fit' || mode === 'adaptive') {
+            return mode;
+          }
+          return 'adaptive';
         },
 
-        computeDisplayViewportRect(clientW, clientH, logicalW, logicalH, displayFit) {
+        computeAdaptiveLogicalSize(clientW, clientH) {
+          const rawW = Math.max(1, Math.round(Number(clientW) || 640));
+          const rawH = Math.max(1, Math.round(Number(clientH) || 480));
+          let scale = 1.0;
+          if (rawW < 480) scale = 480.0 / rawW;
+          if (rawH * scale < 360.0) scale = 360.0 / rawH;
+          if (rawW * scale > 1600.0) scale = 1600.0 / rawW;
+          if (rawH * scale > 1200.0) scale = 1200.0 / rawH;
+          const width = Math.max(400, Math.round(rawW * scale) & ~1);
+          const height = Math.max(300, Math.round(rawH * scale) & ~1);
+          return { width, height };
+        },
+
+        computeDisplayViewportRect(clientW, clientH, logicalW, logicalH, displayFit, is3DScene) {
           const cw = Math.max(1, Math.round(Number(clientW) || 0));
           const ch = Math.max(1, Math.round(Number(clientH) || 0));
           const mode = this.normalizeDisplayFit(displayFit);
-          if (mode === 'stretch') {
+          if (mode === 'stretch' || (mode === 'adaptive' && is3DScene)) {
             return { x: 0, y: 0, width: cw, height: ch };
           }
           const lw = Math.max(1, Math.round(Number(logicalW) || 640));
@@ -2185,6 +2207,52 @@
           }
           const nh = Math.floor((cw * lh) / lw);
           return { x: 0, y: Math.floor((ch - nh) / 2), width: cw, height: nh };
+        },
+
+        computeTouchLookDelta(dx, dy, sensitivity, invertY) {
+          const rawX = Number(dx) || 0;
+          const rawY = Number(dy) || 0;
+          if (rawX === 0 && rawY === 0) return { dx: 0, dy: 0 };
+          const sens = Math.max(0.4, Math.min(3.0, Number(sensitivity) || 1.2));
+          const speed = Math.hypot(rawX, rawY);
+          // Tuned for Dark Engine's relative mouse counts: crisp slow aim for
+          // frobbing loot/doors plus smooth flick acceleration for 180-degree turns.
+          const accel = 1 + Math.min(0.65, speed / 32);
+          const baseGain = 2.8;
+          return {
+            dx: rawX * baseGain * sens * accel,
+            dy: rawY * baseGain * 0.82 * sens * accel * (invertY ? -1 : 1)
+          };
+        },
+
+        resolveLaunchButtonState(state) {
+          const s = state || {};
+          if (s.wasmLaunched && !s.wasmTerminated) {
+            return {
+              label: 'Продолжить Thief',
+              action: 'resume',
+              showRestart: true
+            };
+          }
+          if (s.wasmLaunched && s.wasmTerminated) {
+            return {
+              label: 'Запустить Thief',
+              action: 'reload-launch',
+              showRestart: false
+            };
+          }
+          if (s.wasmState === 'unavailable' && (s.cachedFiles || 0) > 0) {
+            return {
+              label: 'Запустить Thief (нет WASM)',
+              action: 'launch',
+              showRestart: false
+            };
+          }
+          return {
+            label: 'Запустить Thief',
+            action: 'launch',
+            showRestart: false
+          };
         },
 
         scaleHiDpiViewportRect(x, y, width, height, cssW, cssH, bufW, bufH, hasBoundFbo) {
@@ -3109,7 +3177,9 @@
         targetFps: savedPrefs.targetFps !== undefined
           ? DarkWebCore.normalizeTargetFps(savedPrefs.targetFps)
           : (isCoarsePointer ? 60 : 0),
-        displayFit: DarkWebCore.normalizeDisplayFit(savedPrefs.displayFit || 'stretch'),
+        displayFit: (Number(savedPrefs.prefsVersion) || 0) >= 2
+          ? DarkWebCore.normalizeDisplayFit(savedPrefs.displayFit)
+          : 'adaptive',
         touchMode: DarkWebCore.normalizeTouchMode(savedPrefs.touchMode || 'auto'),
         sensitivity: Number(savedPrefs.sensitivity) || 1.2,
         gamepadDeadzone: Number(savedPrefs.gamepadDeadzone) || 0.15,
@@ -3125,6 +3195,9 @@
         inputModeOverride: null, // null = follow Dark Engine automatically
         isPreviewMode: false,
         gameRunning: false,
+        wasmLaunched: false,
+        wasmTerminated: false,
+        autoLaunchPending: typeof URLSearchParams === 'function' && new URLSearchParams((window.location && window.location.search) || '').get('autolaunch') === '1',
         previewCanvasAnimId: 0
       };
 
@@ -3186,6 +3259,7 @@
       function persistPrefs() {
         try {
           localStorage.setItem('darkEngineWebPrefs', JSON.stringify({
+            prefsVersion: 2,
             backend: appState.requestedBackend,
             quality: appState.quality,
             targetFps: appState.targetFps,
@@ -3238,8 +3312,11 @@
           }
         },
         onAbort(what) {
+          appState.wasmTerminated = true;
+          window.__darkEnginePaused = false;
           logDiag('error', 'WASM', 'Emscripten abort()', what ? String(what) : 'unknown reason');
           if (engineLogHook) engineLogHook('ABORT: ' + String(what || ''), true);
+          if (runtimeReadyHook) runtimeReadyHook();
         },
         locateFile(path) {
           return path;
@@ -3419,6 +3496,7 @@
         const launchReadoutTitle = $('launchReadoutTitle');
         const launchReadoutSub = $('launchReadoutSub');
         const launchBtn = $('launchBtn');
+        const relaunchBtn = $('relaunchBtn');
         const previewHudTopBtn = $('previewHudTopBtn');
         const gameStage = $('game-stage');
         const canvas = $('canvas');
@@ -3540,17 +3618,21 @@
           requestAnimationFrame(renderDiagLogsNow);
         };
 
-        function syncVerboseLoggingToEngine() {
-          if (window.Module && typeof window.Module.ccall === 'function') {
+        let lastSyncedVerboseState = null;
+        function syncVerboseLoggingToEngine(force) {
+          const desired = appState.loggingEnabled ? 1 : 0;
+          if (!force && lastSyncedVerboseState === desired) return;
+          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
-              window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [appState.loggingEnabled ? 1 : 0]);
+              window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [desired]);
+              lastSyncedVerboseState = desired;
             } catch (_) {
               // Optional exported hook
             }
           }
         }
 
-        function updateLoggingUI() {
+        function updateLoggingUI(syncEngine) {
           const enabled = Boolean(appState.loggingEnabled);
           if (loggingToggleBtn) loggingToggleBtn.setAttribute('aria-pressed', String(enabled));
           if (loggingToggleVal) loggingToggleVal.textContent = enabled ? 'ВКЛ' : 'ВЫКЛ';
@@ -3560,7 +3642,7 @@
           document.querySelectorAll('[data-log-filter]').forEach((btn) => {
             btn.setAttribute('aria-pressed', String(btn.dataset.logFilter === appState.logFilter));
           });
-          syncVerboseLoggingToEngine();
+          if (syncEngine) syncVerboseLoggingToEngine(false);
           renderDiagLogsNow();
         }
 
@@ -3776,13 +3858,16 @@
           const liveFps = typeof window.__darkEngineFps === 'number' && window.__darkEngineFps > 0
             ? ' · ' + window.__darkEngineFps + ' к/с'
             : '';
+          const fitTag = appState.displayFit === 'adaptive'
+            ? 'Адапт.'
+            : (appState.displayFit === 'stretch' ? 'Растян.' : '4:3');
           hudRuntimeMeta.textContent = (res.active === 'webgpu' ? 'WebGPU' : 'WebGL 2.0')
             + ' · ' + preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps)
-            + ' · ' + (appState.displayFit === 'stretch' ? 'Весь экран' : '4:3') + liveFps;
+            + ' · ' + fitTag + liveFps;
         }
 
         function applyTargetFpsToEngine() {
-          if (window.Module && typeof window.Module.ccall === 'function') {
+          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
               window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
             } catch (_) {
@@ -3792,11 +3877,18 @@
         }
 
         function applyDisplayFitToEngine() {
-          const isStretch = appState.displayFit === 'stretch';
-          if (gameStage) gameStage.dataset.displayFit = appState.displayFit;
-          if (window.Module && typeof window.Module.ccall === 'function') {
+          const mode = DarkWebCore.normalizeDisplayFit(appState.displayFit);
+          const adaptiveEnabled = mode !== 'fit';
+          const stretchEnabled = mode === 'stretch';
+          if (gameStage) gameStage.dataset.displayFit = mode;
+          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
-              window.Module.ccall('dark_web_set_stretch_fill', null, ['number'], [isStretch ? 1 : 0]);
+              window.Module.ccall('dark_web_set_adaptive_aspect', null, ['number'], [adaptiveEnabled ? 1 : 0]);
+            } catch (_) {
+              // Optional exported hook
+            }
+            try {
+              window.Module.ccall('dark_web_set_stretch_fill', null, ['number'], [stretchEnabled ? 1 : 0]);
             } catch (_) {
               // Optional exported hook
             }
@@ -3824,9 +3916,11 @@
                 : 'Авто VSync · Макс. Гц';
           }
           if (displayFitDescText) {
-            displayFitDescText.textContent = appState.displayFit === 'stretch'
-              ? 'Без чёрных полос · Все экраны'
-              : 'Сохранять пропорции 4:3';
+            displayFitDescText.textContent = appState.displayFit === 'adaptive'
+              ? 'Весь экран · Без искажений 3D'
+              : appState.displayFit === 'stretch'
+                ? 'Растянуть всё (включая 2D-меню)'
+                : 'Классические пропорции 4:3';
           }
           applyTargetFpsToEngine();
           applyDisplayFitToEngine();
@@ -3959,20 +4053,39 @@
           }
 
           const readiness = DarkWebCore.evaluateLaunchReadiness(appState);
+          const btnState = DarkWebCore.resolveLaunchButtonState(appState);
           setLightGemVisual(readiness.gemState);
-          launchReadoutTitle.textContent = readiness.title;
-          launchReadoutSub.textContent = readiness.subtitle;
+          launchReadoutTitle.textContent = btnState.action === 'resume'
+            ? 'Игра на паузе: ' + appState.edition
+            : readiness.title;
+          launchReadoutSub.textContent = btnState.action === 'resume'
+            ? 'Нажмите «Продолжить Thief» для мгновенного возврата или «Перезапустить» для нового запуска'
+            : readiness.subtitle;
           launchBtn.disabled = !readiness.canLaunch;
+          launchBtn.dataset.action = btnState.action;
           const launchBarEl = document.getElementById('launchBar');
           if (launchBarEl) launchBarEl.dataset.ready = readiness.canLaunch ? 'true' : 'false';
-          launchBtn.textContent = appState.wasmState === 'unavailable' && appState.cachedFiles > 0
-            ? 'Запустить Thief (нет WASM)'
-            : 'Запустить Thief';
+          launchBtn.textContent = btnState.label;
+          if (relaunchBtn) {
+            relaunchBtn.style.display = btnState.showRestart ? 'inline-flex' : 'none';
+          }
+
+          if (appState.autoLaunchPending && readiness.canLaunch && appState.wasmState === 'ready' && !appState.wasmLaunched && !appState.gameRunning) {
+            appState.autoLaunchPending = false;
+            try {
+              const cleanUrl = new URL(window.location.href);
+              cleanUrl.searchParams.delete('autolaunch');
+              window.history.replaceState({}, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+            } catch (_) {}
+            launchGame(false);
+          }
         }
 
         // Instant startup cache check: reads ONLY the tiny 100-byte summary from IndexedDB
-        // (<5ms, zero 1-minute freeze!). Emscripten IDBFS is mounted ONLY on /gamedata/saves.
+        // (<5ms, zero 1-minute freeze!). Emscripten IDBFS is mounted ONLY on /gamedata/saves
+        // and STRICTLY after onRuntimeInitialized so WASM HEAPU8.buffer is guaranteed ready.
         async function mountSavesIdbfsIfAvailable() {
+          if (appState.wasmState !== 'ready') return;
           if (window.Module && window.Module.FS && window.Module.IDBFS && !appState.idbfsMounted) {
             const FS = window.Module.FS;
             ensureFsDir(FS, GAMEDATA_DIR);
@@ -4550,6 +4663,44 @@
           appState.previewCanvasAnimId = requestAnimationFrame(renderFrame);
         }
 
+        window.__onDarkEngineExited = (exitCode) => {
+          appState.wasmTerminated = true;
+          window.__darkEnginePaused = false;
+          logDiag('info', 'BOOT', 'Процесс Dark Engine завершился (код ' + String(exitCode) + ')');
+          if (appState.gameRunning && !appState.isPreviewMode) {
+            exitToLauncher();
+          } else {
+            reconcileLaunchState();
+          }
+        };
+
+        function triggerCleanReloadLaunch() {
+          window.__darkEnginePaused = false;
+          let synced = false;
+          if (appState.wasmState === 'ready' && window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              window.Module.ccall('dark_web_sync_saves', null, [], []);
+              synced = true;
+            } catch (_) {}
+          }
+          logDiag('info', 'BOOT', 'Перезапуск WASM-сессии (чистая перезагрузка с ?autolaunch=1)...');
+          const navigate = () => {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('autostart');
+              url.searchParams.set('autolaunch', '1');
+              window.location.replace(url.toString());
+            } catch (_) {
+              window.location.reload();
+            }
+          };
+          if (synced) {
+            setTimeout(navigate, 90);
+          } else {
+            navigate();
+          }
+        }
+
         async function launchGame(isPreviewMode) {
           const resolved = DarkWebCore.resolveGraphicsBackend(appState.requestedBackend, appState.capabilities);
           const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
@@ -4558,6 +4709,32 @@
           // Unlock Web Audio inside the synchronous click gesture before any awaits
           unlockDarkAudio();
 
+          // Never call Emscripten Asyncify Module.callMain() twice in the same WASM instance!
+          if (!usePreview && appState.wasmLaunched) {
+            if (appState.wasmTerminated) {
+              triggerCleanReloadLaunch();
+              return;
+            }
+            window.__darkEnginePaused = false;
+            appState.isPreviewMode = false;
+            appState.gameRunning = true;
+            gameStage.dataset.preview = 'false';
+            document.body.dataset.mode = 'playing';
+            updateTouchPrefsUI();
+            syncInputModeUI();
+            void gameStage.offsetWidth;
+            applyDisplayFitToEngine();
+            applyCanvasResolution();
+            getActiveCanvas().focus();
+            setBootOverlayState(false);
+            logDiag('info', 'BOOT', 'Возобновлена приостановленная сессия Dark Engine', {
+              displayFit: appState.displayFit,
+              canvas: canvas.width + 'x' + canvas.height
+            });
+            return;
+          }
+
+          window.__darkEnginePaused = false;
           appState.isPreviewMode = usePreview;
           appState.gameRunning = true;
           appState.inputModeOverride = null;
@@ -4574,7 +4751,8 @@
           if (usePreview) {
             logDiag('info', 'BOOT', 'Запущен режим «Тест управления» (2D #preview-canvas)', {
               touchMode: appState.touchMode,
-              quality: appState.quality
+              quality: appState.quality,
+              displayFit: appState.displayFit
             });
             setBootOverlayState(false);
             startPreviewCanvasLoop();
@@ -4610,6 +4788,7 @@
             backend: resolved.active,
             scale: preset.scale,
             fps: appState.targetFps,
+            displayFit: appState.displayFit,
             canvas: canvas.width + 'x' + canvas.height,
             edition: appState.edition
           });
@@ -4715,11 +4894,11 @@
 
             if (typeof window.Module.ccall === 'function') {
               try {
-                window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [appState.loggingEnabled ? 1 : 0]);
+                syncVerboseLoggingToEngine(true);
                 window.Module.ccall('dark_web_set_graphics_backend', null, ['string'], [resolved.active]);
                 window.Module.ccall('dark_web_set_quality_preset', null, ['number'], [preset.scale]);
                 window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
-                window.Module.ccall('dark_web_set_stretch_fill', null, ['number'], [appState.displayFit === 'stretch' ? 1 : 0]);
+                applyDisplayFitToEngine();
                 applyInputProfileToEngine();
                 logDiag('debug', 'BOOT', 'Конфигурация передана в C++ через Module.ccall');
               } catch (ccallErr) {
@@ -4757,6 +4936,8 @@
 
             if (typeof window.Module.callMain === 'function') {
               const launchArgs = ['+skip_starting_checks'];
+              appState.wasmLaunched = true;
+              appState.wasmTerminated = false;
               logDiag('info', 'BOOT', 'Вызов Module.callMain(' + JSON.stringify(launchArgs) + ')...');
               window.Module.callMain(launchArgs);
               if (window.__darkFirstFrameRendered) {
@@ -4765,6 +4946,7 @@
               return;
             }
           } catch (err) {
+            appState.wasmTerminated = true;
             logDiag('error', 'BOOT', 'Исключение при запуске Dark Engine: ' + (err && err.message ? err.message : String(err)), err && err.stack ? err.stack : '');
             try {
               const FS = window.Module && window.Module.FS;
@@ -4791,6 +4973,7 @@
         }
 
         function exitToLauncher() {
+          const wasRealWasm = !appState.isPreviewMode && appState.wasmLaunched && !appState.wasmTerminated;
           appState.gameRunning = false;
           appState.isPreviewMode = false;
           gameStage.dataset.preview = 'false';
@@ -4806,7 +4989,11 @@
             cancelAnimationFrame(appState.previewCanvasAnimId);
             appState.previewCanvasAnimId = 0;
           }
-          if (window.Module && typeof window.Module.ccall === 'function') {
+          if (wasRealWasm) {
+            window.__darkEnginePaused = true;
+            logDiag('info', 'BOOT', 'Dark Engine поставлен на паузу — доступно мгновенное продолжение или перезапуск');
+          }
+          if (appState.wasmState === 'ready' && window.Module && typeof window.Module.ccall === 'function') {
             try {
               window.Module.ccall('dark_web_sync_saves', null, [], []);
             } catch (_) {
@@ -4888,11 +5075,31 @@
         }
 
         function dispatchMouseLook(dx, dy, skipScaling) {
-          const mult = skipScaling ? 1 : appState.sensitivity;
-          const scaledX = dx * mult;
-          const scaledY = dy * mult * (appState.invertY ? -1 : 1);
-          previewYaw += scaledX * 0.35;
-          previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.28));
+          let scaledX;
+          let scaledY;
+          if (skipScaling) {
+            scaledX = Number(dx) || 0;
+            scaledY = Number(dy) || 0;
+          } else {
+            const touchDelta = DarkWebCore.computeTouchLookDelta(dx, dy, appState.sensitivity, appState.invertY);
+            scaledX = touchDelta.dx;
+            scaledY = touchDelta.dy;
+          }
+          if (scaledX === 0 && scaledY === 0) return;
+
+          previewYaw += scaledX * 0.14;
+          previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.12));
+
+          // Direct C++ injection bypasses browser Pointer Lock completely so
+          // smartphone touch swipes and gamepad right-stick turn Dark Engine smoothly.
+          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+            try {
+              window.Module.ccall('dark_web_inject_look', null, ['number', 'number'], [scaledX, scaledY]);
+              return;
+            } catch (_) {
+              // Fallback to synthetic mousemove on older WASM builds
+            }
+          }
 
           const rect = canvas.getBoundingClientRect();
           const ev = new MouseEvent('mousemove', {
@@ -5470,7 +5677,12 @@
             updateQualityUI();
             if (appState.gameRunning) {
               applyCanvasResolution();
-              showInputToast(appState.displayFit === 'stretch' ? 'ЭКРАН: НА ВЕСЬ ЭКРАН (БЕЗ ПОЛОС)' : 'ЭКРАН: ПРОПОРЦИИ 4:3');
+              const label = appState.displayFit === 'adaptive'
+                ? 'ЭКРАН: АДАПТИВНЫЙ (ПРОПОРЦИИ 1:1)'
+                : appState.displayFit === 'stretch'
+                  ? 'ЭКРАН: РАСТЯНУТЬ ВСЁ'
+                  : 'ЭКРАН: КЛАССИКА 4:3';
+              showInputToast(label);
             }
           });
         });
@@ -5519,7 +5731,7 @@
           appState.loggingEnabled = !appState.loggingEnabled;
           persistPrefs();
           logDiag('info', 'SYS', 'Подробное логирование ' + (appState.loggingEnabled ? 'ВКЛЮЧЕНО' : 'ВЫКЛЮЧЕНО'));
-          updateLoggingUI();
+          updateLoggingUI(true);
         };
         if (loggingToggleBtn) loggingToggleBtn.addEventListener('click', toggleLogging);
         if (hudLoggingBtn) hudLoggingBtn.addEventListener('click', toggleLogging);
@@ -5527,7 +5739,7 @@
         document.querySelectorAll('[data-log-filter]').forEach((btn) => {
           btn.addEventListener('click', () => {
             appState.logFilter = btn.dataset.logFilter || 'all';
-            updateLoggingUI();
+            updateLoggingUI(false);
           });
         });
 
@@ -5543,6 +5755,7 @@
         }
 
         launchBtn.addEventListener('click', () => launchGame(false));
+        if (relaunchBtn) relaunchBtn.addEventListener('click', triggerCleanReloadLaunch);
         previewHudTopBtn.addEventListener('click', () => launchGame(true));
         exitToLauncherBtn.addEventListener('click', exitToLauncher);
         if (bootCancelBtn) bootCancelBtn.addEventListener('click', exitToLauncher);
@@ -5611,7 +5824,7 @@
         });
         updateQualityUI();
         updateTouchPrefsUI();
-        updateLoggingUI();
+        updateLoggingUI(false);
         refreshGamepadConnection();
         probeGraphicsCapabilities();
         mountAndRestoreIdbfs();
@@ -5623,9 +5836,9 @@
             clearInterval(readinessPoll);
             return;
           }
-          if (window.Module && (window.Module.calledRun || window.Module.FS)) {
+          if (window.Module && window.Module.calledRun && window.Module.FS) {
             appState.wasmState = 'ready';
-            logDiag('info', 'WASM', 'Обнаружена поздняя готовность Module.FS/calledRun');
+            logDiag('info', 'WASM', 'Обнаружена поздняя готовность Module.calledRun');
             mountAndRestoreIdbfs();
             reconcileLaunchState();
             clearInterval(readinessPoll);

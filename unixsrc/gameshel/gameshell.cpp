@@ -85,7 +85,7 @@ EM_JS(void, dark_web_notify_canvas_resized, (int cssW, int cssH), {
 // leaks / GC churn), optional mobile FPS cap (30/60 FPS thermal saver), and
 // lightweight 2Hz FPS telemetry exposed on window.__darkEngineFps.
 EM_ASYNC_JS(void, dark_web_yield_animation_frame, (int targetFps), {
-    if (document.visibilityState === 'hidden') {
+    if (document.visibilityState === 'hidden' || window.__darkEnginePaused) {
         await new Promise(function(resolve) { setTimeout(resolve, 64); });
         return;
     }

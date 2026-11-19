@@ -85,8 +85,10 @@ SDL_Cursor *g_invisibleCursor;
 int g_width, g_height, g_clientWidth, g_clientHeight;
 bool g_scene, g_scale = true, g_fit = true, g_preserve, g_quit;
 #if defined(__EMSCRIPTEN__)
-bool g_stretchFill = true;
+bool g_adaptiveAspect = true;
+bool g_stretchFill = false;
 #else
+bool g_adaptiveAspect = false;
 bool g_stretchFill = false;
 #endif
 bool g_resizePending;
@@ -1181,6 +1183,14 @@ extern "C" {
 int RenderBackendAvailable(void) { return g_context != nullptr; }
 void RenderBackendSetScaleToWindow(int enabled) { g_scale = enabled != 0; }
 void RenderBackendSetFitToViewport(int enabled) { g_fit = enabled != 0; }
+void RenderBackendSetAdaptiveAspect(int enabled)
+{
+   const bool next = enabled != 0;
+   g_adaptiveAspect = next;
+   g_fit = next;
+   g_focusRefreshPending = true;
+}
+int RenderBackendAdaptiveAspect(void) { return g_adaptiveAspect ? 1 : 0; }
 void RenderBackendSetStretchToFill(int enabled)
 {
    const bool next = enabled != 0;
@@ -1188,6 +1198,12 @@ void RenderBackendSetStretchToFill(int enabled)
       return;
    g_stretchFill = next;
    g_focusRefreshPending = true;
+}
+void RenderBackendInjectRelativeLook(int dx, int dy)
+{
+   if (dx == 0 && dy == 0)
+      return;
+   DarkInputMouseRelative(dx, dy, g_buttons);
 }
 void RenderBackendSetInteractiveResize(int) {}
 void RenderBackendSetPreserveCanvas(int enabled) { g_preserve = enabled != 0; }
