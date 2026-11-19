@@ -381,6 +381,18 @@ void set_swap_interval(int interval)
 
 void update_relative_mouse()
 {
+#if defined(__EMSCRIPTEN__)
+   // On the web, browser Pointer Lock can only be requested inside a desktop
+   // mouse click gesture (handled in the web launcher), while mobile touch
+   // look bypasses Pointer Lock via RenderBackendInjectRelativeLook(). Avoid
+   // spamming SDL_SetRelativeMouseMode(SDL_TRUE) every frame outside a gesture.
+   const bool active = g_relativeMouse && g_focused;
+   const bool current = SDL_GetRelativeMouseMode() == SDL_TRUE;
+   if (!active && current)
+      SDL_SetRelativeMouseMode(SDL_FALSE);
+   g_relativeActive = active && (SDL_GetRelativeMouseMode() == SDL_TRUE);
+   return;
+#else
    const bool active = g_relativeMouse && g_focused;
    g_relativeActive = SDL_GetRelativeMouseMode() == SDL_TRUE;
    const bool changed = active != g_relativeActive;
@@ -435,6 +447,7 @@ void update_relative_mouse()
       int ignoredX, ignoredY;
       SDL_GetRelativeMouseState(&ignoredX, &ignoredY);
    }
+#endif
 }
 
 void swap_presented_frame()
@@ -661,8 +674,10 @@ bool DarkRenderOpen(int width, int height, const char *title)
 #endif
    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-   Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
-      SDL_WINDOW_ALLOW_HIGHDPI;
+   Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+#if !defined(__EMSCRIPTEN__)
+   windowFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
    if (PlatformBatchMode())
       windowFlags |= SDL_WINDOW_HIDDEN;
 #if defined(__ANDROID__)
@@ -748,6 +763,22 @@ void DarkRenderClose(void)
 bool DarkRenderSetFullscreen(bool enabled)
 {
    if (!g_window) return false;
+#if defined(__EMSCRIPTEN__)
+   // On the web, browser fullscreen must target #game-stage (owned by JS) so
+   // the HTML HUD, touch controls, and exit button stay visible above #canvas.
+   // Never call SDL_SetWindowFullscreen() here or Emscripten will fullscreen
+   // #canvas alone, hiding all touch overlays and trapping mobile users.
+   (void)enabled;
+   double cssW = 0.0, cssH = 0.0;
+   if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
+       cssW > 1.0 && cssH > 1.0) {
+      g_clientWidth = static_cast<int>(cssW + 0.5);
+      g_clientHeight = static_cast<int>(cssH + 0.5);
+   } else {
+      SDL_GetWindowSize(g_window, &g_clientWidth, &g_clientHeight);
+   }
+   return true;
+#else
    const bool current = (SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN) != 0;
    if (current != enabled) {
       const Uint32 flags = enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
@@ -761,6 +792,7 @@ bool DarkRenderSetFullscreen(bool enabled)
       enabled, !!(SDL_GetWindowFlags(g_window) & SDL_WINDOW_FULLSCREEN),
       g_clientWidth, g_clientHeight);
    return true;
+#endif
 }
 
 #if defined(__ANDROID__)
@@ -1204,6 +1236,49 @@ void RenderBackendInjectRelativeLook(int dx, int dy)
    if (dx == 0 && dy == 0)
       return;
    DarkInputMouseRelative(dx, dy, g_buttons);
+}
+void RenderBackendInjectKey(int sdlScancode, int down)
+{
+   if (sdlScancode <= 0 || sdlScancode >= SDL_NUM_SCANCODES)
+      return;
+   const uchar scan = key_scan(static_cast<SDL_Scancode>(sdlScancode));
+   if (scan != KBC_NONE)
+      DarkInputKey(scan, down ? 1 : 0);
+}
+void RenderBackendInjectMouseButton(int button, int down)
+{
+   const int logical = (button == 0) ? 0 : (button == 2 ? 1 : (button == 1 ? 2 : -1));
+   if (logical < 0)
+      return;
+   const uchar bit = static_cast<uchar>(1 << logical);
+   if (down) g_buttons |= bit; else g_buttons &= ~bit;
+   const uchar type = static_cast<uchar>(1 << (1 + 2 * logical + (down ? 0 : 1)));
+   const short x = static_cast<short>(g_width > 0 ? g_width / 2 : 0);
+   const short y = static_cast<short>(g_height > 0 ? g_height / 2 : 0);
+   DarkInputMouse(x, y, type, g_buttons, 0);
+}
+void RenderBackendInjectPointer(float normX, float normY, int action, int button)
+{
+   if (!g_window || g_clientWidth <= 0 || g_clientHeight <= 0 || g_width <= 0 || g_height <= 0)
+      return;
+   const float cx = std::clamp(normX, 0.0f, 1.0f);
+   const float cy = std::clamp(normY, 0.0f, 1.0f);
+   int x = static_cast<int>(cx * static_cast<float>(g_clientWidth) + 0.5f);
+   int y = static_cast<int>(cy * static_cast<float>(g_clientHeight) + 0.5f);
+   logical_point(x, y);
+   if (action == 0) {
+      DarkInputMouse(static_cast<short>(x), static_cast<short>(y), MOUSE_MOTION, g_buttons, 0);
+      return;
+   }
+   const int logical = (button == 0) ? 0 : (button == 2 ? 1 : (button == 1 ? 2 : -1));
+   if (logical < 0)
+      return;
+   DarkInputMouse(static_cast<short>(x), static_cast<short>(y), MOUSE_MOTION, g_buttons, 0);
+   const bool down = (action == 1);
+   const uchar bit = static_cast<uchar>(1 << logical);
+   if (down) g_buttons |= bit; else g_buttons &= ~bit;
+   const uchar type = static_cast<uchar>(1 << (1 + 2 * logical + (down ? 0 : 1)));
+   DarkInputMouse(static_cast<short>(x), static_cast<short>(y), type, g_buttons, 0);
 }
 void RenderBackendSetInteractiveResize(int) {}
 void RenderBackendSetPreserveCanvas(int enabled) { g_preserve = enabled != 0; }

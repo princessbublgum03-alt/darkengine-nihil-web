@@ -41,6 +41,9 @@ extern "C" void DarkGameShellConfigureInput(float mouseSensitivity, int invertY)
 extern "C" void RenderBackendSetAdaptiveAspect(int enabled);
 extern "C" void RenderBackendSetStretchToFill(int enabled);
 extern "C" void RenderBackendInjectRelativeLook(int dx, int dy);
+extern "C" void RenderBackendInjectKey(int sdlScancode, int down);
+extern "C" void RenderBackendInjectMouseButton(int button, int down);
+extern "C" void RenderBackendInjectPointer(float normX, float normY, int action, int button);
 #endif
 
 namespace
@@ -88,10 +91,11 @@ void ConfigureEmscriptenRuntime()
     // controls and text inputs remain responsive before and during gameplay.
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
 
-    // Allow direct touch-to-mouse clicks on #canvas in Thief menus, maps, and
-    // readable books. Gameplay virtual sticks / gestures call preventDefault()
-    // on their own overlay elements so they never double-fire menu clicks.
-    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
+    // Disable SDL2's built-in touch-to-mouse translation on Emscripten because
+    // it scales touches against backing-buffer pixels instead of CSS viewport
+    // coordinates on HiDPI phones. The web launcher injects exact normalized
+    // CSS coordinates via dark_web_inject_pointer() with zero offset.
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 
     // Avoid polling mobile accelerometers as joysticks (reduces overhead and
@@ -268,6 +272,56 @@ void dark_web_inject_look(float dx, float dy)
         s_accumY -= static_cast<float>(iy);
         RenderBackendInjectRelativeLook(ix, iy);
     }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dark_web_inject_key(const char *code, int down)
+{
+    if (!code || !code[0])
+        return;
+    int scancode = SDL_SCANCODE_UNKNOWN;
+    if (std::strcmp(code, "KeyW") == 0) scancode = SDL_SCANCODE_W;
+    else if (std::strcmp(code, "KeyA") == 0) scancode = SDL_SCANCODE_A;
+    else if (std::strcmp(code, "KeyS") == 0) scancode = SDL_SCANCODE_S;
+    else if (std::strcmp(code, "KeyD") == 0) scancode = SDL_SCANCODE_D;
+    else if (std::strcmp(code, "KeyQ") == 0) scancode = SDL_SCANCODE_Q;
+    else if (std::strcmp(code, "KeyE") == 0) scancode = SDL_SCANCODE_E;
+    else if (std::strcmp(code, "KeyX") == 0) scancode = SDL_SCANCODE_X;
+    else if (std::strcmp(code, "KeyF") == 0) scancode = SDL_SCANCODE_F;
+    else if (std::strcmp(code, "KeyM") == 0) scancode = SDL_SCANCODE_M;
+    else if (std::strcmp(code, "KeyC") == 0) scancode = SDL_SCANCODE_C;
+    else if (std::strcmp(code, "KeyZ") == 0) scancode = SDL_SCANCODE_Z;
+    else if (std::strcmp(code, "KeyR") == 0) scancode = SDL_SCANCODE_R;
+    else if (std::strcmp(code, "Space") == 0) scancode = SDL_SCANCODE_SPACE;
+    else if (std::strcmp(code, "Escape") == 0) scancode = SDL_SCANCODE_ESCAPE;
+    else if (std::strcmp(code, "Enter") == 0) scancode = SDL_SCANCODE_RETURN;
+    else if (std::strcmp(code, "Tab") == 0) scancode = SDL_SCANCODE_TAB;
+    else if (std::strcmp(code, "ShiftLeft") == 0) scancode = SDL_SCANCODE_LSHIFT;
+    else if (std::strcmp(code, "ShiftRight") == 0) scancode = SDL_SCANCODE_RSHIFT;
+    else if (std::strcmp(code, "ControlLeft") == 0) scancode = SDL_SCANCODE_LCTRL;
+    else if (std::strcmp(code, "ControlRight") == 0) scancode = SDL_SCANCODE_RCTRL;
+    else if (std::strcmp(code, "BracketLeft") == 0) scancode = SDL_SCANCODE_LEFTBRACKET;
+    else if (std::strcmp(code, "BracketRight") == 0) scancode = SDL_SCANCODE_RIGHTBRACKET;
+    else if (std::strcmp(code, "F5") == 0) scancode = SDL_SCANCODE_F5;
+    else if (std::strcmp(code, "F9") == 0) scancode = SDL_SCANCODE_F9;
+    else if (std::strcmp(code, "ArrowUp") == 0) scancode = SDL_SCANCODE_UP;
+    else if (std::strcmp(code, "ArrowDown") == 0) scancode = SDL_SCANCODE_DOWN;
+    else if (std::strcmp(code, "ArrowLeft") == 0) scancode = SDL_SCANCODE_LEFT;
+    else if (std::strcmp(code, "ArrowRight") == 0) scancode = SDL_SCANCODE_RIGHT;
+    if (scancode != SDL_SCANCODE_UNKNOWN)
+        RenderBackendInjectKey(scancode, down ? 1 : 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dark_web_inject_mouse_button(int button, int down)
+{
+    RenderBackendInjectMouseButton(button, down ? 1 : 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dark_web_inject_pointer(float normX, float normY, int action, int button)
+{
+    RenderBackendInjectPointer(normX, normY, action, button);
 }
 
 EMSCRIPTEN_KEEPALIVE

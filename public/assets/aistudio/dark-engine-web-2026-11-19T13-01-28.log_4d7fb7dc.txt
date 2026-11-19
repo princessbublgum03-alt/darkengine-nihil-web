@@ -1,0 +1,23 @@
+=== DARK ENGINE WEB DIAGNOSTIC REPORT ===
+Generated: 2026-11-19T13:01:28.008Z
+URL: https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+UserAgent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Mobile Safari/537.36
+Viewport: 432x872 @2.50x
+Hardware: 8 ядер · 8 ГБ ОЗУ · Touch
+GPU: Google Inc. (ARM) / ANGLE (ARM, Mali-G610 MC6, OpenGL ES 3.2) (maxTex=8192) · WebGPU=arm valhall
+Storage: Диск: 0.0 / 10240.0 МБ
+WASM: ready (8.4 МБ) | Cache: 3885 файлов · 2779.4 МБ (Thief II: The Metal Age)
+Settings: api=webgpu quality=high fps=0 fit=adaptive touch=buttons sens=1.2
+Entries: 11 (errors=0, warns=0)
+-----------------------------------------
+[+00:00.048] [INFO ] [SYS   ] Инициализация лаунчера Dark Engine Web | {"viewport":"432x872@2.50x","touchDevice":true,"decompressionStream":true,"indexedDB":true}
+[+00:00.123] [INFO ] [GPU   ] Диагностика GPU завершена | {"webgl2":true,"renderer":"Google Inc. (ARM) / ANGLE (ARM, Mali-G610 MC6, OpenGL ES 3.2)","maxTextureSize":8192,"webgpu":"arm valhall"}
+[+00:00.131] [DEBUG] [CACHE ] Квота хранилища браузера: 0.0 / 10240.0 МБ
+[+00:00.139] [INFO ] [WASM  ] Запрос модуля thief-runner.wasm...
+[+00:00.140] [DEBUG] [WASM  ] Скрипт thief-runner.js загружен
+[+00:00.141] [INFO ] [CACHE ] Обнаружен кэш IndexedDB за 26 мс: Thief II: The Metal Age | {"files":3885,"sizeMB":"2779.4"}
+[+00:00.148] [DEBUG] [WASM  ] Ответ HTTP 200, Content-Type="application/wasm" | {"contentLengthMB":"2.5","streamingCompile":true}
+[+00:00.167] [INFO ] [IDB   ] IDBFS сохранения смонтированы в /gamedata/saves
+[+00:00.220] [INFO ] [WASM  ] Потоковая компиляция WASM завершена за 81 мс | {"bytesMB":"8.4"}
+[+00:00.224] [INFO ] [WASM  ] Emscripten runtime инициализирован (FS=true, IDBFS=true)
+[+00:00.240] [INFO ] [CACHE ] Обнаружен кэш IndexedDB за 16 мс: Thief II: The Metal Age | {"files":3885,"sizeMB":"2779.4"}

@@ -514,7 +514,7 @@ test('input routing, viewport sync, and OpenAL Web Audio runtime are wired end-t
   assert.ok(gameshell.includes('emscripten_get_element_css_size("#canvas"'), 'gameshell.cpp must sync #canvas CSS dimensions');
   assert.ok(gameshell.includes('SDL_SetWindowSize(win, w, h)'), 'gameshell.cpp must resize SDL window to match CSS viewport');
   assert.ok(gameshell.includes('DarkInputRelativeMouseActive()'), 'gameshell.cpp must publish relative-mouse state to JS');
-  assert.ok(mainCpp.includes('SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1")'), 'main.cpp must enable SDL touch-to-mouse conversion for direct menu taps');
+  assert.ok(mainCpp.includes('SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0")'), 'main.cpp must disable shifted SDL touch-to-mouse conversion in favor of direct normalized pointer injection');
 
   // 2. OpenAL Web Audio runtime in openal_loader.cpp + build-web.yml
   assert.ok(yml.includes('-lopenal'), 'build-web.yml must link Emscripten built-in Web Audio OpenAL (-lopenal)');
@@ -649,6 +649,44 @@ test('adaptive native-aspect 3D, direct touch look injection, and safe re-launch
   assert.ok(html.includes('id="relaunchBtn"'), 'web/index.html must include clean restart button when paused in launcher');
   assert.ok(html.includes('data-display-fit="adaptive"'), 'web/index.html must expose Adaptive / Stretch / 4:3 display selector');
 });
+
+test('mobile controls align with zero offset, inject directly into C++, and fullscreen toggles #game-stage cleanly', () => {
+  // 1. Normalized canvas pointer math stays 100% invariant to HiDPI DPR & quality scale
+  const rect = { left: 10, top: 20, width: 432, height: 872 };
+  const center = Core.computeNormalizedCanvasPoint(10 + 216, 20 + 436, rect);
+  assert.deepEqual({ ...center }, { normX: 0.5, normY: 0.5, inside: true });
+  const clamped = Core.computeNormalizedCanvasPoint(-50, 1200, rect);
+  assert.deepEqual({ ...clamped }, { normX: 0, normY: 1, inside: false });
+
+  // 2. Floating joystick visual center ALWAYS equals its touch input origin (0px shift)
+  const narrowZone = { left: 0, top: 270, width: 179, height: 574 };
+  const edgeTouch = Core.computeJoystickOrigin(18, 790, narrowZone, 128);
+  assert.equal(edgeTouch.originX, narrowZone.left + edgeTouch.baseLeft + 64);
+  assert.equal(edgeTouch.originY, narrowZone.top + narrowZone.height - edgeTouch.baseBottom - 64);
+
+  const landscapeZone = { left: 0, top: 96, width: 354, height: 294 };
+  const landTouch = Core.computeJoystickOrigin(140, 260, landscapeZone, 104);
+  assert.equal(landTouch.originX, landscapeZone.left + landTouch.baseLeft + 52);
+  assert.equal(landTouch.originY, landscapeZone.top + landscapeZone.height - landTouch.baseBottom - 52);
+
+  // 3. C++ + HTML contracts for fullscreen ownership & direct input
+  const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
+  const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+
+  assert.ok(openglCpp.includes('#if !defined(__EMSCRIPTEN__)\n   windowFlags |= SDL_WINDOW_ALLOW_HIGHDPI;'), 'opengl.cpp must omit SDL_WINDOW_ALLOW_HIGHDPI on Emscripten to prevent DPR mouse drift');
+  assert.ok(openglCpp.includes('Never call SDL_SetWindowFullscreen() here'), 'DarkRenderSetFullscreen must not hijack #canvas-only browser fullscreen');
+  assert.ok(openglCpp.includes('void RenderBackendInjectKey(int sdlScancode, int down)'), 'opengl.cpp must export RenderBackendInjectKey');
+  assert.ok(openglCpp.includes('void RenderBackendInjectMouseButton(int button, int down)'), 'opengl.cpp must export RenderBackendInjectMouseButton');
+  assert.ok(openglCpp.includes('void RenderBackendInjectPointer(float normX, float normY, int action, int button)'), 'opengl.cpp must export RenderBackendInjectPointer');
+  assert.ok(mainCpp.includes('void dark_web_inject_key(const char *code, int down)'), 'main.cpp must export dark_web_inject_key');
+  assert.ok(mainCpp.includes('void dark_web_inject_mouse_button(int button, int down)'), 'main.cpp must export dark_web_inject_mouse_button');
+  assert.ok(mainCpp.includes('void dark_web_inject_pointer(float normX, float normY, int action, int button)'), 'main.cpp must export dark_web_inject_pointer');
+  assert.ok(html.includes('id="hudFullscreenBtn"') && html.includes('id="drawerFullscreenBtn"'), 'web/index.html must expose fullscreen enter/exit controls in HUD and drawer');
+  assert.ok(html.includes('exitBrowserFullscreen();'), 'exitToLauncher must exit browser fullscreen cleanly');
+  assert.ok(html.includes("window.Module.ccall('dark_web_inject_key'") && html.includes("window.Module.ccall('dark_web_inject_mouse_button'") && html.includes("'dark_web_inject_pointer'"), 'web/index.html must route keys, mouse buttons, and normalized touch pointers directly to C++');
+});
+
 
 
 

@@ -1154,10 +1154,18 @@
     }
 
     @media (max-width: 480px) {
+      .hud-topbar {
+        padding: 4px 5px;
+        gap: 4px;
+      }
+      .hud-topbar-group {
+        gap: 4px;
+      }
       .hud-chip-btn {
-        padding: 4px 7px;
-        font-size: 0.78rem;
-        min-width: 38px;
+        padding: 4px 6px;
+        font-size: 0.74rem;
+        min-width: 32px;
+        min-height: 34px;
       }
       .hud-desktop-only {
         display: none;
@@ -1290,7 +1298,7 @@
 
     .touch-zone-left {
       position: absolute;
-      left: 0;
+      left: env(safe-area-inset-left, 0px);
       bottom: 0;
       width: 46%;
       height: 68%;
@@ -1300,8 +1308,8 @@
 
     .touch-zone-right {
       position: absolute;
-      right: 0;
-      top: 52px;
+      right: env(safe-area-inset-right, 0px);
+      top: calc(48px + env(safe-area-inset-top, 0px));
       bottom: 0;
       width: 54%;
       pointer-events: auto;
@@ -1311,7 +1319,7 @@
     /* Floating Virtual Stick */
     .stick-base {
       position: absolute;
-      left: 26px;
+      left: 24px;
       bottom: calc(28px + env(safe-area-inset-bottom, 0px));
       width: 128px;
       height: 128px;
@@ -1364,7 +1372,7 @@
     /* Action Clusters */
     .touch-cluster-left {
       position: absolute;
-      left: 16px;
+      left: calc(16px + env(safe-area-inset-left, 0px));
       bottom: calc(174px + env(safe-area-inset-bottom, 0px));
       display: flex;
       gap: 8px;
@@ -1374,7 +1382,7 @@
 
     .touch-cluster-right {
       position: absolute;
-      right: 16px;
+      right: calc(16px + env(safe-area-inset-right, 0px));
       bottom: calc(24px + env(safe-area-inset-bottom, 0px));
       display: grid;
       grid-template-columns: repeat(2, 62px);
@@ -1421,9 +1429,12 @@
     .hud-drawer {
       display: none;
       position: fixed;
-      top: 52px;
-      right: 12px;
+      top: calc(52px + env(safe-area-inset-top, 0px));
+      right: calc(12px + env(safe-area-inset-right, 0px));
       width: min(304px, calc(100vw - 24px));
+      max-height: calc(100dvh - 64px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       background: rgba(14, 11, 9, 0.96);
       border: 1px solid var(--border-bronze-bright);
       padding: 16px;
@@ -1441,6 +1452,45 @@
       font-size: 1.1rem;
       border-bottom: 1px solid var(--border-hairline);
       padding-bottom: 8px;
+    }
+
+    /* Compact Landscape Smartphone Touch HUD (prevents joystick & cluster overlap on 844x390 / 872x432) */
+    @media (max-height: 520px) {
+      .touch-zone-left {
+        width: 42%;
+        height: 76%;
+      }
+      .touch-zone-right {
+        width: 58%;
+      }
+      .stick-base {
+        width: 104px;
+        height: 104px;
+        left: 18px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+      }
+      .stick-knob {
+        width: 42px;
+        height: 42px;
+        margin: -21px 0 0 -21px;
+      }
+      .touch-cluster-left {
+        left: calc(14px + env(safe-area-inset-left, 0px));
+        bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+        gap: 6px;
+      }
+      .touch-cluster-right {
+        right: calc(14px + env(safe-area-inset-right, 0px));
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        grid-template-columns: repeat(2, 58px);
+        gap: 8px;
+      }
+      .touch-act-btn {
+        min-width: 48px;
+        min-height: 42px;
+        padding: 4px 6px;
+        font-size: 0.78rem;
+      }
     }
 
     /* Responsive Mobile Layout */
@@ -1531,7 +1581,7 @@
       <div class="topbar-meta" aria-label="Платформа">
         <span>Thief Gold / Thief II</span>
         <span class="topbar-sep" aria-hidden="true">·</span>
-        <span>Clang LTO -O3 · SIMD</span>
+        <span>Clang -O3 · SIMD</span>
         <span class="topbar-sep" aria-hidden="true">·</span>
         <span id="topbar-backend-label">WebGL 2.0</span>
       </div>
@@ -1888,6 +1938,7 @@
       </div>
       <div class="hud-topbar-group">
         <button type="button" class="hud-chip-btn" id="hudInputModeBtn" aria-pressed="true" aria-label="Переключить режим курсора и управления">Курсор</button>
+        <button type="button" class="hud-chip-btn" id="hudFullscreenBtn" aria-pressed="false" aria-label="Полный экран или выйти из полного экрана">⛶</button>
         <button type="button" class="hud-chip-btn hud-pause-btn" data-key="Escape" aria-label="Пауза">Пауза</button>
         <button type="button" class="hud-chip-btn" id="hudSettingsBtn" aria-expanded="false" aria-controls="hudDrawer">Опции</button>
         <button type="button" class="hud-chip-btn hud-desktop-only" id="exitToLauncherBtn">Меню</button>
@@ -1933,6 +1984,12 @@
           <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="false"><span>Растян.</span></button>
           <button type="button" class="seg-btn" data-display-fit="fit" aria-pressed="false"><span>4:3</span></button>
         </div>
+      </div>
+      <div class="setting-group">
+        <button type="button" class="mini-toggle-btn" id="drawerFullscreenBtn" aria-pressed="false">
+          <span>Полный экран</span>
+          <small id="drawerFullscreenVal">ВЫКЛ</small>
+        </button>
       </div>
       <div class="setting-group">
         <button type="button" class="mini-toggle-btn" id="hudInvertYBtn" aria-pressed="false">
@@ -2520,6 +2577,51 @@
               ShiftLeft: speedMode === 'run',
               ControlLeft: speedMode === 'creep'
             }
+          };
+        },
+
+        /**
+         * Convert a CSS viewport pointer coordinate into exact normalized [0..1]
+         * canvas space so HiDPI DPR / quality scale never shifts menu clicks.
+         */
+        computeNormalizedCanvasPoint(clientX, clientY, rect) {
+          const r = rect || {};
+          const left = Number(r.left) || 0;
+          const top = Number(r.top) || 0;
+          const width = Math.max(1, Number(r.width) || 1);
+          const height = Math.max(1, Number(r.height) || 1);
+          const rawX = ((Number(clientX) || 0) - left) / width;
+          const rawY = ((Number(clientY) || 0) - top) / height;
+          return {
+            normX: Math.max(0, Math.min(1, rawX)),
+            normY: Math.max(0, Math.min(1, rawY)),
+            inside: rawX >= 0 && rawX <= 1 && rawY >= 0 && rawY <= 1
+          };
+        },
+
+        /**
+         * Keep the floating joystick visual ring and input origin 100% aligned
+         * inside the left touch zone on both narrow portrait and short landscape screens.
+         */
+        computeJoystickOrigin(clientX, clientY, zoneRect, baseSize) {
+          const r = zoneRect || {};
+          const left = Number(r.left) || 0;
+          const top = Number(r.top) || 0;
+          const width = Math.max(1, Number(r.width) || 1);
+          const height = Math.max(1, Number(r.height) || 1);
+          const size = Math.max(64, Number(baseSize) || 128);
+          const half = size * 0.5;
+          const padX = Math.min(half + 4, width * 0.5);
+          const padY = Math.min(half + 4, height * 0.5);
+          const localX = Math.max(padX, Math.min(width - padX, (Number(clientX) || 0) - left));
+          const localY = Math.max(padY, Math.min(height - padY, (Number(clientY) || 0) - top));
+          return {
+            localX,
+            localY,
+            baseLeft: localX - half,
+            baseBottom: height - localY - half,
+            originX: left + localX,
+            originY: top + localY
           };
         },
 
@@ -3518,6 +3620,9 @@
         const gestureGhostDot = $('gestureGhostDot');
         const gestureToast = $('gestureToast');
         const hudInputModeBtn = $('hudInputModeBtn');
+        const hudFullscreenBtn = $('hudFullscreenBtn');
+        const drawerFullscreenBtn = $('drawerFullscreenBtn');
+        const drawerFullscreenVal = $('drawerFullscreenVal');
         const hudSettingsBtn = $('hudSettingsBtn');
         const hudDrawer = $('hudDrawer');
         const hudGestureCheatSheet = $('hudGestureCheatSheet');
@@ -4029,8 +4134,8 @@
         }
 
         function reconcileLaunchState() {
-          // Critical fix for race condition: check Module.calledRun / FS directly
-          if (appState.wasmState === 'loading' && window.Module && (window.Module.calledRun || window.Module.FS)) {
+          // Critical fix for race condition: require both calledRun and FS before marking WASM ready
+          if (appState.wasmState === 'loading' && window.Module && window.Module.calledRun && window.Module.FS) {
             appState.wasmState = 'ready';
           }
 
@@ -4972,6 +5077,68 @@
           }
         }
 
+        function getBrowserFullscreenElement() {
+          return document.fullscreenElement || document.webkitFullscreenElement || null;
+        }
+
+        function syncFullscreenUI() {
+          const active = Boolean(getBrowserFullscreenElement());
+          if (hudFullscreenBtn) {
+            hudFullscreenBtn.setAttribute('aria-pressed', String(active));
+            hudFullscreenBtn.classList.toggle('is-active', active);
+            hudFullscreenBtn.textContent = active ? '⤢' : '⛶';
+            hudFullscreenBtn.setAttribute('aria-label', active ? 'Выйти из полного экрана' : 'Войти в полный экран');
+          }
+          if (drawerFullscreenBtn) {
+            drawerFullscreenBtn.setAttribute('aria-pressed', String(active));
+          }
+          if (drawerFullscreenVal) {
+            drawerFullscreenVal.textContent = active ? 'ВКЛ' : 'ВЫКЛ';
+          }
+        }
+
+        async function exitBrowserFullscreen() {
+          const fsEl = getBrowserFullscreenElement();
+          if (!fsEl) {
+            syncFullscreenUI();
+            return;
+          }
+          try {
+            if (typeof document.exitFullscreen === 'function') {
+              await document.exitFullscreen();
+            } else if (typeof document.webkitExitFullscreen === 'function') {
+              document.webkitExitFullscreen();
+            }
+          } catch (_) {
+            // Ignore browser fullscreen rejection
+          } finally {
+            syncFullscreenUI();
+          }
+        }
+
+        async function toggleBrowserFullscreen() {
+          if (getBrowserFullscreenElement()) {
+            await exitBrowserFullscreen();
+            showInputToast('ОКОННЫЙ РЕЖИМ');
+            return;
+          }
+          // Always fullscreen #game-stage (NEVER #canvas alone) so HUD buttons,
+          // touch controls, and the exit drawer stay visible on top of the game.
+          const target = gameStage || document.documentElement;
+          try {
+            if (typeof target.requestFullscreen === 'function') {
+              await target.requestFullscreen({ navigationUI: 'hide' }).catch(() => target.requestFullscreen());
+            } else if (typeof target.webkitRequestFullscreen === 'function') {
+              target.webkitRequestFullscreen();
+            }
+            showInputToast('ПОЛНЫЙ ЭКРАН · НАЖМИТЕ ⤢ ДЛЯ ВЫХОДА');
+          } catch (_) {
+            showInputToast('ПОЛНЫЙ ЭКРАН НЕДОСТУПЕН В ЭТОМ БРАУЗЕРЕ');
+          } finally {
+            syncFullscreenUI();
+          }
+        }
+
         function exitToLauncher() {
           const wasRealWasm = !appState.isPreviewMode && appState.wasmLaunched && !appState.wasmTerminated;
           appState.gameRunning = false;
@@ -4985,6 +5152,7 @@
           if ((document.pointerLockElement === canvas || document.pointerLockElement === previewCanvas) && typeof document.exitPointerLock === 'function') {
             try { document.exitPointerLock(); } catch (_) {}
           }
+          exitBrowserFullscreen();
           if (appState.previewCanvasAnimId) {
             cancelAnimationFrame(appState.previewCanvasAnimId);
             appState.previewCanvasAnimId = 0;
@@ -5030,6 +5198,13 @@
           }, 950);
         }
 
+        const LEGACY_KEY_CODES = {
+          KeyW: 87, KeyA: 65, KeyS: 83, KeyD: 68,
+          KeyQ: 81, KeyE: 69, KeyX: 88, KeyF: 70, KeyM: 77,
+          Space: 32, Escape: 27, ShiftLeft: 16, ControlLeft: 17,
+          BracketLeft: 219, BracketRight: 221, F5: 116, F9: 120
+        };
+
         function dispatchKey(code, down) {
           if (Boolean(activeKeys[code]) === down) return;
           activeKeys[code] = down;
@@ -5039,15 +5214,29 @@
             Space: ' ', Escape: 'Escape', ShiftLeft: 'Shift', ControlLeft: 'Control',
             BracketLeft: '[', BracketRight: ']', F5: 'F5', F9: 'F9'
           };
+          if (down) previewLastAction = 'Клавиша: ' + (keyMap[code] || code).toUpperCase();
+
+          // Direct C++ key injection avoids browser focus-loss bugs when tapping
+          // HTML HUD buttons and eliminates duplicate bubbled KeyboardEvents.
+          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+            try {
+              window.Module.ccall('dark_web_inject_key', null, ['string', 'number'], [code, down ? 1 : 0]);
+              return;
+            } catch (_) {
+              // Fallback for older WASM builds
+            }
+          }
+
+          const legacyCode = LEGACY_KEY_CODES[code] || 0;
           const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', {
             code,
             key: keyMap[code] || code,
+            keyCode: legacyCode,
+            which: legacyCode,
             bubbles: true,
             cancelable: true
           });
           canvas.dispatchEvent(ev);
-          window.dispatchEvent(ev);
-          if (down) previewLastAction = 'Клавиша: ' + (keyMap[code] || code).toUpperCase();
         }
 
         function pulseKey(code, holdMs) {
@@ -5056,6 +5245,19 @@
         }
 
         function dispatchMouseButton(button, down) {
+          if (down) previewLastAction = button === 0 ? 'Удар (ЛКМ)' : 'Блок / Предмет (ПКМ)';
+
+          // Direct C++ button injection keeps Attack/Block 100% reliable on mobile
+          // regardless of #canvas focus or SDL2 touch-mouse settings.
+          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+            try {
+              window.Module.ccall('dark_web_inject_mouse_button', null, ['number', 'number'], [button, down ? 1 : 0]);
+              return;
+            } catch (_) {
+              // Fallback for older WASM builds
+            }
+          }
+
           const rect = canvas.getBoundingClientRect();
           const ev = new MouseEvent(down ? 'mousedown' : 'mouseup', {
             button,
@@ -5066,7 +5268,6 @@
             cancelable: true
           });
           canvas.dispatchEvent(ev);
-          if (down) previewLastAction = button === 0 ? 'Удар (ЛКМ)' : 'Блок / Предмет (ПКМ)';
         }
 
         function pulseMouseButton(button, holdMs) {
@@ -5113,7 +5314,25 @@
           canvas.dispatchEvent(ev);
         }
 
-        // --- 5A. PC Raw Pointer Lock & Browser Key-Hijack Protection ---
+        function injectDirectCanvasPointer(clientX, clientY, action, button) {
+          if (appState.isPreviewMode || !window.Module || typeof window.Module.ccall !== 'function' || appState.wasmState !== 'ready') {
+            return false;
+          }
+          const pt = DarkWebCore.computeNormalizedCanvasPoint(clientX, clientY, canvas.getBoundingClientRect());
+          try {
+            window.Module.ccall(
+              'dark_web_inject_pointer',
+              null,
+              ['number', 'number', 'number', 'number'],
+              [pt.normX, pt.normY, action, button || 0]
+            );
+            return true;
+          } catch (_) {
+            return false;
+          }
+        }
+
+        // --- 5A. PC Raw Pointer Lock & Exact Normalized Mobile Menu Touch Bridge ---
         async function requestPcPointerLock() {
           const target = getActiveCanvas();
           if (!appState.gameRunning || !target || !target.requestPointerLock) return;
@@ -5132,14 +5351,41 @@
           }
         }
 
+        let activeCanvasTouchId = null;
+
         const onCanvasPointerDown = (e) => {
           unlockDarkAudio();
           const effectiveMode = appState.inputModeOverride || appState.inputMode || 'menu';
+          if (e.pointerType === 'touch' && appState.gameRunning && !appState.isPreviewMode) {
+            // Direct normalized CSS touch injection fixes HiDPI click offset on phones
+            if (activeCanvasTouchId !== null) return;
+            e.preventDefault();
+            activeCanvasTouchId = e.pointerId;
+            try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            injectDirectCanvasPointer(e.clientX, e.clientY, 1, 0);
+            return;
+          }
           if (e.pointerType === 'mouse' && appState.gameRunning && (appState.isPreviewMode || effectiveMode === 'gameplay') && !hudDrawer.classList.contains('is-open') && !bootOverlay.classList.contains('is-visible')) {
             requestPcPointerLock();
           }
         };
+
         canvas.addEventListener('pointerdown', onCanvasPointerDown);
+        canvas.addEventListener('pointermove', (e) => {
+          if (e.pointerType === 'touch' && e.pointerId === activeCanvasTouchId && appState.gameRunning && !appState.isPreviewMode) {
+            e.preventDefault();
+            injectDirectCanvasPointer(e.clientX, e.clientY, 0, 0);
+          }
+        });
+        const onCanvasTouchEnd = (e) => {
+          if (e.pointerType === 'touch' && e.pointerId === activeCanvasTouchId) {
+            e.preventDefault();
+            activeCanvasTouchId = null;
+            injectDirectCanvasPointer(e.clientX, e.clientY, 2, 0);
+          }
+        };
+        canvas.addEventListener('pointerup', onCanvasTouchEnd);
+        canvas.addEventListener('pointercancel', onCanvasTouchEnd);
         canvas.addEventListener('touchstart', () => { unlockDarkAudio(); }, { passive: true });
         previewCanvas.addEventListener('pointerdown', onCanvasPointerDown);
 
@@ -5488,13 +5734,17 @@
           stickPointerId = e.pointerId;
           stickZone.setPointerCapture(e.pointerId);
           const zoneRect = stickZone.getBoundingClientRect();
-          const localX = Math.max(68, Math.min(zoneRect.width - 68, e.clientX - zoneRect.left));
-          const localY = Math.max(68, Math.min(zoneRect.height - 68, e.clientY - zoneRect.top));
-          stickBase.style.left = (localX - 64) + 'px';
-          stickBase.style.bottom = (zoneRect.height - localY - 64) + 'px';
+          const origin = DarkWebCore.computeJoystickOrigin(
+            e.clientX,
+            e.clientY,
+            zoneRect,
+            stickBase.offsetWidth || 128
+          );
+          stickBase.style.left = origin.baseLeft + 'px';
+          stickBase.style.bottom = origin.baseBottom + 'px';
           stickBase.classList.add('is-active');
-          stickOriginX = e.clientX;
-          stickOriginY = e.clientY;
+          stickOriginX = origin.originX;
+          stickOriginY = origin.originY;
         });
 
         stickZone.addEventListener('pointermove', (e) => {
@@ -5777,14 +6027,31 @@
           });
         }
 
+        if (hudFullscreenBtn) {
+          hudFullscreenBtn.addEventListener('click', () => {
+            unlockDarkAudio();
+            toggleBrowserFullscreen();
+          });
+        }
+        if (drawerFullscreenBtn) {
+          drawerFullscreenBtn.addEventListener('click', () => {
+            unlockDarkAudio();
+            toggleBrowserFullscreen();
+          });
+        }
+
         hudSettingsBtn.addEventListener('click', () => {
           const open = !hudDrawer.classList.contains('is-open');
           hudDrawer.classList.toggle('is-open', open);
           hudSettingsBtn.setAttribute('aria-expanded', String(open));
-          if (open) updateBackendUI();
+          if (open) {
+            updateBackendUI();
+            syncFullscreenUI();
+          }
         });
 
         const onViewportGeometryChange = () => {
+          syncFullscreenUI();
           if (appState.gameRunning) {
             applyCanvasResolution();
             // Schedule one post-rotation frame sync for mobile Safari/Chrome URL bar settles
@@ -5797,6 +6064,7 @@
         window.addEventListener('resize', onViewportGeometryChange);
         window.addEventListener('orientationchange', onViewportGeometryChange);
         document.addEventListener('fullscreenchange', onViewportGeometryChange);
+        document.addEventListener('webkitfullscreenchange', onViewportGeometryChange);
         if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
           window.visualViewport.addEventListener('resize', onViewportGeometryChange);
         }
