@@ -301,7 +301,6 @@ test('build-web.yml uses LTO-free -O3 WASM 2.0 flags to avoid Clang C/C++ bool (
     '-sASYNCIFY',
     '-sASYNCIFY_STACK_SIZE=1048576',
     '-sEVAL_CTORS=0',
-    '-sEMULATE_FUNCTION_POINTER_CASTS=1',
     '-sINITIAL_MEMORY=134217728',
     '-sALLOW_MEMORY_GROWTH=1',
     '-lidbfs.js',
@@ -312,15 +311,17 @@ test('build-web.yml uses LTO-free -O3 WASM 2.0 flags to avoid Clang C/C++ bool (
   assert.ok(!yml.includes('-flto'), 'Clang -flto causes LLVM IR unreachable traps on C unsigned-char bool vs C++ bool calls');
   assert.ok(!yml.includes('--lto-O3'), '--lto-O3 must not be enabled without LTO');
   assert.ok(!yml.includes('-ffast-math'), '-ffast-math breaks finite/NaN checks in legacy engine physics and scripting');
+  assert.ok(!yml.includes('EMULATE_FUNCTION_POINTER_CASTS'), 'EMULATE_FUNCTION_POINTER_CASTS crashes Binaryen wasm-opt (mixed_arena.h SIGABRT) with -O3 + ASYNCIFY');
   assert.ok(!yml.includes('-sEVAL_CTORS=1'), 'EVAL_CTORS=1 conflicts with ASYNCIFY and must not be present');
   assert.ok(!yml.includes('WASM_BIGINT'), 'Deprecated WASM_BIGINT flag must be removed');
 });
 
-test('gameshell.cpp, main.cpp, config.c, bmftype.h, and web/index.html prevent black screen, unreachable traps, and function signature mismatches', () => {
+test('gameshell.cpp, main.cpp, config.c, bmftype.h, fl8dtab.c, and web/index.html prevent black screen, unreachable traps, and function signature mismatches', () => {
   const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
   const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
   const configC = fs.readFileSync(new URL('./libsrc/config/config.c', import.meta.url), 'utf8');
   const bmfTypeH = fs.readFileSync(new URL('./libsrc/dev2d/bmftype.h', import.meta.url), 'utf8');
+  const fl8DtabC = fs.readFileSync(new URL('./libsrc/dev2d/fl8dtab.c', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
 
   assert.ok(gameshell.includes('dark_web_yield_animation_frame(g_darkWebTargetFps)'), 'EndFrame must pass g_darkWebTargetFps');
@@ -335,11 +336,12 @@ test('gameshell.cpp, main.cpp, config.c, bmftype.h, and web/index.html prevent b
   assert.ok(mainCpp.includes('DARK_ASSERT_ACTION'), 'main.cpp must set DARK_ASSERT_ACTION=ignore to prevent WASM assert traps');
   assert.ok(mainCpp.includes('std::fflush(stderr)'), 'main.cpp must flush stderr after verbose diagnostics');
 
-  // Guard against UB in config.c and dev2d/bmftype.h
+  // Guard against UB in config.c and dev2d signature mismatches
   assert.ok(configC.includes('if (buf != NULL && bufsize > 0)'), 'config_get_raw must guard NULL buf before strncpy');
   assert.ok(configC.includes('bool config_get_raw_all_iter(void* elem, void* data)'), 'config_get_raw_all_iter must match HashIterFunc');
   assert.ok(configC.includes('bool config_write_iter(void* elem, void* data)'), 'config_write_iter must match HashIterFunc');
   assert.ok(bmfTypeH.includes('typedef void (gdbm_func)'), 'gdbm_func must return void to match gen_*_bitmap implementations');
+  assert.ok(fl8DtabC.includes('flat8_device_table[GDC_INIT_DEVICE] = null_device;'), 'fl8dtab.c must use null_device matching int(grs_sys_info*)');
 
   // Separate 2D preview canvas so #canvas is never locked out of WebGL 2.0
   assert.ok(html.includes('id="preview-canvas"'), 'Dedicated #preview-canvas must exist');

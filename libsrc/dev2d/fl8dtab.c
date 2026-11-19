@@ -7,8 +7,8 @@ void (*flat8_device_table[GDC_DEVICE_FUNCS])() =
 
 void init_flat8_device_table(void)
 {
-	flat8_device_table[GDC_INIT_DEVICE] = gr_null;
-	flat8_device_table[GDC_CLOSE_DEVICE] = gr_null;
+	flat8_device_table[GDC_INIT_DEVICE] = null_device;
+	flat8_device_table[GDC_CLOSE_DEVICE] = null_device;
 	flat8_device_table[GDC_SET_MODE] = flat8_set_mode;
 	flat8_device_table[GDC_SAVE_STATE] = vga_save_state;
 	flat8_device_table[GDC_RESTORE_STATE] = vga_restore_state;

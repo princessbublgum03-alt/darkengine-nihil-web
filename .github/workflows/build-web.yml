@@ -44,7 +44,7 @@ jobs:
       - name: Настраиваем проект (CMake + Ninja + Clang -O3 WASM 2.0)
         run: |
           COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -sUSE_SDL=2 -sUSE_LIBPNG=1"
-          LINK_OPT_FLAGS="-O3 -Wl,--gc-sections -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -sUSE_SDL=2 -sUSE_LIBPNG=1 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sASSERTIONS=0 -sGL_ASSERTIONS=0 -sGL_TRACK_ERRORS=0 -sDISABLE_EXCEPTION_CATCHING=1 -sTEXTDECODER=2 -sEVAL_CTORS=0 -sEMULATE_FUNCTION_POINTER_CASTS=1 -sINITIAL_MEMORY=134217728 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=1073741824 -sSTACK_SIZE=2097152 -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576 -sFORCE_FILESYSTEM=1 -lidbfs.js -sINVOKE_RUN=0 -sENVIRONMENT=web -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain,ccall,cwrap,UTF8ToString,stringToUTF8"
+          LINK_OPT_FLAGS="-O3 -Wl,--gc-sections -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -sUSE_SDL=2 -sUSE_LIBPNG=1 -sUSE_WEBGL2=1 -sFULL_ES3=1 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sASSERTIONS=0 -sGL_ASSERTIONS=0 -sGL_TRACK_ERRORS=0 -sDISABLE_EXCEPTION_CATCHING=1 -sTEXTDECODER=2 -sEVAL_CTORS=0 -sINITIAL_MEMORY=134217728 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=1073741824 -sSTACK_SIZE=2097152 -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576 -sFORCE_FILESYSTEM=1 -lidbfs.js -sINVOKE_RUN=0 -sENVIRONMENT=web -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain,ccall,cwrap,UTF8ToString,stringToUTF8"
           emcmake cmake -S . -B build-web -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_AR="$(command -v emar)" \
