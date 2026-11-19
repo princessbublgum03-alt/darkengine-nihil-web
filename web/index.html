@@ -1268,6 +1268,22 @@
       background: none;
     }
 
+    /* Direct-touch menu cursor mode: let finger taps hit #canvas directly */
+    #game-stage[data-input-mode="menu"] #touch-hud,
+    #game-stage[data-input-mode="menu"] #gesture-hud {
+      display: none !important;
+      pointer-events: none !important;
+    }
+
+    #game-stage[data-input-mode="menu"] .hud-topbar-left {
+      display: none;
+    }
+
+    #game-stage[data-input-mode="menu"] .hud-topbar {
+      justify-content: flex-end;
+      background: linear-gradient(180deg, rgba(10, 8, 7, 0.72) 0%, rgba(10, 8, 7, 0) 100%);
+    }
+
     .touch-zone-left {
       position: absolute;
       left: 0;
@@ -1802,7 +1818,7 @@
   </main>
 
   <!-- Fullscreen Gameplay Viewport + Touch/Gesture Controls Overlay -->
-  <section id="game-stage" data-touch-layout="buttons" data-preview="false" aria-label="Игровой экран Dark Engine">
+  <section id="game-stage" data-touch-layout="buttons" data-preview="false" data-input-mode="menu" aria-label="Игровой экран Dark Engine">
     <!-- Dedicated WebGL 2.0 canvas for Emscripten/SDL2 (never polluted with 2D context) -->
     <canvas id="canvas" data-testid="game-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <!-- Dedicated 2D canvas strictly for Control Test preview mode -->
@@ -1844,6 +1860,7 @@
         <button type="button" class="hud-chip-btn" data-key="BracketRight" aria-label="Переключить предмет">Предм.</button>
       </div>
       <div class="hud-topbar-group">
+        <button type="button" class="hud-chip-btn" id="hudInputModeBtn" aria-pressed="true" aria-label="Переключить режим курсора и управления">Курсор</button>
         <button type="button" class="hud-chip-btn hud-pause-btn" data-key="Escape" aria-label="Пауза">Пауза</button>
         <button type="button" class="hud-chip-btn" id="hudSettingsBtn" aria-expanded="false" aria-controls="hudDrawer">Опции</button>
         <button type="button" class="hud-chip-btn hud-desktop-only" id="exitToLauncherBtn">Меню</button>
@@ -2115,6 +2132,27 @@
             preserveDrawingBuffer: false,
             powerPreference: 'high-performance'
           });
+        },
+
+        scaleHiDpiViewportRect(x, y, width, height, cssW, cssH, bufW, bufH, hasBoundFbo) {
+          if (hasBoundFbo || cssW <= 0 || cssH <= 0 || bufW <= 0 || bufH <= 0) {
+            return [x, y, width, height];
+          }
+          const scaleX = bufW / cssW;
+          const scaleY = bufH / cssH;
+          if (Math.abs(scaleX - 1) <= 0.01 && Math.abs(scaleY - 1) <= 0.01) {
+            return [x, y, width, height];
+          }
+          // Only scale rects expressed in CSS/logical SDL window space; never double-scale
+          // calls that already use physical drawingBuffer coordinates.
+          if (x >= 0 && y >= 0 && width > 0 && height > 0 && (x + width) <= cssW + 2 && (y + height) <= cssH + 2) {
+            const sx = Math.max(0, Math.min(bufW, Math.round(x * scaleX)));
+            const sy = Math.max(0, Math.min(bufH, Math.round(y * scaleY)));
+            const sw = Math.max(1, Math.min(bufW - sx, Math.round(width * scaleX)));
+            const sh = Math.max(1, Math.min(bufH - sy, Math.round(height * scaleY)));
+            return [sx, sy, sw, sh];
+          }
+          return [x, y, width, height];
         },
 
         formatMB(bytes) {
@@ -3029,10 +3067,52 @@
         storageInfo: 'Проверка хранилища...',
         connectedGamepadName: '',
         pointerLocked: false,
+        inputMode: 'menu', // 'menu' (direct touch/mouse cursor) | 'gameplay' (sticks/gestures/pointer-lock)
+        inputModeOverride: null, // null = follow Dark Engine automatically
         isPreviewMode: false,
         gameRunning: false,
         previewCanvasAnimId: 0
       };
+
+      // Track every Web Audio AudioContext created by Emscripten's OpenAL runtime
+      // so mobile autoplay policies are cleanly unlocked on launch & first tap.
+      const trackedAudioContexts = new Set();
+      window.__darkAudioContexts = trackedAudioContexts;
+      (function installAudioContextTracker() {
+        const NativeAC = window.AudioContext || window.webkitAudioContext;
+        if (typeof NativeAC !== 'function' || NativeAC.__darkWrapped) return;
+        function TrackedAudioContext(...args) {
+          const ctx = new NativeAC(...args);
+          trackedAudioContexts.add(ctx);
+          return ctx;
+        }
+        TrackedAudioContext.prototype = NativeAC.prototype;
+        Object.setPrototypeOf(TrackedAudioContext, NativeAC);
+        TrackedAudioContext.__darkWrapped = true;
+        if (window.AudioContext) window.AudioContext = TrackedAudioContext;
+        if (window.webkitAudioContext) window.webkitAudioContext = TrackedAudioContext;
+      })();
+
+      function unlockDarkAudio() {
+        let resumed = 0;
+        trackedAudioContexts.forEach((ctx) => {
+          if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+            resumed += 1;
+            ctx.resume().catch(() => {});
+          }
+        });
+        const alContexts = window.AL && window.AL.contexts;
+        if (alContexts && typeof alContexts === 'object') {
+          Object.values(alContexts).forEach((alCtx) => {
+            const audioCtx = alCtx && alCtx.audioCtx;
+            if (audioCtx && audioCtx.state === 'suspended' && typeof audioCtx.resume === 'function') {
+              resumed += 1;
+              audioCtx.resume().catch(() => {});
+            }
+          });
+        }
+        return resumed;
+      }
 
       const diagLogger = DarkWebCore.createLogBuffer(1500);
       let diagRenderHook = null;
@@ -3303,6 +3383,7 @@
         const gestureGhostRing = $('gestureGhostRing');
         const gestureGhostDot = $('gestureGhostDot');
         const gestureToast = $('gestureToast');
+        const hudInputModeBtn = $('hudInputModeBtn');
         const hudSettingsBtn = $('hudSettingsBtn');
         const hudDrawer = $('hudDrawer');
         const hudGestureCheatSheet = $('hudGestureCheatSheet');
@@ -3522,13 +3603,51 @@
         });
 
         // Enforce reliable, high-performance WebGL 2 context attributes before
-        // Emscripten initializes SDL2/OpenGL ES 3 on #canvas.
+        // Emscripten initializes SDL2/OpenGL ES 3 on #canvas, and scale CSS-space
+        // SDL2 glViewport/glScissor rects to the physical HiDPI drawingBuffer so
+        // Thief's centered 4:3 menus and 3D viewports fill the entire screen.
         // IMPORTANT: #canvas is NEVER touched with getContext('2d')!
         const nativeGetContext = canvas.getContext.bind(canvas);
         canvas.getContext = function (type, attrs) {
           if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
             const opts = DarkWebCore.buildWebGLContextOptions(attrs);
             const ctx = nativeGetContext(type, opts);
+            if (ctx && !ctx.__darkViewportScaled) {
+              ctx.__darkViewportScaled = true;
+              let boundFbo = null;
+              const nativeBindFramebuffer = ctx.bindFramebuffer.bind(ctx);
+              const nativeViewport = ctx.viewport.bind(ctx);
+              const nativeScissor = ctx.scissor.bind(ctx);
+
+              ctx.bindFramebuffer = function (target, framebuffer) {
+                if (target === ctx.FRAMEBUFFER || target === ctx.DRAW_FRAMEBUFFER) {
+                  boundFbo = framebuffer || null;
+                }
+                return nativeBindFramebuffer(target, framebuffer);
+              };
+
+              const scaleRectForDefaultFb = (x, y, w, h) => {
+                const rect = canvas.getBoundingClientRect();
+                const cssW = rect.width || window.innerWidth;
+                const cssH = rect.height || window.innerHeight;
+                return DarkWebCore.scaleHiDpiViewportRect(
+                  x, y, w, h,
+                  cssW, cssH,
+                  ctx.drawingBufferWidth, ctx.drawingBufferHeight,
+                  boundFbo !== null
+                );
+              };
+
+              ctx.viewport = function (x, y, w, h) {
+                const scaled = scaleRectForDefaultFb(x, y, w, h);
+                return nativeViewport(scaled[0], scaled[1], scaled[2], scaled[3]);
+              };
+
+              ctx.scissor = function (x, y, w, h) {
+                const scaled = scaleRectForDefaultFb(x, y, w, h);
+                return nativeScissor(scaled[0], scaled[1], scaled[2], scaled[3]);
+              };
+            }
             logDiag(ctx ? 'info' : 'error', 'GPU', 'Запрос контекста ' + type + ' на #canvas: ' + (ctx ? 'OK' : 'FAILED'), opts);
             return ctx;
           }
@@ -3697,8 +3816,33 @@
           if (hudGestureCheatSheet) {
             hudGestureCheatSheet.style.display = resolved.showGestures ? 'block' : 'none';
           }
+          syncInputModeUI();
           applyInputProfileToEngine();
         }
+
+        function syncInputModeUI() {
+          const effectiveMode = appState.isPreviewMode
+            ? (appState.inputModeOverride || 'gameplay')
+            : (appState.inputModeOverride || appState.inputMode || 'menu');
+          gameStage.dataset.inputMode = effectiveMode;
+          if (hudInputModeBtn) {
+            const isMenu = effectiveMode === 'menu';
+            hudInputModeBtn.textContent = isMenu ? 'Курсор' : 'Игра';
+            hudInputModeBtn.setAttribute('aria-pressed', String(isMenu));
+            hudInputModeBtn.classList.toggle('is-active', isMenu);
+          }
+        }
+
+        window.__onDarkInputModeChange = (relativeActive) => {
+          const nextMode = relativeActive ? 'gameplay' : 'menu';
+          appState.inputMode = nextMode;
+          appState.inputModeOverride = null;
+          syncInputModeUI();
+          if (!relativeActive && document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
+            try { document.exitPointerLock(); } catch (_) {}
+          }
+          logDiag('debug', 'SYS', 'Режим ввода Dark Engine: ' + (relativeActive ? '3D-игра (relative mouse)' : 'Меню (прямой курсор)'));
+        };
 
         function updateCacheUI() {
           if (appState.cachedFiles > 0) {
@@ -4323,8 +4467,13 @@
           const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
           const usePreview = Boolean(isPreviewMode);
 
+          // Unlock Web Audio inside the synchronous click gesture before any awaits
+          unlockDarkAudio();
+
           appState.isPreviewMode = usePreview;
           appState.gameRunning = true;
+          appState.inputModeOverride = null;
+          appState.inputMode = usePreview ? 'gameplay' : 'menu';
           gameStage.dataset.preview = usePreview ? 'true' : 'false';
           document.body.dataset.mode = 'playing';
           updateTouchPrefsUI();
@@ -4380,7 +4529,13 @@
           window.__darkFirstFrameRendered = false;
           window.__onDarkFirstFrame = () => {
             if (bootTimeoutId) { clearTimeout(bootTimeoutId); bootTimeoutId = 0; }
-            logDiag('info', 'BOOT', 'Отрисован первый 3D-кадр Dark Engine за ' + Math.round(performance.now() - bootStartTs) + ' мс');
+            applyCanvasResolution();
+            unlockDarkAudio();
+            logDiag('info', 'BOOT', 'Отрисован первый 3D-кадр Dark Engine за ' + Math.round(performance.now() - bootStartTs) + ' мс', {
+              canvas: canvas.width + 'x' + canvas.height,
+              css: Math.round(canvas.getBoundingClientRect().width) + 'x' + Math.round(canvas.getBoundingClientRect().height),
+              audioContexts: trackedAudioContexts.size
+            });
             setBootOverlayState(false);
           };
 
@@ -4682,11 +4837,14 @@
         }
 
         const onCanvasPointerDown = (e) => {
-          if (e.pointerType === 'mouse' && appState.gameRunning && !hudDrawer.classList.contains('is-open') && !bootOverlay.classList.contains('is-visible')) {
+          unlockDarkAudio();
+          const effectiveMode = appState.inputModeOverride || appState.inputMode || 'menu';
+          if (e.pointerType === 'mouse' && appState.gameRunning && (appState.isPreviewMode || effectiveMode === 'gameplay') && !hudDrawer.classList.contains('is-open') && !bootOverlay.classList.contains('is-visible')) {
             requestPcPointerLock();
           }
         };
         canvas.addEventListener('pointerdown', onCanvasPointerDown);
+        canvas.addEventListener('touchstart', () => { unlockDarkAudio(); }, { passive: true });
         previewCanvas.addEventListener('pointerdown', onCanvasPointerDown);
 
         document.addEventListener('pointerlockchange', () => {
@@ -5290,6 +5448,20 @@
         if (bootTryControlsBtn) bootTryControlsBtn.addEventListener('click', () => launchGame(true));
         const drawerExitBtn = $('drawerExitBtn');
         if (drawerExitBtn) drawerExitBtn.addEventListener('click', exitToLauncher);
+
+        if (hudInputModeBtn) {
+          hudInputModeBtn.addEventListener('click', () => {
+            unlockDarkAudio();
+            const curr = gameStage.dataset.inputMode === 'menu' ? 'menu' : 'gameplay';
+            const next = curr === 'menu' ? 'gameplay' : 'menu';
+            appState.inputModeOverride = next;
+            syncInputModeUI();
+            if (next === 'menu' && document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
+              try { document.exitPointerLock(); } catch (_) {}
+            }
+            showInputToast(next === 'menu' ? 'РЕЖИМ КУРСОРА (ТАП ПО МЕНЮ)' : 'РЕЖИМ ИГРЫ (УПРАВЛЕНИЕ)');
+          });
+        }
 
         hudSettingsBtn.addEventListener('click', () => {
           const open = !hudDrawer.classList.contains('is-open');

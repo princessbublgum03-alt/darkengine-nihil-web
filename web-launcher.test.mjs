@@ -459,3 +459,73 @@ test('createLogBuffer maintains bounded ring buffer, filters by category/severit
   assert.ok(html.includes('id="diagPanel"'), 'web/index.html must include collapsible diagnostic panel');
   assert.ok(html.includes('id="bootCopyLogsBtn"'), 'web/index.html must include copy logs button in boot overlay');
 });
+
+test('scaleHiDpiViewportRect scales CSS-space SDL2 viewports to Retina drawingBuffer without double-scaling or mutating FBOs', () => {
+  // Android portrait 432x872 @ 2.5x (drawingBuffer 1080x2180): centered 4:3 menu (0, 274, 432, 324)
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(0, 274, 432, 324, 432, 872, 1080, 2180, false)],
+    [0, 685, 1080, 810]
+  );
+
+  // Fullscreen clear in CSS space scales cleanly to full drawingBuffer
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(0, 0, 432, 872, 432, 872, 1080, 2180, false)],
+    [0, 0, 1080, 2180]
+  );
+
+  // Downscaled mobile quality preset (0.5x -> 216x436) scales CSS viewport down cleanly
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(0, 274, 432, 324, 432, 872, 216, 436, false)],
+    [0, 137, 216, 162]
+  );
+
+  // Offscreen FBO rendering must NEVER be scaled
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(0, 0, 256, 256, 432, 872, 1080, 2180, true)],
+    [0, 0, 256, 256]
+  );
+
+  // Already-physical coordinates (> cssW) must NOT be double-scaled
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(0, 0, 1080, 2180, 432, 872, 1080, 2180, false)],
+    [0, 0, 1080, 2180]
+  );
+
+  // 1:1 DPR desktop display passes through untouched
+  assert.deepEqual(
+    [...Core.scaleHiDpiViewportRect(120, 0, 1200, 900, 1440, 900, 1440, 900, false)],
+    [120, 0, 1200, 900]
+  );
+});
+
+test('input routing, viewport sync, and OpenAL Web Audio runtime are wired end-to-end across C++, CI, and web/index.html', () => {
+  const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
+  const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const openalLoader = fs.readFileSync(new URL('./unixsrc/sound/openal_loader.cpp', import.meta.url), 'utf8');
+  const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+
+  // 1. Input & viewport sync in gameshell.cpp
+  assert.ok(gameshell.includes('#include "../render/runtime.h"'), 'gameshell.cpp must include ../render/runtime.h');
+  assert.ok(gameshell.includes('DarkRenderPumpEvents()'), 'DrainSdlEvents must delegate to DarkRenderPumpEvents() so clicks/keys/resize reach Thief');
+  assert.ok(gameshell.includes('DarkRenderBeginApplicationFrame()'), 'BeginFrame must call DarkRenderBeginApplicationFrame()');
+  assert.ok(gameshell.includes('DarkRenderEndApplicationFrame()'), 'EndFrame must call DarkRenderEndApplicationFrame()');
+  assert.ok(gameshell.includes('emscripten_get_element_css_size("#canvas"'), 'gameshell.cpp must sync #canvas CSS dimensions');
+  assert.ok(gameshell.includes('SDL_SetWindowSize(win, w, h)'), 'gameshell.cpp must resize SDL window to match CSS viewport');
+  assert.ok(gameshell.includes('DarkInputRelativeMouseActive()'), 'gameshell.cpp must publish relative-mouse state to JS');
+  assert.ok(mainCpp.includes('SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1")'), 'main.cpp must enable SDL touch-to-mouse conversion for direct menu taps');
+
+  // 2. OpenAL Web Audio runtime in openal_loader.cpp + build-web.yml
+  assert.ok(yml.includes('-lopenal'), 'build-web.yml must link Emscripten built-in Web Audio OpenAL (-lopenal)');
+  assert.ok(openalLoader.includes('#if defined(__EMSCRIPTEN__)'), 'openal_loader.cpp must provide static Emscripten OpenAL bindings');
+  assert.ok(openalLoader.includes('EmscriptenAlcCloseDevice'), 'openal_loader.cpp must wrap char ALCboolean cleanly without pointer casts');
+  assert.ok(openalLoader.includes('EmscriptenAlcGetProcAddress') && openalLoader.includes('EmscriptenAlGetProcAddress'), 'openal_loader.cpp must stub missing *GetProcAddress symbols');
+  assert.ok(openalLoader.includes('dlopen("libopenal.so.1"'), 'openal_loader.cpp must preserve Linux/Android dlopen path');
+
+  // 3. Web launcher HiDPI scaling, Menu cursor mode, and AudioContext unlock
+  assert.ok(html.includes('scaleHiDpiViewportRect'), 'web/index.html must scale WebGL2 CSS-space viewport/scissor to drawingBuffer');
+  assert.ok(html.includes('id="hudInputModeBtn"'), 'web/index.html must provide a 1-tap Cursor/Gameplay HUD toggle');
+  assert.ok(html.includes('window.__onDarkInputModeChange'), 'web/index.html must auto-switch between Menu cursor and Gameplay controls');
+  assert.ok(html.includes('unlockDarkAudio'), 'web/index.html must resume suspended Web Audio AudioContexts on user gestures');
+});
+

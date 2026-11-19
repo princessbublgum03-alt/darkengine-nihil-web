@@ -83,9 +83,10 @@ void ConfigureEmscriptenRuntime()
     // controls and text inputs remain responsive before and during gameplay.
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
 
-    // Disable synthetic mouse events from touch input so mobile virtual sticks
-    // and swipe-look controls never double-fire clicks into Thief menus.
-    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    // Allow direct touch-to-mouse clicks on #canvas in Thief menus, maps, and
+    // readable books. Gameplay virtual sticks / gestures call preventDefault()
+    // on their own overlay elements so they never double-fire menu clicks.
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 
     // Avoid polling mobile accelerometers as joysticks (reduces overhead and

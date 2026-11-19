@@ -16,9 +16,12 @@
 #include <gamepad.h>
 #include <kb.h>
 #include <mouse.h>
+#include "../render/runtime.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+extern "C" int DarkInputRelativeMouseActive(void);
 
 #if defined(__has_include)
 #if __has_include(<SDL2/SDL.h>)
@@ -57,6 +60,18 @@ void DarkGameShellConfigureInput(float mouseSensitivity, int invertY)
     g_darkWebInvertY = invertY ? 1 : 0;
 }
 }
+
+// Notify JS whenever Dark Engine toggles between 2D Menu cursor mode (0) and
+// 3D First-Person relative mouse mode (1) so the launcher switches touch HUDs.
+EM_JS(void, dark_web_publish_input_mode, (int relativeActive), {
+    var active = relativeActive !== 0;
+    if (window.__darkRelativeMouseActive !== active) {
+        window.__darkRelativeMouseActive = active;
+        if (typeof window.__onDarkInputModeChange === 'function') {
+            try { window.__onDarkInputModeChange(active); } catch (_) {}
+        }
+    }
+});
 
 // VSync-aligned frame yield with clean fallback timer cancellation (zero timer
 // leaks / GC churn), optional mobile FPS cap (30/60 FPS thermal saver), and
@@ -135,7 +150,6 @@ EM_ASYNC_JS(void, dark_web_yield_loading_slice, (), {
 
 namespace
 {
-constexpr int kMaxEventsPerPump = 64;
 
 #ifdef __EMSCRIPTEN__
 // Minimum interval (ms) before PumpEvents() performs an emergency Asyncify
@@ -185,6 +199,9 @@ public:
 private:
     void DrainSdlEvents(int fPumpFlags);
     void HandleQuitRequested();
+#ifdef __EMSCRIPTEN__
+    void SyncEmscriptenCanvasSize(bool forceSync);
+#endif
 
     int m_fFlags;
     int m_msecBlockSignal;
@@ -200,6 +217,10 @@ private:
 #ifdef __EMSCRIPTEN__
     double m_lastYieldTimeMs;
     uint32_t m_frameCounter;
+    SDL_Window *m_lastSyncedWindow;
+    int m_lastCssWidth;
+    int m_lastCssHeight;
+    int m_lastRelativeMouse;
 #endif
 };
 
@@ -219,7 +240,11 @@ cUnixGameShell::cUnixGameShell(IUnknown *pOuterUnknown, int fFlags, int msecBloc
 #ifdef __EMSCRIPTEN__
       ,
       m_lastYieldTimeMs(0.0),
-      m_frameCounter(0)
+      m_frameCounter(0),
+      m_lastSyncedWindow(NULL),
+      m_lastCssWidth(0),
+      m_lastCssHeight(0),
+      m_lastRelativeMouse(-1)
 #endif
 {
     INIT_AGGREGATION_1(pOuterUnknown, IID_IGameShell, this, kPriorityLibrary, NULL);
@@ -250,6 +275,10 @@ HRESULT cUnixGameShell::Init()
 #ifdef __EMSCRIPTEN__
     m_lastYieldTimeMs = emscripten_get_now();
     m_frameCounter = 0;
+    m_lastSyncedWindow = NULL;
+    m_lastCssWidth = 0;
+    m_lastCssHeight = 0;
+    m_lastRelativeMouse = -1;
 #endif
     SDL_ShowCursor(m_bCursorVisible ? SDL_ENABLE : SDL_DISABLE);
     return S_OK;
@@ -294,128 +323,80 @@ void cUnixGameShell::HandleQuitRequested()
         PlatformExitProcess(0);
 }
 
-void cUnixGameShell::DrainSdlEvents(int fPumpFlags)
+#ifdef __EMSCRIPTEN__
+void cUnixGameShell::SyncEmscriptenCanvasSize(bool forceSync)
 {
-    // Pump queued OS/browser events into SDL's queue once per call rather than
-    // per event, minimizing JS<->WASM boundary crossings under Emscripten.
-    SDL_PumpEvents();
+    SDL_Window *win = SDL_GL_GetCurrentWindow();
+    if (!win)
+        return;
 
-    SDL_Event event;
-    int processed = 0;
-    int coalescedDx = 0;
-    int coalescedDy = 0;
-    bool haveMotion = false;
-    int lastMouseX = 0;
-    int lastMouseY = 0;
-    Uint32 lastMouseButtons = 0;
+    double cssW = 0.0;
+    double cssH = 0.0;
+    if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) != EMSCRIPTEN_RESULT_SUCCESS)
+        return;
 
-    while (processed < kMaxEventsPerPump && SDL_PollEvent(&event))
+    const int w = static_cast<int>(cssW + 0.5);
+    const int h = static_cast<int>(cssH + 0.5);
+    if (w <= 0 || h <= 0)
+        return;
+
+    int sdlW = 0;
+    int sdlH = 0;
+    SDL_GetWindowSize(win, &sdlW, &sdlH);
+
+    if (!forceSync && win == m_lastSyncedWindow &&
+        w == m_lastCssWidth && h == m_lastCssHeight &&
+        sdlW == w && sdlH == h)
     {
-        ++processed;
-
-        switch (event.type)
-        {
-            case SDL_QUIT:
-                HandleQuitRequested();
-                break;
-
-            case SDL_APP_WILLENTERBACKGROUND:
-                PlatformSuspendApplicationClock();
-                break;
-
-            case SDL_APP_DIDENTERFOREGROUND:
-                PlatformResumeApplicationClock();
-                break;
-
-            case SDL_WINDOWEVENT:
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE)
-                {
-                    HandleQuitRequested();
-                }
-                else if (event.window.event == SDL_WINDOWEVENT_MINIMIZED ||
-                         event.window.event == SDL_WINDOWEVENT_HIDDEN)
-                {
-                    PlatformSuspendApplicationClock();
-                }
-                else if (event.window.event == SDL_WINDOWEVENT_RESTORED ||
-                         event.window.event == SDL_WINDOWEVENT_SHOWN)
-                {
-                    PlatformResumeApplicationClock();
-                }
-                else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
-                         event.window.event == SDL_WINDOWEVENT_RESIZED)
-                {
-                    RenderBackendSetWindowedClientSizeHint(event.window.data1,
-                                                           event.window.data2);
-                }
-                break;
-
-            case SDL_MOUSEMOTION:
-                // Coalesce high-frequency mouse / touch-look motion bursts into
-                // a single engine event per pump to prevent input queue overflow
-                // and frame pacing spikes on high-polling-rate devices.
-                if (fPumpFlags == kPumpAll || fPumpFlags == kPumpMouse)
-                {
-                    coalescedDx += event.motion.xrel;
-                    coalescedDy += event.motion.yrel;
-                    lastMouseX = event.motion.x;
-                    lastMouseY = event.motion.y;
-                    lastMouseButtons = event.motion.state;
-                    haveMotion = true;
-                }
-                break;
-
-            case SDL_CONTROLLERDEVICEADDED:
-            case SDL_JOYDEVICEADDED:
-                GamepadSetActive(1);
-                GamepadNotifyInput(static_cast<unsigned>(event.cdevice.which));
-                break;
-
-            case SDL_CONTROLLERBUTTONDOWN:
-            case SDL_CONTROLLERAXISMOTION:
-                GamepadNotifyInput(static_cast<unsigned>(event.cbutton.which));
-                break;
-
-            default:
-                // Other SDL keyboard/mouse/controller events are consumed by
-                // SDL state queries and the platform input/gamepad providers.
-                break;
-        }
+        return;
     }
 
-    if (haveMotion)
-    {
-        int logicalX = lastMouseX;
-        int logicalY = lastMouseY;
-        RenderBackendClientToLogicalPoint(&logicalX, &logicalY);
+    m_lastSyncedWindow = win;
+    m_lastCssWidth = w;
+    m_lastCssHeight = h;
 
-#ifdef __EMSCRIPTEN__
-        // When Pointer Lock (relative mode) is active on PC, apply configured
-        // sensitivity and Y-inversion cleanly to coalesced relative deltas.
-        if (SDL_GetRelativeMouseMode() == SDL_TRUE)
-        {
-            const int scaledDx = static_cast<int>(coalescedDx * g_darkWebMouseSens);
-            const int scaledDy = static_cast<int>(coalescedDy * g_darkWebMouseSens) *
-                                 (g_darkWebInvertY ? -1 : 1);
-            logicalX += scaledDx;
-            logicalY += scaledDy;
-        }
+    // Keep SDL2's logical window dimensions locked to the CSS viewport so
+    // Emscripten_HandleMouseMove / Emscripten_HandleTouch map 1:1 to
+    // opengl.cpp's g_clientWidth / g_clientHeight and logical_point().
+    if (sdlW != w || sdlH != h)
+        SDL_SetWindowSize(win, w, h);
+
+    SDL_Event sizeEv;
+    memset(&sizeEv, 0, sizeof(sizeEv));
+    sizeEv.type = SDL_WINDOWEVENT;
+    sizeEv.window.event = SDL_WINDOWEVENT_SIZE_CHANGED;
+    sizeEv.window.data1 = w;
+    sizeEv.window.data2 = h;
+    SDL_PushEvent(&sizeEv);
+
+    // Ask DarkRenderPumpEvents() to redraw the retained 2D menu surface at
+    // the new centered viewport immediately.
+    SDL_Event focusEv;
+    memset(&focusEv, 0, sizeof(focusEv));
+    focusEv.type = SDL_WINDOWEVENT;
+    focusEv.window.event = SDL_WINDOWEVENT_FOCUS_GAINED;
+    SDL_PushEvent(&focusEv);
+}
 #endif
 
-        lgMouseEvent me;
-        memset(&me, 0, sizeof(me));
-        me.x = static_cast<short>(logicalX);
-        me.y = static_cast<short>(logicalY);
-        me.type = MOUSE_MOTION;
-        me.timestamp = PlatformMilliseconds();
-        me.buttons = static_cast<uchar>(
-            MouseMakeButtons((lastMouseButtons & SDL_BUTTON_LMASK) != 0,
-                             (lastMouseButtons & SDL_BUTTON_MMASK) != 0,
-                             (lastMouseButtons & SDL_BUTTON_RMASK) != 0));
-        mouse_generate(me);
-        (void)coalescedDx;
-        (void)coalescedDy;
+void cUnixGameShell::DrainSdlEvents(int /*fPumpFlags*/)
+{
+#ifdef __EMSCRIPTEN__
+    const int relActive = DarkInputRelativeMouseActive() ? 1 : 0;
+    const bool modeChanged = (relActive != m_lastRelativeMouse);
+    if (modeChanged)
+    {
+        m_lastRelativeMouse = relActive;
+        dark_web_publish_input_mode(relActive);
     }
+    SyncEmscriptenCanvasSize(modeChanged);
+#endif
+
+    // Delegate SDL event polling to DarkRenderPumpEvents() so keyboard, mouse
+    // buttons, mouse motion, wheel, window resize, and focus redraw events are
+    // properly translated into DarkInputKey / DarkInputMouse / DarkInputMouseRelative.
+    if (DarkRenderPumpEvents())
+        HandleQuitRequested();
 
     GamepadUpdate();
 }
@@ -423,6 +404,7 @@ void cUnixGameShell::DrainSdlEvents(int fPumpFlags)
 STDMETHODIMP_(void) cUnixGameShell::BeginFrame()
 {
     m_bInFrame = TRUE;
+    DarkRenderBeginApplicationFrame();
     PumpEvents(kPumpAll);
 
     if ((m_fFlags & kLockFrame) && m_pDisplayDevice)
@@ -449,6 +431,7 @@ STDMETHODIMP_(void) cUnixGameShell::EndFrame()
             m_pDisplayDevice->PageFlip();
     }
 
+    DarkRenderEndApplicationFrame();
     m_bInFrame = FALSE;
 
 #ifdef __EMSCRIPTEN__
@@ -539,7 +522,7 @@ STDMETHODIMP_(BOOL) cUnixGameShell::ShowOSCursor(BOOL bShow)
 {
     const BOOL prev = m_bCursorVisible;
     m_bCursorVisible = bShow ? TRUE : FALSE;
-    SDL_ShowCursor(m_bCursorVisible ? SDL_ENABLE : SDL_DISABLE);
+    DarkRenderShowCursor(m_bCursorVisible != FALSE);
     if (m_pfnCursorCallback)
         m_pfnCursorCallback(m_bCursorVisible ? kGSShowCursor : kGSHideCursor);
     return prev;
