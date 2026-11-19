@@ -38,6 +38,7 @@ int LGAPI _AppMain(int argc, const char *argv[]);
 #ifdef __EMSCRIPTEN__
 extern "C" void DarkGameShellSetTargetFps(int targetFps);
 extern "C" void DarkGameShellConfigureInput(float mouseSensitivity, int invertY);
+extern "C" void RenderBackendSetStretchToFill(int enabled);
 #endif
 
 namespace
@@ -50,6 +51,7 @@ float g_webMouseSensitivity = 1.0f;
 float g_webGamepadDeadzone = 0.15f;
 int g_webInvertY = 0;
 int g_webTargetFps = 0;
+int g_webStretchFill = 1;
 int g_webVerboseLogging = 0;
 
 bool DirectoryExists(const char *path)
@@ -142,8 +144,8 @@ void ConfigureEmscriptenRuntime()
         const char *cwd = getcwd(cwdBuf, sizeof(cwdBuf)) ? cwdBuf : "<unknown>";
         char diagBuf[512];
         std::snprintf(diagBuf, sizeof(diagBuf),
-                      "[web][diag] Runtime ready: cwd=%s backend=%s scale=%.2f fps=%d input=%s sens=%.2f dz=%.2f invY=%d\n",
-                      cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps,
+                      "[web][diag] Runtime ready: cwd=%s backend=%s scale=%.2f fps=%d stretch=%d input=%s sens=%.2f dz=%.2f invY=%d\n",
+                      cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webStretchFill,
                       g_webInputProfile, g_webMouseSensitivity, g_webGamepadDeadzone, g_webInvertY);
         PlatformDebugOutput(diagBuf);
         std::fflush(stderr);
@@ -233,6 +235,14 @@ void dark_web_sync_saves(void)
 }
 
 EMSCRIPTEN_KEEPALIVE
+void dark_web_set_stretch_fill(int enabled)
+{
+    g_webStretchFill = enabled ? 1 : 0;
+    setenv("DARK_WEB_STRETCH_FILL", g_webStretchFill ? "1" : "0", 1);
+    RenderBackendSetStretchToFill(g_webStretchFill);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void dark_web_set_verbose_logging(int enabled)
 {
     g_webVerboseLogging = enabled ? 1 : 0;
@@ -241,8 +251,8 @@ void dark_web_set_verbose_logging(int enabled)
     {
         char msg[256];
         std::snprintf(msg, sizeof(msg),
-                      "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d)\n",
-                      g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps);
+                      "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d, stretch=%d)\n",
+                      g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps, g_webStretchFill);
         PlatformDebugOutput(msg);
         std::fflush(stderr);
     }

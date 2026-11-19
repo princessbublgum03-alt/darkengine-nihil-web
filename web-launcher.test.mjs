@@ -561,4 +561,59 @@ test('WASM 3D gameplay fixes eliminate uiHandlerProc, MotCompRotCallback, FindVh
   );
 });
 
+test('single-threaded Emscripten sound mixer avoids std::thread abort() in SndStartPeriodicTimer and cMixerThread::Create', () => {
+  const sndPlatform = fs.readFileSync(new URL('./unixsrc/sound/platform.cpp', import.meta.url), 'utf8');
+  const sndMixer = fs.readFileSync(new URL('./libsrc/sound/mixer.cpp', import.meta.url), 'utf8');
+
+  assert.ok(
+    sndPlatform.includes('#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)'),
+    'unixsrc/sound/platform.cpp must guard std::thread behind !defined(__EMSCRIPTEN_PTHREADS__)'
+  );
+  assert.ok(
+    /SndStartPeriodicTimer[\s\S]*?#if defined\(__EMSCRIPTEN__\) && !defined\(__EMSCRIPTEN_PTHREADS__\)[\s\S]*?return 0;/.test(sndPlatform),
+    'SndStartPeriodicTimer must return 0 in single-threaded Emscripten so cSndMixer::Update runs fades on main thread'
+  );
+  assert.ok(
+    /cMixerThread::Create\(void\)[\s\S]*?#if defined\(__EMSCRIPTEN__\) && !defined\(__EMSCRIPTEN_PTHREADS__\)[\s\S]*?return false;/.test(sndMixer),
+    'cMixerThread::Create must return false without calling std::thread under single-threaded Emscripten'
+  );
+});
+
+test('borderless fullscreen stretch mode fills every device aspect ratio (phones, tablets, PCs) without black bars and wires C++ cleanly', () => {
+  assert.equal(Core.normalizeDisplayFit(undefined), 'stretch');
+  assert.equal(Core.normalizeDisplayFit('stretch'), 'stretch');
+  assert.equal(Core.normalizeDisplayFit('fit'), 'fit');
+  assert.equal(Core.normalizeDisplayFit('unknown'), 'stretch');
+
+  // Stretch mode fills 100% of every device viewport with zero letterbox/pillarbox bars
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 640, 480, 'stretch') }, { x: 0, y: 0, width: 432, height: 872 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(872, 432, 640, 480, 'stretch') }, { x: 0, y: 0, width: 872, height: 432 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1024, 768, 640, 480, 'stretch') }, { x: 0, y: 0, width: 1024, height: 768 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'stretch') }, { x: 0, y: 0, width: 1920, height: 1080 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(2560, 1080, 640, 480, 'stretch') }, { x: 0, y: 0, width: 2560, height: 1080 });
+
+  // Classic 4:3 fit mode centers cleanly when explicitly selected
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(1920, 1080, 640, 480, 'fit') }, { x: 240, y: 0, width: 1440, height: 1080 });
+  assert.deepEqual({ ...Core.computeDisplayViewportRect(432, 872, 640, 480, 'fit') }, { x: 0, y: 274, width: 432, height: 324 });
+
+  // End-to-end C++ + HTML contract verification
+  const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
+  const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const gameshellCpp = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+
+  assert.ok(openglCpp.includes('bool g_stretchFill = true;'), 'opengl.cpp must default g_stretchFill to true under Emscripten');
+  assert.ok(openglCpp.includes('if (g_stretchFill)\n      return;'), 'viewport() must return full client rect without black bars when g_stretchFill is active');
+  assert.ok(openglCpp.includes('if (!g_stretchFill)'), 'DarkRenderPresentMovieFrame must stretch movies fullscreen when g_stretchFill is active');
+  assert.ok(openglCpp.includes('void RenderBackendSetStretchToFill(int enabled)'), 'opengl.cpp must export RenderBackendSetStretchToFill');
+  assert.ok(openglCpp.includes('emscripten_get_element_css_size("#canvas"'), 'DarkRenderOpen must initialize SDL window to full #canvas CSS size on Emscripten');
+  assert.ok(mainCpp.includes('dark_web_set_stretch_fill'), 'main.cpp must export dark_web_set_stretch_fill');
+  assert.ok(gameshellCpp.includes('dark_web_notify_canvas_resized'), 'gameshell.cpp must notify JS to preserve quality scale after SDL_SetWindowSize');
+  assert.ok(html.includes('dark_web_set_stretch_fill'), 'web/index.html must pass displayFit stretch mode to C++');
+  assert.ok(html.includes('data-display-fit="stretch"'), 'web/index.html must expose Fullscreen Stretch vs 4:3 selector');
+  assert.ok(html.includes('window.__onDarkCanvasResized'), 'web/index.html must handle C++ canvas resize notifications');
+});
+
+
+
 

@@ -25,6 +25,15 @@ uint32 SndTimeMs(void)
 
 uint32 SndStartPeriodicTimer(uint32 period, SndTimerCallback callback, void *user)
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+   // Single-threaded WASM cannot spawn std::thread (throws std::system_error -> abort()
+   // when DISABLE_EXCEPTION_CATCHING=1). Returning 0 causes cSndMixer::Update() to drive
+   // fade steps safely on the main thread every frame without reentrancy hazards.
+   (void)period;
+   (void)callback;
+   (void)user;
+   return 0;
+#else
    Timer *timer = new Timer;
    uint32 id = g_nextTimer++;
    timer->thread = std::thread([timer, period, callback, user] {
@@ -34,10 +43,14 @@ uint32 SndStartPeriodicTimer(uint32 period, SndTimerCallback callback, void *use
       }
    });
    std::lock_guard<std::mutex> lock(g_mutex); g_timers[id] = timer; return id;
+#endif
 }
 
 void SndEndPeriodicTimer(uint32 id)
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+   (void)id;
+#else
    Timer *timer = nullptr;
    { std::lock_guard<std::mutex> lock(g_mutex); auto it = g_timers.find(id);
      if (it == g_timers.end()) return; timer = it->second; g_timers.erase(it); }
@@ -45,6 +58,7 @@ void SndEndPeriodicTimer(uint32 id)
    if (timer->thread.joinable() && timer->thread.get_id() != std::this_thread::get_id()) timer->thread.join();
    else if (timer->thread.joinable()) timer->thread.detach();
    delete timer;
+#endif
 }
 
 void SndStopPeriodicTimer(uint32 id, uint32) { SndEndPeriodicTimer(id); }

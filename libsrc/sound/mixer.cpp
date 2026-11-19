@@ -1343,6 +1343,9 @@ cMixerThread::~cMixerThread()
 
 bool cMixerThread::Create(void)
 {
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+   return false;
+#else
    try
    {
       mThread = std::thread(&cMixerThread::ThreadProc, this);
@@ -1352,6 +1355,7 @@ bool cMixerThread::Create(void)
    {
       return false;
    }
+#endif
 }
 
 bool cMixerThread::CallWorker(int command)

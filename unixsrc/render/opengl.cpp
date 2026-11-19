@@ -5,6 +5,9 @@
 #include <jni.h>
 #include <SDL2/SDL_system.h>
 #endif
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/html5.h>
+#endif
 #ifdef DARK_OPENGL_ES
 #include <GLES3/gl3.h>
 #else
@@ -81,6 +84,11 @@ SDL_GLContext g_context;
 SDL_Cursor *g_invisibleCursor;
 int g_width, g_height, g_clientWidth, g_clientHeight;
 bool g_scene, g_scale = true, g_fit = true, g_preserve, g_quit;
+#if defined(__EMSCRIPTEN__)
+bool g_stretchFill = true;
+#else
+bool g_stretchFill = false;
+#endif
 bool g_resizePending;
 bool g_fog, g_alphaTest;
 bool g_depthCompare, g_depthWrite;
@@ -288,6 +296,11 @@ void viewport(int &x, int &y, int &w, int &h)
       h = std::min(h, g_height);
       return;
    }
+   // Fullscreen stretch-to-fill adapts 2D menus, panels, and 3D gameplay to
+   // fill the entire display without black bars on phones, tablets, and PCs.
+   // logical_point() shares this viewport so touch/mouse hit-testing stays exact.
+   if (g_stretchFill)
+      return;
    // Fit gameplay owns the settled client-sized canvas and fills the output.
    // Fixed gameplay and 2D panels retain their logical aspect ratio.
    if (!(g_fit && g_scene) && g_width > 0 && g_height > 0 &&
@@ -656,8 +669,20 @@ bool DarkRenderOpen(int width, int height, const char *title)
    // rotated/stale SurfaceView buffer on some devices when the IME appears.
    windowFlags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #endif
+   int createWidth = width;
+   int createHeight = height;
+#if defined(__EMSCRIPTEN__)
+   {
+      double cssW = 0.0, cssH = 0.0;
+      if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
+          cssW > 1.0 && cssH > 1.0) {
+         createWidth = static_cast<int>(cssW + 0.5);
+         createHeight = static_cast<int>(cssH + 0.5);
+      }
+   }
+#endif
    g_window = SDL_CreateWindow(title ? title : "Dark Engine",
-      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height,
+      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, createWidth, createHeight,
       windowFlags);
    if (g_window) set_window_icon();
    if (g_window) g_context = SDL_GL_CreateContext(g_window);
@@ -673,7 +698,8 @@ bool DarkRenderOpen(int width, int height, const char *title)
       SDL_SetCursor(g_invisibleCursor);
    SDL_ShowCursor(SDL_DISABLE);
    fprintf(stderr, "Linux video backend: SDL/%s\n", SDL_GetCurrentVideoDriver());
-   g_width = g_clientWidth = width; g_height = g_clientHeight = height;
+   g_width = width; g_height = height;
+   g_clientWidth = createWidth; g_clientHeight = createHeight;
    g_quit = false; g_resizePending = false;
    g_focused = (SDL_GetWindowFlags(g_window) & SDL_WINDOW_INPUT_FOCUS) != 0;
    update_relative_mouse();
@@ -981,7 +1007,8 @@ static void present_legacy_frame(const void *pixels, int width, int height,
    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, g_overlayTexture);
    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
    glActiveTexture(GL_TEXTURE0);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   const GLint overlayFilter = (!g_scene && g_stretchFill) ? GL_LINEAR : GL_NEAREST;
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, overlayFilter); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, overlayFilter);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
    if (depth == 16) {
       // The legacy canvas is already tightly packed RGB565. Upload it in its
@@ -1084,17 +1111,19 @@ bool DarkRenderPresentMovieFrame(const void *rgba, int width, int height,
 
    int viewportWidth = g_clientWidth;
    int viewportHeight = g_clientHeight;
-   const double sourceAspect = (double)width / height;
-   const double targetAspect = viewportHeight > 0
-      ? (double)viewportWidth / viewportHeight : sourceAspect;
    int viewportX = 0;
    int viewportY = 0;
-   if (targetAspect > sourceAspect) {
-      viewportWidth = (int)(viewportHeight * sourceAspect + 0.5);
-      viewportX = (g_clientWidth - viewportWidth) / 2;
-   } else {
-      viewportHeight = (int)(viewportWidth / sourceAspect + 0.5);
-      viewportY = (g_clientHeight - viewportHeight) / 2;
+   if (!g_stretchFill) {
+      const double sourceAspect = (double)width / height;
+      const double targetAspect = viewportHeight > 0
+         ? (double)viewportWidth / viewportHeight : sourceAspect;
+      if (targetAspect > sourceAspect) {
+         viewportWidth = (int)(viewportHeight * sourceAspect + 0.5);
+         viewportX = (g_clientWidth - viewportWidth) / 2;
+      } else {
+         viewportHeight = (int)(viewportWidth / sourceAspect + 0.5);
+         viewportY = (g_clientHeight - viewportHeight) / 2;
+      }
    }
 
    glViewport(0, 0, g_clientWidth, g_clientHeight);
@@ -1152,6 +1181,14 @@ extern "C" {
 int RenderBackendAvailable(void) { return g_context != nullptr; }
 void RenderBackendSetScaleToWindow(int enabled) { g_scale = enabled != 0; }
 void RenderBackendSetFitToViewport(int enabled) { g_fit = enabled != 0; }
+void RenderBackendSetStretchToFill(int enabled)
+{
+   const bool next = enabled != 0;
+   if (g_stretchFill == next)
+      return;
+   g_stretchFill = next;
+   g_focusRefreshPending = true;
+}
 void RenderBackendSetInteractiveResize(int) {}
 void RenderBackendSetPreserveCanvas(int enabled) { g_preserve = enabled != 0; }
 int RenderBackendPreserveCanvas(void) { return g_preserve; }

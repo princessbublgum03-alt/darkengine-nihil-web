@@ -73,6 +73,14 @@ EM_JS(void, dark_web_publish_input_mode, (int relativeActive), {
     }
 });
 
+// Notify JS after SDL_SetWindowSize resets the canvas drawingBuffer size so the
+// launcher immediately re-applies the active HiDPI / quality resolution scale.
+EM_JS(void, dark_web_notify_canvas_resized, (int cssW, int cssH), {
+    if (typeof window.__onDarkCanvasResized === 'function') {
+        try { window.__onDarkCanvasResized(cssW, cssH); } catch (_) {}
+    }
+});
+
 // VSync-aligned frame yield with clean fallback timer cancellation (zero timer
 // leaks / GC churn), optional mobile FPS cap (30/60 FPS thermal saver), and
 // lightweight 2Hz FPS telemetry exposed on window.__darkEngineFps.
@@ -359,7 +367,10 @@ void cUnixGameShell::SyncEmscriptenCanvasSize(bool forceSync)
     // Emscripten_HandleMouseMove / Emscripten_HandleTouch map 1:1 to
     // opengl.cpp's g_clientWidth / g_clientHeight and logical_point().
     if (sdlW != w || sdlH != h)
+    {
         SDL_SetWindowSize(win, w, h);
+        dark_web_notify_canvas_resized(w, h);
+    }
 
     SDL_Event sizeEv;
     memset(&sizeEv, 0, sizeof(sizeEv));

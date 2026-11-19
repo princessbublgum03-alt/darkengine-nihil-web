@@ -1021,7 +1021,8 @@
       display: none;
       position: fixed;
       inset: 0;
-      width: 100vw;
+      width: 100%;
+      height: 100%;
       height: 100dvh;
       background: #040406;
       z-index: 50;
@@ -1034,9 +1035,12 @@
 
     #canvas,
     #preview-canvas {
+      position: absolute;
+      inset: 0;
       display: block;
       width: 100%;
       height: 100%;
+      object-fit: fill;
       background: #050507;
       outline: none;
       touch-action: none;
@@ -1716,6 +1720,24 @@
           </div>
         </div>
 
+        <!-- Display Aspect / Borderless Fullscreen Stretch -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <span class="setting-label">Экран и пропорции</span>
+            <span class="setting-hint" id="displayFitDescText">Без чёрных полос · Все экраны</span>
+          </div>
+          <div class="segmented" role="group" aria-label="Режим заполнения экрана">
+            <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="true">
+              <span>Весь экран</span>
+              <small>Без полос (растянуть)</small>
+            </button>
+            <button type="button" class="seg-btn" data-display-fit="fit" aria-pressed="false">
+              <span>Пропорции 4:3</span>
+              <small>Классика (полосы)</small>
+            </button>
+          </div>
+        </div>
+
         <!-- Unified Controls: PC Raw Mouse, Gamepad & Smartphone (Buttons / Gestures) -->
         <div class="setting-group">
           <div class="setting-label-row">
@@ -1818,7 +1840,7 @@
   </main>
 
   <!-- Fullscreen Gameplay Viewport + Touch/Gesture Controls Overlay -->
-  <section id="game-stage" data-touch-layout="buttons" data-preview="false" data-input-mode="menu" aria-label="Игровой экран Dark Engine">
+  <section id="game-stage" data-touch-layout="buttons" data-preview="false" data-input-mode="menu" data-display-fit="stretch" aria-label="Игровой экран Dark Engine">
     <!-- Dedicated WebGL 2.0 canvas for Emscripten/SDL2 (never polluted with 2D context) -->
     <canvas id="canvas" data-testid="game-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <!-- Dedicated 2D canvas strictly for Control Test preview mode -->
@@ -1897,6 +1919,13 @@
           <button type="button" class="seg-btn" data-fps="30" aria-pressed="false"><span>30</span></button>
           <button type="button" class="seg-btn" data-fps="60" aria-pressed="true"><span>60</span></button>
           <button type="button" class="seg-btn" data-fps="0" aria-pressed="false"><span>VSync</span></button>
+        </div>
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Экран</span>
+        <div class="segmented" role="group" aria-label="Режим заполнения экрана в игре">
+          <button type="button" class="seg-btn" data-display-fit="stretch" aria-pressed="true"><span>Весь экран</span></button>
+          <button type="button" class="seg-btn" data-display-fit="fit" aria-pressed="false"><span>4:3</span></button>
         </div>
       </div>
       <div class="setting-group">
@@ -2132,6 +2161,30 @@
             preserveDrawingBuffer: false,
             powerPreference: 'high-performance'
           });
+        },
+
+        normalizeDisplayFit(mode) {
+          return mode === 'fit' ? 'fit' : 'stretch';
+        },
+
+        computeDisplayViewportRect(clientW, clientH, logicalW, logicalH, displayFit) {
+          const cw = Math.max(1, Math.round(Number(clientW) || 0));
+          const ch = Math.max(1, Math.round(Number(clientH) || 0));
+          const mode = this.normalizeDisplayFit(displayFit);
+          if (mode === 'stretch') {
+            return { x: 0, y: 0, width: cw, height: ch };
+          }
+          const lw = Math.max(1, Math.round(Number(logicalW) || 640));
+          const lh = Math.max(1, Math.round(Number(logicalH) || 480));
+          if (cw * lh === ch * lw) {
+            return { x: 0, y: 0, width: cw, height: ch };
+          }
+          if (cw * lh > ch * lw) {
+            const nw = Math.floor((ch * lw) / lh);
+            return { x: Math.floor((cw - nw) / 2), y: 0, width: nw, height: ch };
+          }
+          const nh = Math.floor((cw * lh) / lw);
+          return { x: 0, y: Math.floor((ch - nh) / 2), width: cw, height: nh };
         },
 
         scaleHiDpiViewportRect(x, y, width, height, cssW, cssH, bufW, bufH, hasBoundFbo) {
@@ -3056,6 +3109,7 @@
         targetFps: savedPrefs.targetFps !== undefined
           ? DarkWebCore.normalizeTargetFps(savedPrefs.targetFps)
           : (isCoarsePointer ? 60 : 0),
+        displayFit: DarkWebCore.normalizeDisplayFit(savedPrefs.displayFit || 'stretch'),
         touchMode: DarkWebCore.normalizeTouchMode(savedPrefs.touchMode || 'auto'),
         sensitivity: Number(savedPrefs.sensitivity) || 1.2,
         gamepadDeadzone: Number(savedPrefs.gamepadDeadzone) || 0.15,
@@ -3135,6 +3189,7 @@
             backend: appState.requestedBackend,
             quality: appState.quality,
             targetFps: appState.targetFps,
+            displayFit: appState.displayFit,
             touchMode: appState.touchMode,
             sensitivity: appState.sensitivity,
             gamepadDeadzone: appState.gamepadDeadzone,
@@ -3337,6 +3392,7 @@
         const resPreviewText = $('resPreviewText');
         const qualityDescText = $('qualityDescText');
         const fpsCapDescText = $('fpsCapDescText');
+        const displayFitDescText = $('displayFitDescText');
         const gamepadStatusText = $('gamepadStatusText');
         const controlModeHint = $('controlModeHint');
         const sensitivitySlider = $('sensitivitySlider');
@@ -3407,7 +3463,7 @@
             storage: appState.storageInfo,
             wasmState: appState.wasmState + (appState.wasmLoadedBytes ? ' (' + DarkWebCore.formatMB(appState.wasmLoadedBytes) + ' МБ)' : ''),
             cache: appState.cachedFiles + ' файлов · ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ (' + appState.edition + ')',
-            settings: 'api=' + appState.requestedBackend + ' quality=' + appState.quality + ' fps=' + appState.targetFps + ' touch=' + appState.touchMode + ' sens=' + appState.sensitivity.toFixed(1)
+            settings: 'api=' + appState.requestedBackend + ' quality=' + appState.quality + ' fps=' + appState.targetFps + ' fit=' + appState.displayFit + ' touch=' + appState.touchMode + ' sens=' + appState.sensitivity.toFixed(1)
           };
         }
 
@@ -3721,13 +3777,26 @@
             ? ' · ' + window.__darkEngineFps + ' к/с'
             : '';
           hudRuntimeMeta.textContent = (res.active === 'webgpu' ? 'WebGPU' : 'WebGL 2.0')
-            + ' · ' + preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps) + liveFps;
+            + ' · ' + preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps)
+            + ' · ' + (appState.displayFit === 'stretch' ? 'Весь экран' : '4:3') + liveFps;
         }
 
         function applyTargetFpsToEngine() {
           if (window.Module && typeof window.Module.ccall === 'function') {
             try {
               window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
+            } catch (_) {
+              // Optional exported hook
+            }
+          }
+        }
+
+        function applyDisplayFitToEngine() {
+          const isStretch = appState.displayFit === 'stretch';
+          if (gameStage) gameStage.dataset.displayFit = appState.displayFit;
+          if (window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              window.Module.ccall('dark_web_set_stretch_fill', null, ['number'], [isStretch ? 1 : 0]);
             } catch (_) {
               // Optional exported hook
             }
@@ -3742,6 +3811,9 @@
           document.querySelectorAll('[data-fps]').forEach((btn) => {
             btn.setAttribute('aria-pressed', String(Number(btn.dataset.fps) === appState.targetFps));
           });
+          document.querySelectorAll('[data-display-fit]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.displayFit === appState.displayFit));
+          });
           resPreviewText.textContent = preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps);
           qualityDescText.textContent = preset.label;
           if (fpsCapDescText) {
@@ -3751,7 +3823,13 @@
                 ? '60 FPS · Стабильно'
                 : 'Авто VSync · Макс. Гц';
           }
+          if (displayFitDescText) {
+            displayFitDescText.textContent = appState.displayFit === 'stretch'
+              ? 'Без чёрных полос · Все экраны'
+              : 'Сохранять пропорции 4:3';
+          }
           applyTargetFpsToEngine();
+          applyDisplayFitToEngine();
           updateBackendUI();
         }
 
@@ -4385,9 +4463,19 @@
             window.devicePixelRatio || 1,
             appState.quality
           );
-          target.width = dims.width;
-          target.height = dims.height;
+          if (target.width !== dims.width || target.height !== dims.height) {
+            target.width = dims.width;
+            target.height = dims.height;
+          }
         }
+
+        // Re-apply quality-scaled drawingBuffer whenever SDL_SetWindowSize resets
+        // #canvas width/height on rotation, fullscreen toggle, or window resize.
+        window.__onDarkCanvasResized = () => {
+          if (appState.gameRunning && !appState.isPreviewMode) {
+            applyCanvasResolution();
+          }
+        };
 
         // Dedicated 2D preview canvas loop (strictly draws on #preview-canvas so
         // #canvas NEVER receives a 2D context and stays 100% WebGL 2.0 compatible!).
@@ -4631,6 +4719,7 @@
                 window.Module.ccall('dark_web_set_graphics_backend', null, ['string'], [resolved.active]);
                 window.Module.ccall('dark_web_set_quality_preset', null, ['number'], [preset.scale]);
                 window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
+                window.Module.ccall('dark_web_set_stretch_fill', null, ['number'], [appState.displayFit === 'stretch' ? 1 : 0]);
                 applyInputProfileToEngine();
                 logDiag('debug', 'BOOT', 'Конфигурация передана в C++ через Module.ccall');
               } catch (ccallErr) {
@@ -5374,6 +5463,18 @@
           });
         });
 
+        document.querySelectorAll('[data-display-fit]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.displayFit = DarkWebCore.normalizeDisplayFit(btn.dataset.displayFit);
+            persistPrefs();
+            updateQualityUI();
+            if (appState.gameRunning) {
+              applyCanvasResolution();
+              showInputToast(appState.displayFit === 'stretch' ? 'ЭКРАН: НА ВЕСЬ ЭКРАН (БЕЗ ПОЛОС)' : 'ЭКРАН: ПРОПОРЦИИ 4:3');
+            }
+          });
+        });
+
         document.querySelectorAll('[data-touch]').forEach((btn) => {
           btn.addEventListener('click', () => {
             appState.touchMode = DarkWebCore.normalizeTouchMode(btn.dataset.touch);
@@ -5470,10 +5571,22 @@
           if (open) updateBackendUI();
         });
 
-        window.addEventListener('resize', () => {
-          if (appState.gameRunning) applyCanvasResolution();
+        const onViewportGeometryChange = () => {
+          if (appState.gameRunning) {
+            applyCanvasResolution();
+            // Schedule one post-rotation frame sync for mobile Safari/Chrome URL bar settles
+            requestAnimationFrame(() => {
+              if (appState.gameRunning) applyCanvasResolution();
+            });
+          }
           if (appState.loggingEnabled) updateDiagEnvSummary();
-        });
+        };
+        window.addEventListener('resize', onViewportGeometryChange);
+        window.addEventListener('orientationchange', onViewportGeometryChange);
+        document.addEventListener('fullscreenchange', onViewportGeometryChange);
+        if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+          window.visualViewport.addEventListener('resize', onViewportGeometryChange);
+        }
 
         // PC Keyboard protection (prevents browser F5 reload / Space scroll / Tab focus jump during Thief gameplay)
         window.addEventListener('keydown', (e) => {
