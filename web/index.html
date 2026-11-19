@@ -1,337 +1,3789 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Dark Engine Web — Thief</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#080709" />
+  <meta name="description" content="Thief: The Dark Project / Thief II — WebAssembly (Emscripten + WebGL 2.0) игровой движок Dark Engine в браузере с кэшем IDBFS, распаковкой ZIP и сенсорным управлением." />
+  <title>Thief · Dark Engine Web</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0a0908;
-      --panel: #15120f;
-      --border: #3d3326;
-      --gold: #d4af37;
-      --gold-dim: #8a7020;
-      --text: #e6dec8;
-      --muted: #8e8577;
-      --accent: #1f3d2f;
-      --accent-hover: #2a523f;
+      --bg-void: #070608;
+      --bg-panel: #120f0d;
+      --bg-panel-elev: #191410;
+      --bg-inset: #0b0908;
+      --border-bronze: #3e2e1f;
+      --border-bronze-bright: #6e5234;
+      --border-hairline: rgba(206, 168, 102, 0.14);
+      --gold: #cfa866;
+      --gold-bright: #ebd094;
+      --gold-dim: #8c6d3b;
+      --slate-thief: #8d97c4;
+      --text-primary: #e4ddd0;
+      --text-secondary: #a89f91;
+      --text-muted: #787066;
+      --amber-warn: #d89448;
+      --crimson-err: #c9574e;
+      --emerald-ok: #7fa872;
+      --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+      --font-body: 'EB Garamond', Georgia, serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+      --gem-intensity: 0.25;
     }
-    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
-    body {
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
       margin: 0;
-      background: radial-gradient(circle at center, #181410 0%, var(--bg) 100%);
-      color: var(--text);
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 0;
+      min-height: 100%;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body {
+      background-image:
+        radial-gradient(ellipse 75% 48% at 50% 0%, rgba(132, 90, 42, 0.16) 0%, rgba(7, 6, 8, 0) 70%),
+        radial-gradient(circle at 18% 85%, rgba(64, 72, 112, 0.08) 0%, rgba(7, 6, 8, 0) 48%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cpath d='M0 32h64M32 0v64' stroke='%23cfa866' stroke-opacity='0.032' stroke-width='1'/%3E%3Cpath d='M16 16h32v32H16z' fill='none' stroke='%23cfa866' stroke-opacity='0.025' stroke-width='1'/%3E%3C/svg%3E");
+      background-attachment: fixed;
+    }
+
+    body[data-mode="playing"] {
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Typography */
+    h1, h2, h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: 0.02em;
+      color: var(--gold-bright);
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Launcher Shell */
+    #launcher {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 14px 24px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    body[data-mode="playing"] #launcher {
+      display: none;
+    }
+
+    /* Top Bar (3-zone clean contract) */
+    .topbar {
       display: flex;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-bronze);
+    }
+
+    .brand-mark {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--gold-bright);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.92rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.85), inset 0 0 30px rgba(212,175,55,0.03);
-      border-radius: 14px;
-      padding: 28px;
-      max-width: 460px;
-      width: 92%;
-      text-align: center;
-      position: relative;
+
+    .topbar-sep {
+      color: var(--border-bronze-bright);
     }
-    .badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--gold);
-      border: 1px solid var(--gold-dim);
-      padding: 3px 10px;
-      border-radius: 20px;
-      margin-bottom: 10px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.6rem;
+
+    .topbar-action {
+      background: transparent;
+      border: 1px solid var(--border-bronze);
+      color: var(--slate-thief);
+      font-family: var(--font-display);
+      font-size: 0.95rem;
       font-weight: 600;
       letter-spacing: 0.04em;
-      color: var(--gold);
-      text-shadow: 0 2px 10px rgba(212,175,55,0.25);
-    }
-    p {
-      margin: 0 0 20px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      color: var(--muted);
-    }
-    .btn {
-      width: 100%;
-      padding: 14px 20px;
-      background: linear-gradient(180deg, var(--accent-hover), var(--accent));
-      color: #fff;
-      border: 1px solid #3c6e56;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
+      padding: 8px 16px;
+      min-height: 40px;
       cursor: pointer;
-      transition: transform 0.1s, filter 0.2s;
-    }
-    .btn:hover:not(:disabled) { filter: brightness(1.15); }
-    .btn:active:not(:disabled) { transform: scale(0.98); }
-    .btn:disabled {
-      background: #1e1b18;
-      border-color: #2e2924;
-      color: #665e54;
-      cursor: not-allowed;
-    }
-    .progress-wrap {
-      display: none;
-      margin-top: 18px;
-      background: #0d0b09;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      height: 8px;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
-      transition: width 0.15s;
-    }
-    #status {
-      margin-top: 14px;
-      font-size: 0.85rem;
-      color: var(--text);
-      min-height: 1.3em;
-    }
-    .console-toggle {
-      margin-top: 16px;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 0.78rem;
-      text-decoration: underline;
-      cursor: pointer;
-    }
-    #log-box {
-      display: none;
-      margin-top: 10px;
-      background: #070605;
-      border: 1px solid #262019;
-      border-radius: 6px;
-      padding: 8px;
-      height: 110px;
-      overflow-y: auto;
-      text-align: left;
-      font-family: monospace;
-      font-size: 0.72rem;
-      color: #9e9589;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: color 180ms var(--ease-settle), border-color 180ms var(--ease-settle), background-color 180ms var(--ease-settle);
     }
 
-    /* Игровой экран */
-    #game-wrap {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #000;
-    }
-    canvas#canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      object-fit: contain;
+    .topbar-action:hover,
+    .topbar-action:focus-visible {
+      color: var(--gold-bright);
+      border-color: var(--gold);
+      background: rgba(207, 168, 102, 0.08);
+      outline: none;
     }
 
-    /* Сенсорное управление для телефона */
-    #touch-controls {
-      display: none;
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 10;
+    /* Hero + Light Gem Centerpiece */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 16px 24px 16px;
+      background: linear-gradient(180deg, rgba(24, 19, 15, 0.92) 0%, rgba(15, 12, 10, 0.95) 100%);
+      border: 1px solid var(--border-bronze);
+      box-shadow: inset 0 0 0 1px rgba(235, 208, 148, 0.06), 0 16px 34px rgba(0, 0, 0, 0.52);
+      position: relative;
     }
-    @media (pointer: coarse) {
-      #touch-controls { display: block; }
-    }
-    .touch-zone {
+
+    .hero::before,
+    .hero::after {
+      content: "";
       position: absolute;
-      bottom: 24px;
-      display: grid;
-      grid-template-columns: repeat(3, 52px);
-      grid-template-rows: repeat(3, 52px);
-      gap: 6px;
-      pointer-events: auto;
+      width: 14px;
+      height: 14px;
+      border-color: var(--gold-dim);
+      border-style: solid;
+      pointer-events: none;
     }
-    #dpad { left: 20px; }
-    #actions { right: 20px; grid-template-columns: repeat(2, 58px); }
-    .t-btn {
-      background: rgba(25, 22, 18, 0.55);
-      border: 1px solid rgba(212, 175, 55, 0.35);
-      border-radius: 12px;
-      color: var(--gold);
-      font-weight: bold;
-      font-size: 0.85rem;
+
+    .hero::before {
+      top: 6px;
+      left: 6px;
+      border-width: 1px 0 0 1px;
+    }
+
+    .hero::after {
+      bottom: 6px;
+      right: 6px;
+      border-width: 0 1px 1px 0;
+    }
+
+    .light-gem-housing {
+      position: relative;
+      width: 96px;
+      height: 46px;
       display: flex;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(4px);
+      margin-bottom: 8px;
     }
-    .t-btn:active { background: rgba(212, 175, 55, 0.35); }
-    #btn-fs {
+
+    .light-gem-svg {
+      width: 96px;
+      height: 46px;
+      overflow: visible;
+      transition: filter 280ms var(--ease-settle);
+    }
+
+    .light-gem-housing[data-state="shadow"] .light-gem-svg {
+      filter: drop-shadow(0 0 4px rgba(100, 86, 62, 0.2));
+    }
+
+    .light-gem-housing[data-state="loading"] .light-gem-svg {
+      animation: gemPulse 1.8s ease-in-out infinite;
+    }
+
+    .light-gem-housing[data-state="ready"] .light-gem-svg {
+      filter: drop-shadow(0 0 14px rgba(235, 196, 112, 0.65));
+    }
+
+    .light-gem-housing[data-state="error"] .light-gem-svg {
+      filter: drop-shadow(0 0 10px rgba(201, 87, 78, 0.55));
+    }
+
+    @keyframes gemPulse {
+      0%, 100% {
+        filter: drop-shadow(0 0 6px rgba(216, 148, 72, 0.35));
+        transform: scale(1);
+      }
+      50% {
+        filter: drop-shadow(0 0 16px rgba(235, 200, 118, 0.72));
+        transform: scale(1.03);
+      }
+    }
+
+    .hero-title {
+      font-size: clamp(1.75rem, 3.1vw, 2.55rem);
+      line-height: 1.08;
+      text-wrap: balance;
+      color: var(--gold-bright);
+      letter-spacing: 0.05em;
+    }
+
+    .hero-subtitle {
+      margin: 6px 0 12px;
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+      max-width: 66ch;
+    }
+
+    /* WASM Progress Block */
+    .wasm-progress-wrap {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .wasm-progress-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      font-size: 0.9rem;
+    }
+
+    .wasm-status-text {
+      color: var(--text-primary);
+      text-align: left;
+    }
+
+    .wasm-metrics {
+      font-size: 0.8rem;
+      color: var(--gold);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 7px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-bronze);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #7d5b2b 0%, #cfa866 60%, #f0d79a 100%);
+      transition: width 180ms var(--ease-settle);
+    }
+
+    .progress-fill[data-state="error"] {
+      background: linear-gradient(90deg, #6e2d29 0%, #c9574e 100%);
+    }
+
+    /* Two-Column Balanced Workspace */
+    .grid-panels {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bronze);
+      box-shadow: inset 0 0 0 1px rgba(235, 208, 148, 0.04);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+
+    .panel-title {
+      font-size: 1.28rem;
+      color: var(--gold-bright);
+    }
+
+    .panel-note {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .cache-tips {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 14px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-hairline);
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .cache-tips-title {
+      font-family: var(--font-display);
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: var(--gold);
+    }
+
+    .cache-tips-list {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    /* Dropzone & File Actions */
+    .dropzone {
+      border: 1px dashed var(--border-bronze-bright);
+      background: var(--bg-inset);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: border-color 180ms var(--ease-settle), background-color 180ms var(--ease-settle);
+    }
+
+    .dropzone.is-dragover {
+      border-color: var(--gold-bright);
+      background: rgba(207, 168, 102, 0.08);
+    }
+
+    .dropzone-copy {
+      margin: 0;
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+    }
+
+    .upload-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 46px;
+      padding: 10px 16px;
+      background: var(--bg-panel-elev);
+      border: 1px solid var(--border-bronze-bright);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 160ms var(--ease-settle), color 160ms var(--ease-settle), background-color 160ms var(--ease-settle), transform 120ms var(--ease-settle);
+    }
+
+    .btn-secondary:hover,
+    .btn-secondary:focus-visible {
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+      background: rgba(207, 168, 102, 0.1);
+      outline: none;
+    }
+
+    .btn-secondary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-secondary.is-recommended {
+      border-color: var(--gold);
+      color: var(--gold-bright);
+    }
+
+    .btn-danger-ghost {
+      background: transparent;
+      border: 1px solid rgba(201, 87, 78, 0.48);
+      color: #e28d86;
+      font-family: var(--font-display);
+      font-size: 0.94rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      min-height: 40px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 160ms var(--ease-settle), border-color 160ms var(--ease-settle), color 160ms var(--ease-settle);
+    }
+
+    .btn-danger-ghost:hover,
+    .btn-danger-ghost:focus-visible {
+      background: rgba(201, 87, 78, 0.14);
+      border-color: var(--crimson-err);
+      color: #ffd0cc;
+      outline: none;
+    }
+
+    .btn-danger-ghost:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+    }
+
+    /* Cache Summary Row */
+    .cache-summary {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .cache-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .cache-state-line {
+      font-size: 0.98rem;
+      color: var(--text-primary);
+    }
+
+    .cache-detail-line {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .extract-progress {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .extract-progress.is-active {
+      display: flex;
+    }
+
+    /* Settings Controls */
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .setting-label-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .setting-label {
+      font-size: 0.98rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .setting-hint {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-bronze);
+    }
+
+    .segmented.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .segmented.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .seg-btn {
+      min-height: 44px;
+      padding: 8px 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--slate-thief);
+      font-family: var(--font-body);
+      font-size: 0.94rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+      transition: background-color 160ms var(--ease-settle), border-color 160ms var(--ease-settle), color 160ms var(--ease-settle);
+    }
+
+    .seg-btn small {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .seg-btn:hover,
+    .seg-btn:focus-visible {
+      color: var(--gold-bright);
+      outline: none;
+    }
+
+    .seg-btn[aria-pressed="true"] {
+      background: linear-gradient(180deg, rgba(110, 82, 52, 0.34) 0%, rgba(56, 41, 26, 0.44) 100%);
+      border-color: var(--gold);
+      color: var(--gold-bright);
+    }
+
+    .seg-btn[aria-pressed="true"] small {
+      color: var(--gold);
+    }
+
+    .backend-notice {
+      font-size: 0.88rem;
+      padding: 10px 12px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-secondary);
+    }
+
+    .backend-notice[data-tone="warn"] {
+      border-color: rgba(216, 148, 72, 0.5);
+      color: #f0c28a;
+    }
+
+    .backend-notice[data-tone="ok"] {
+      border-color: rgba(127, 168, 114, 0.45);
+      color: #bfd9b6;
+    }
+
+    /* Range Slider & Inline Control Row */
+    .range-input {
+      width: 100%;
+      height: 28px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    .control-toggles-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mini-toggle-btn {
+      min-height: 38px;
+      padding: 6px 10px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-bronze);
+      color: var(--slate-thief);
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: border-color 140ms var(--ease-settle), color 140ms var(--ease-settle), background-color 140ms var(--ease-settle);
+    }
+
+    .mini-toggle-btn[aria-pressed="true"] {
+      border-color: var(--gold);
+      color: var(--gold-bright);
+      background: rgba(110, 82, 52, 0.28);
+    }
+
+    .mini-toggle-btn small {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+    }
+
+    .dual-sliders {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .slider-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .gesture-guide-box {
+      padding: 8px 10px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-hairline);
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.38;
+    }
+
+    .gesture-guide-box strong {
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    /* Launch Footer Strip */
+    .launch-bar {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bronze);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .launch-readout {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 240px;
+      flex: 1;
+    }
+
+    .launch-readout-title {
+      font-size: 1rem;
+      color: var(--text-primary);
+    }
+
+    .launch-readout-sub {
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .launch-cta-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .btn-primary-launch {
+      min-height: 52px;
+      min-width: 220px;
+      padding: 12px 28px;
+      background: linear-gradient(180deg, #dec07f 0%, #b58d47 100%);
+      border: 1px solid #f2da9f;
+      color: #120c06;
+      font-family: var(--font-display);
+      font-size: 1.22rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      transition: filter 160ms var(--ease-settle), transform 120ms var(--ease-settle), opacity 160ms var(--ease-settle);
+    }
+
+    .btn-primary-launch:hover:not(:disabled),
+    .btn-primary-launch:focus-visible:not(:disabled) {
+      filter: brightness(1.08);
+      outline: 2px solid var(--gold-bright);
+      outline-offset: 2px;
+    }
+
+    .btn-primary-launch:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-primary-launch:disabled {
+      background: linear-gradient(180deg, #322a23 0%, #231d18 100%);
+      border-color: var(--border-bronze);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .sr-only-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Fullscreen Gameplay Stage & Touch Controls */
+    #game-stage {
+      display: none;
       position: fixed;
-      top: 12px;
-      right: 12px;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      background: #040406;
+      z-index: 50;
+      overflow: hidden;
+    }
+
+    body[data-mode="playing"] #game-stage {
+      display: block;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #050507;
+      outline: none;
+      touch-action: none;
+    }
+
+    /* Compact Top In-Game Utility Bar (<= 46px height, zero clipping on 390px mobile) */
+    .hud-topbar {
+      position: fixed;
+      top: env(safe-area-inset-top, 0px);
+      left: 0;
+      right: 0;
+      height: 46px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: linear-gradient(180deg, rgba(10, 8, 7, 0.9) 0%, rgba(10, 8, 7, 0) 100%);
+      z-index: 65;
+      pointer-events: none;
+      contain: layout style;
+    }
+
+    .hud-topbar-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
       pointer-events: auto;
-      padding: 8px 12px;
-      font-size: 0.75rem;
-      z-index: 20;
+      min-width: 0;
+    }
+
+    .hud-chip-btn {
+      min-height: 36px;
+      min-width: 40px;
+      padding: 4px 9px;
+      background: rgba(16, 12, 9, 0.86);
+      border: 1px solid rgba(175, 138, 82, 0.48);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 0.84rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+    }
+
+    @media (max-width: 480px) {
+      .hud-chip-btn {
+        padding: 4px 7px;
+        font-size: 0.78rem;
+        min-width: 38px;
+      }
+      .hud-desktop-only {
+        display: none;
+      }
+      .segmented.cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .hud-chip-btn:active,
+    .hud-chip-btn.is-active {
+      background: rgba(207, 168, 102, 0.28);
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+    }
+
+    /* Touch Overlay Layer */
+    #touch-hud {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      pointer-events: none;
+      contain: layout style;
+    }
+
+    #touch-hud[data-hidden="true"] {
+      display: none;
+    }
+
+    /* Button-Free Gesture Overlay Layer */
+    #gesture-hud {
+      position: fixed;
+      inset: 0;
+      z-index: 61;
+      pointer-events: auto;
+      touch-action: none;
+      contain: layout style;
+    }
+
+    #gesture-hud[data-hidden="true"] {
+      display: none;
+      pointer-events: none;
+    }
+
+    .gesture-ghost-ring {
+      position: fixed;
+      width: 96px;
+      height: 96px;
+      margin: -48px 0 0 -48px;
+      border-radius: 50%;
+      border: 1px solid rgba(207, 168, 102, 0.45);
+      background: radial-gradient(circle, rgba(207, 168, 102, 0.14) 0%, rgba(12, 9, 7, 0) 72%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      will-change: transform, opacity;
+    }
+
+    .gesture-ghost-ring.is-visible {
+      opacity: 1;
+    }
+
+    .gesture-ghost-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 24px;
+      height: 24px;
+      margin: -12px 0 0 -12px;
+      border-radius: 50%;
+      border: 1px solid var(--gold-bright);
+      background: rgba(207, 168, 102, 0.35);
+      will-change: transform;
+    }
+
+    .gesture-toast {
+      position: fixed;
+      top: calc(52px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 12px;
+      background: rgba(14, 11, 9, 0.84);
+      border: 1px solid rgba(207, 168, 102, 0.5);
+      color: var(--gold-bright);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 66;
+      transition: opacity 140ms ease;
+      white-space: nowrap;
+    }
+
+    .gesture-toast.is-visible {
+      opacity: 1;
+    }
+
+    /* Minimal HUD chrome when button-free gestures mode is active */
+    #game-stage[data-touch-layout="gestures"] .hud-topbar-left,
+    #game-stage[data-touch-layout="gestures"] .hud-pause-btn {
+      display: none;
+    }
+
+    #game-stage[data-touch-layout="gestures"] .hud-topbar {
+      justify-content: flex-end;
+      background: none;
+    }
+
+    .touch-zone-left {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 46%;
+      height: 68%;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .touch-zone-right {
+      position: absolute;
+      right: 0;
+      top: 52px;
+      bottom: 0;
+      width: 54%;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    /* Floating Virtual Stick */
+    .stick-base {
+      position: absolute;
+      left: 26px;
+      bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(207, 168, 102, 0.48);
+      background: radial-gradient(circle, rgba(22, 17, 13, 0.32) 0%, rgba(12, 9, 7, 0.56) 100%);
+      pointer-events: none;
+      opacity: 0.65;
+      transition: opacity 140ms ease;
+    }
+
+    .stick-base.is-active {
+      opacity: 0.96;
+      border-color: var(--gold-bright);
+    }
+
+    .stick-ring-inner {
+      position: absolute;
+      inset: 28%;
+      border-radius: 50%;
+      border: 1px dashed rgba(207, 168, 102, 0.28);
+    }
+
+    .stick-knob {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 48px;
+      height: 48px;
+      margin: -24px 0 0 -24px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(235, 208, 148, 0.72), rgba(110, 82, 46, 0.65));
+      border: 1.5px solid var(--gold-bright);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+      will-change: transform;
+    }
+
+    .stick-speed-tag {
+      position: absolute;
+      left: 50%;
+      bottom: -22px;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--gold);
+      white-space: nowrap;
+      text-shadow: 0 1px 4px #000;
+    }
+
+    /* Action Clusters */
+    .touch-cluster-left {
+      position: absolute;
+      left: 16px;
+      bottom: calc(174px + env(safe-area-inset-bottom, 0px));
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+      z-index: 62;
+    }
+
+    .touch-cluster-right {
+      position: absolute;
+      right: 16px;
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      display: grid;
+      grid-template-columns: repeat(2, 62px);
+      gap: 10px;
+      pointer-events: auto;
+      z-index: 62;
+    }
+
+    .touch-act-btn {
+      min-width: 54px;
+      min-height: 48px;
+      padding: 6px 8px;
+      background: rgba(16, 12, 9, 0.82);
+      border: 1px solid rgba(207, 168, 102, 0.54);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 0.86rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.1;
+      transition: background-color 90ms ease, border-color 90ms ease, color 90ms ease, transform 90ms ease;
+    }
+
+    .touch-act-btn.is-pressed,
+    .touch-act-btn.is-toggled {
+      background: rgba(207, 168, 102, 0.36);
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+      transform: scale(0.96);
+    }
+
+    .touch-act-btn.is-primary-act {
+      border-color: var(--gold);
+      background: rgba(78, 56, 30, 0.78);
+    }
+
+    /* Quick In-Game Settings Drawer */
+    .hud-drawer {
+      display: none;
+      position: fixed;
+      top: 52px;
+      right: 12px;
+      width: min(304px, calc(100vw - 24px));
+      background: rgba(14, 11, 9, 0.96);
+      border: 1px solid var(--border-bronze-bright);
+      padding: 16px;
+      z-index: 70;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.78);
+    }
+
+    .hud-drawer.is-open {
+      display: flex;
+    }
+
+    .hud-drawer h3 {
+      font-size: 1.1rem;
+      border-bottom: 1px solid var(--border-hairline);
+      padding-bottom: 8px;
+    }
+
+    /* Responsive Mobile Layout */
+    @media (max-width: 879px) {
+      #launcher {
+        padding: 14px 14px 28px;
+        gap: 16px;
+      }
+
+      .topbar {
+        gap: 12px;
+      }
+
+      .topbar-meta {
+        display: none;
+      }
+
+      .hero {
+        padding: 20px 16px 18px;
+      }
+
+      .grid-panels {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .panel {
+        padding: 18px 16px;
+      }
+
+      .upload-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .launch-bar {
+        padding: 16px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .launch-cta-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-primary-launch {
+        width: 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .light-gem-housing[data-state="loading"] .light-gem-svg {
+        animation: none;
+      }
+      * {
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
-<body>
-
-  <div class="card" id="setup-panel">
-    <div class="badge">WebAssembly • WebGL 2.0</div>
-    <h1>Dark Engine Web</h1>
-    <p>Запуск классического движка <b>Thief Gold / Thief II</b> прямо в браузере.<br>Укажите папку с установленной игрой (где лежит <code>cam.cfg</code>).</p>
-
-    <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none">
-    <button class="btn" id="pick-btn" disabled>Загрузка ядра движка...</button>
-
-    <div class="progress-wrap" id="progress-wrap">
-      <div class="progress-bar" id="progress-bar"></div>
-    </div>
-    <div id="status">Инициализация WebAssembly...</div>
-
-    <button class="console-toggle" id="toggle-log">Показать лог движка</button>
-    <div id="log-box"></div>
-  </div>
-
-  <div id="game-wrap">
-    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
-    <button class="t-btn" id="btn-fs">⛶ Полный экран</button>
-
-    <div id="touch-controls">
-      <div class="touch-zone" id="dpad">
-        <div></div><div class="t-btn" data-key="KeyW" data-code="87">W</div><div></div>
-        <div class="t-btn" data-key="KeyA" data-code="65">A</div>
-        <div class="t-btn" data-key="KeyS" data-code="83">S</div>
-        <div class="t-btn" data-key="KeyD" data-code="68">D</div>
-        <div></div><div></div><div></div>
+<body data-mode="launcher">
+  <main id="launcher" aria-label="Лаунчер Dark Engine Web">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="brand-mark">DARK ENGINE</div>
+      <div class="topbar-meta" aria-label="Платформа">
+        <span>Thief Gold / Thief II</span>
+        <span class="topbar-sep" aria-hidden="true">·</span>
+        <span>Clang LTO -O3 · SIMD</span>
+        <span class="topbar-sep" aria-hidden="true">·</span>
+        <span id="topbar-backend-label">WebGL 2.0</span>
       </div>
-      <div class="touch-zone" id="actions">
-        <div class="t-btn" data-key="Space" data-code="32">Прыжок</div>
-        <div class="t-btn" data-key="KeyE" data-code="69">Взять</div>
-        <div class="t-btn" data-key="KeyX" data-code="88">Присесть</div>
-        <div class="t-btn" data-key="Escape" data-code="27">Меню</div>
+      <button type="button" id="previewHudTopBtn" class="topbar-action">Тест управления</button>
+    </header>
+
+    <!-- Hero + Light Gem -->
+    <section class="hero" aria-label="Состояние движка">
+      <div class="light-gem-housing" id="lightGem" data-state="loading" role="img" aria-label="Световой кристалл: загрузка WebAssembly">
+        <svg class="light-gem-svg" viewBox="0 0 112 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="bronzeFrame" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#7c5d39" />
+              <stop offset="50%" stop-color="#3c2b1c" />
+              <stop offset="100%" stop-color="#1e150e" />
+            </linearGradient>
+            <linearGradient id="gemCore" x1="0" y1="0" x2="1" y2="1">
+              <stop id="gemStop1" offset="0%" stop-color="#3a332a" />
+              <stop id="gemStop2" offset="50%" stop-color="#8b6b38" />
+              <stop id="gemStop3" offset="100%" stop-color="#282017" />
+            </linearGradient>
+            <linearGradient id="gemHighlight" x1="0" y1="0" x2="0" y2="1">
+              <stop id="gemHi1" offset="0%" stop-color="#f3dfaa" stop-opacity="0.7" />
+              <stop id="gemHi2" offset="100%" stop-color="#cfa866" stop-opacity="0.08" />
+            </linearGradient>
+          </defs>
+          <!-- Bronze bezel mount -->
+          <polygon points="10,27 28,6 84,6 102,27 84,48 28,48" fill="url(#bronzeFrame)" stroke="#6e5234" stroke-width="1.5" />
+          <polygon points="15,27 31,11 81,11 97,27 81,43 31,43" fill="#0d0a08" stroke="#2d2015" stroke-width="1" />
+          <!-- Faceted Light Gem crystal -->
+          <polygon id="gemBody" points="21,27 35,14 77,14 91,27 77,40 35,40" fill="url(#gemCore)" stroke="#a37f46" stroke-width="1" />
+          <!-- Upper crown facets -->
+          <polygon points="35,14 77,14 68,21 44,21" fill="url(#gemHighlight)" />
+          <polygon points="21,27 35,14 44,21 35,27" fill="#ffffff" fill-opacity="0.14" />
+          <polygon points="91,27 77,14 68,21 77,27" fill="#000000" fill-opacity="0.22" />
+          <!-- Lower pavilion facets -->
+          <polygon points="35,40 77,40 68,33 44,33" fill="#000000" fill-opacity="0.34" />
+          <polygon points="44,21 68,21 77,27 68,33 44,33 35,27" fill="url(#gemHighlight)" fill-opacity="0.55" />
+          <!-- Bronze corner prongs -->
+          <path d="M24,10 L32,16 M88,10 L80,16 M24,44 L32,38 M88,44 L80,38" stroke="#b69054" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </div>
+
+      <h1 class="hero-title">Thief: The Dark Project &amp; Thief II</h1>
+      <p class="hero-subtitle">Веб-порт Dark Engine на WebAssembly с постоянным кэшированием IDBFS, распаковкой архивов и сенсорным управлением</p>
+
+      <div class="wasm-progress-wrap">
+        <div class="wasm-progress-header">
+          <span class="wasm-status-text" id="wasmStatusText">Загрузка модуля thief-runner.wasm...</span>
+          <span class="wasm-metrics mono" id="wasmMetrics">0.0 МБ · 0%</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="Загрузка WebAssembly" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="wasmProgressBar">
+          <div class="progress-fill" id="wasmProgressFill"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main 2-Column Configuration Panels -->
+    <div class="grid-panels">
+      <!-- Panel 1: Game Files & IndexedDB / IDBFS Cache -->
+      <section class="panel" aria-labelledby="filesHeading">
+        <div class="panel-head">
+          <h2 class="panel-title" id="filesHeading">Файлы игры и кэш</h2>
+          <span class="panel-note mono" id="cacheBadgeText">IndexedDB · IDBFS</span>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <p class="dropzone-copy">
+            Укажите готовый <strong>.zip архив</strong> (быстрее и надёжнее на Android) или локальную папку с установленной <em>Thief Gold</em> / <em>Thief II</em>. Файлы сохранятся в браузере для мгновенного повторного запуска.
+          </p>
+
+          <div class="upload-actions">
+            <button type="button" class="btn-secondary is-recommended" id="pickZipBtn">Выбрать .ZIP архив</button>
+            <button type="button" class="btn-secondary" id="pickFolderBtn">Выбрать папку</button>
+          </div>
+
+          <input type="file" id="zipInput" class="sr-only-input" accept=".zip,application/zip,application/x-zip-compressed" aria-label="Выбрать ZIP архив с игрой" />
+          <input type="file" id="folderInput" class="sr-only-input" webkitdirectory directory multiple aria-label="Выбрать папку с игрой" />
+
+          <div class="extract-progress" id="extractProgressBox">
+            <div class="wasm-progress-header">
+              <span class="wasm-status-text" id="extractStatusText">Распаковка архива...</span>
+              <span class="wasm-metrics mono" id="extractMetrics">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="extractProgressFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cache-tips" aria-label="Памятка по кэшу">
+          <span class="cache-tips-title">Мгновенный повторный запуск (IDBFS)</span>
+          <ul class="cache-tips-list">
+            <li>Поддерживаются <strong>Thief Gold</strong>, <strong>Thief: The Dark Project</strong> и <strong>Thief II</strong>.</li>
+            <li>Распакованные ресурсы и сохранения хранятся локально в IndexedDB.</li>
+            <li>На Android выбор одного <strong>.zip</strong> работает в разы быстрее папки.</li>
+          </ul>
+        </div>
+
+        <div class="cache-summary">
+          <div class="cache-info">
+            <span class="cache-state-line" id="cacheStatusLine">Проверка локального кэша браузера...</span>
+            <span class="cache-detail-line mono" id="cacheDetailLine">0 файлов · 0.0 МБ</span>
+          </div>
+          <button type="button" class="btn-danger-ghost" id="clearCacheBtn" disabled>Очистить кэш</button>
+        </div>
+      </section>
+
+      <!-- Panel 2: Graphics API, Quality Presets & Controls -->
+      <section class="panel" aria-labelledby="gfxHeading">
+        <div class="panel-head">
+          <h2 class="panel-title" id="gfxHeading">Графика и управление</h2>
+          <span class="panel-note mono" id="resPreviewText">1.0× · 60 FPS</span>
+        </div>
+
+        <!-- Graphics Backend Switcher -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <span class="setting-label">Графический API</span>
+            <span class="setting-hint mono" id="gpuProbeText">Проверка GPU...</span>
+          </div>
+          <div class="segmented" role="group" aria-label="Выбор графического бэкенда">
+            <button type="button" class="seg-btn" id="backendWebglBtn" data-backend="webgl2" aria-pressed="true">
+              <span>WebGL 2.0</span>
+              <small>Стабильный / Быстрый</small>
+            </button>
+            <button type="button" class="seg-btn" id="backendWebgpuBtn" data-backend="webgpu" aria-pressed="false">
+              <span>WebGPU</span>
+              <small>Экспериментальный</small>
+            </button>
+          </div>
+          <div class="backend-notice" id="backendNotice" data-tone="ok">
+            WebGL 2.0 активен: оптимальный прямой путь OpenGL ES 3 для телефонов и ПК.
+          </div>
+        </div>
+
+        <!-- Quality / Resolution Preset -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <span class="setting-label">Качество и масштаб рендера</span>
+            <span class="setting-hint" id="qualityDescText">Родное разрешение ПК</span>
+          </div>
+          <div class="segmented cols-4" role="group" aria-label="Пресет качества">
+            <button type="button" class="seg-btn" data-quality="ultralow" aria-pressed="false">
+              <span>Ультра-н.</span>
+              <small>0.50× · Тел.</small>
+            </button>
+            <button type="button" class="seg-btn" data-quality="low" aria-pressed="false">
+              <span>Низкое</span>
+              <small>0.65× · Тел.</small>
+            </button>
+            <button type="button" class="seg-btn" data-quality="medium" aria-pressed="false">
+              <span>Среднее</span>
+              <small>0.85× · Норм</small>
+            </button>
+            <button type="button" class="seg-btn" data-quality="high" aria-pressed="true">
+              <span>Высокое</span>
+              <small>1.0× · ПК</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- Target FPS / Mobile Thermal Limiter -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <span class="setting-label">Лимит FPS и нагрев (телефоны)</span>
+            <span class="setting-hint mono" id="fpsCapDescText">60 FPS · Стабильно</span>
+          </div>
+          <div class="segmented cols-3" role="group" aria-label="Ограничение частоты кадров">
+            <button type="button" class="seg-btn" data-fps="30" aria-pressed="false">
+              <span>30 FPS</span>
+              <small>Эконом батареи</small>
+            </button>
+            <button type="button" class="seg-btn" data-fps="60" aria-pressed="true">
+              <span>60 FPS</span>
+              <small>Плавный баланс</small>
+            </button>
+            <button type="button" class="seg-btn" data-fps="0" aria-pressed="false">
+              <span>Авто VSync</span>
+              <small>Макс. Гц экрана</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- Unified Controls: PC Raw Mouse, Gamepad & Smartphone (Buttons / Gestures) -->
+        <div class="setting-group">
+          <div class="setting-label-row">
+            <span class="setting-label">Управление (ПК · Геймпад · Смартфон)</span>
+            <span class="setting-hint mono" id="gamepadStatusText">Геймпад: автопоиск</span>
+          </div>
+          <div class="segmented cols-4" role="group" aria-label="Режим сенсорного управления">
+            <button type="button" class="seg-btn" data-touch="auto" aria-pressed="true">
+              <span>Авто</span>
+              <small>ПК / Тел.</small>
+            </button>
+            <button type="button" class="seg-btn" data-touch="buttons" aria-pressed="false">
+              <span>Кнопки</span>
+              <small>Стик + HUD</small>
+            </button>
+            <button type="button" class="seg-btn" data-touch="gestures" aria-pressed="false">
+              <span>Жесты</span>
+              <small>Без кнопок</small>
+            </button>
+            <button type="button" class="seg-btn" data-touch="off" aria-pressed="false">
+              <span>Выкл.</span>
+              <small>ПК / Пад</small>
+            </button>
+          </div>
+
+          <div class="gesture-guide-box" id="controlModeHint">
+            <strong>ПК:</strong> Raw-мышь (клик по экрану = захват), F5/F9 сейвы · <strong>Геймпад:</strong> авто-мост Xbox/DualSense · <strong>Телефон:</strong> стик или жесты без кнопок.
+          </div>
+
+          <div class="dual-sliders">
+            <div class="slider-cell">
+              <div class="setting-label-row">
+                <label class="setting-hint" for="sensitivitySlider">Обзор (мышь/пад/тач)</label>
+                <span class="setting-hint mono" id="sensitivityReadout">1.2×</span>
+              </div>
+              <input type="range" id="sensitivitySlider" class="range-input" min="0.4" max="3.0" step="0.1" value="1.2" aria-label="Чувствительность обзора камерой" />
+            </div>
+            <div class="slider-cell">
+              <div class="setting-label-row">
+                <label class="setting-hint" for="deadzoneSlider">Мёртвая зона стиков</label>
+                <span class="setting-hint mono" id="deadzoneReadout">15%</span>
+              </div>
+              <input type="range" id="deadzoneSlider" class="range-input" min="0.05" max="0.30" step="0.01" value="0.15" aria-label="Мёртвая зона геймпада" />
+            </div>
+          </div>
+
+          <div class="control-toggles-row">
+            <button type="button" class="mini-toggle-btn" id="invertYBtn" aria-pressed="false">
+              <span>Инверсия оси Y</span>
+              <small id="invertYVal">ВЫКЛ</small>
+            </button>
+            <button type="button" class="mini-toggle-btn" id="rawMouseBtn" aria-pressed="true">
+              <span>ПК Raw Input</span>
+              <small id="rawMouseVal">ВКЛ</small>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Primary Action Launch Bar -->
+    <section class="launch-bar" aria-label="Запуск игры">
+      <div class="launch-readout">
+        <span class="launch-readout-title" id="launchReadoutTitle">Подготовка к запуску...</span>
+        <span class="launch-readout-sub" id="launchReadoutSub">Загрузите .zip или папку с игрой, либо используйте сохранённый кэш</span>
+      </div>
+      <div class="launch-cta-group">
+        <button type="button" id="launchBtn" class="btn-primary-launch" disabled>Запустить Thief</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Fullscreen Gameplay Viewport + Touch/Gesture Controls Overlay -->
+  <section id="game-stage" data-touch-layout="buttons" aria-label="Игровой экран Dark Engine">
+    <canvas id="canvas" data-testid="game-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+    <!-- Ephemeral Gesture / Gamepad / Pointer Lock Feedback Toast -->
+    <div class="gesture-toast" id="gestureToast" aria-live="polite"></div>
+
+    <!-- Compact Top HUD Bar -->
+    <div class="hud-topbar">
+      <div class="hud-topbar-group hud-topbar-left">
+        <button type="button" class="hud-chip-btn" data-key="KeyM" aria-label="Открыть карту">Карта</button>
+        <button type="button" class="hud-chip-btn" data-key="BracketLeft" aria-label="Переключить оружие">Оружие</button>
+        <button type="button" class="hud-chip-btn" data-key="BracketRight" aria-label="Переключить предмет">Предм.</button>
+      </div>
+      <div class="hud-topbar-group">
+        <button type="button" class="hud-chip-btn hud-pause-btn" data-key="Escape" aria-label="Пауза">Пауза</button>
+        <button type="button" class="hud-chip-btn" id="hudSettingsBtn" aria-expanded="false" aria-controls="hudDrawer">Опции</button>
+        <button type="button" class="hud-chip-btn hud-desktop-only" id="exitToLauncherBtn">Меню</button>
       </div>
     </div>
-  </div>
+
+    <!-- Quick In-Game Settings Drawer -->
+    <aside class="hud-drawer" id="hudDrawer" aria-label="Быстрые настройки игры">
+      <h3>Настройки в игре</h3>
+      <div class="setting-group">
+        <span class="setting-label">Сенсорный режим</span>
+        <div class="segmented cols-3" role="group" aria-label="Режим управления в игре">
+          <button type="button" class="seg-btn" data-touch="buttons" aria-pressed="false"><span>Кнопки</span></button>
+          <button type="button" class="seg-btn" data-touch="gestures" aria-pressed="false"><span>Жесты</span></button>
+          <button type="button" class="seg-btn" data-touch="off" aria-pressed="false"><span>Выкл.</span></button>
+        </div>
+      </div>
+      <div class="gesture-guide-box" id="hudGestureCheatSheet" style="display: none;">
+        <strong>Жесты (без кнопок):</strong><br />
+        • Лево: тянуть = шаг/бег · тап = действие · 2×тап = присед<br />
+        • Право: тянуть = обзор · тап = удар · удерж. = блок · 2×тап = прыжок<br />
+        • 2 пальца: свайп L/R = наклон · вверх = оружие · вниз = карта · тап = блок
+      </div>
+      <div class="setting-group">
+        <div class="setting-label-row">
+          <span class="setting-label">Чувствительность</span>
+          <span class="setting-hint mono" id="hudSensVal">1.2×</span>
+        </div>
+        <input type="range" id="hudSensSlider" class="range-input" min="0.4" max="3.0" step="0.1" value="1.2" aria-label="Чувствительность обзора в игре" />
+      </div>
+      <div class="setting-group">
+        <span class="setting-label">Лимит FPS</span>
+        <div class="segmented cols-3" role="group" aria-label="Лимит FPS в игре">
+          <button type="button" class="seg-btn" data-fps="30" aria-pressed="false"><span>30</span></button>
+          <button type="button" class="seg-btn" data-fps="60" aria-pressed="true"><span>60</span></button>
+          <button type="button" class="seg-btn" data-fps="0" aria-pressed="false"><span>VSync</span></button>
+        </div>
+      </div>
+      <div class="setting-group">
+        <button type="button" class="mini-toggle-btn" id="hudInvertYBtn" aria-pressed="false">
+          <span>Инверсия оси Y</span>
+          <small id="hudInvertYVal">ВЫКЛ</small>
+        </button>
+      </div>
+      <div class="setting-group">
+        <button type="button" class="btn-danger-ghost" id="drawerExitBtn">Выход в лаунчер</button>
+      </div>
+      <div class="setting-hint mono" id="hudRuntimeMeta">WebGL 2.0 · 1.0× · 60 FPS</div>
+    </aside>
+
+    <!-- Button-Free Smartphone Gesture Overlay -->
+    <div id="gesture-hud" data-hidden="true" data-testid="gesture-hud" aria-label="Сенсорное управление жестами без кнопок">
+      <div class="gesture-ghost-ring" id="gestureGhostRing">
+        <div class="gesture-ghost-dot" id="gestureGhostDot"></div>
+      </div>
+    </div>
+
+    <!-- Mobile Multi-Touch Overlay (Buttons + Floating Stick) -->
+    <div id="touch-hud" data-hidden="false" aria-label="Сенсорное управление Thief">
+      <!-- Left Floating Movement Joystick Zone -->
+      <div class="touch-zone-left" id="stickZone" data-testid="touch-stick-zone">
+        <div class="stick-base" id="stickBase">
+          <div class="stick-ring-inner"></div>
+          <div class="stick-knob" id="stickKnob"></div>
+          <span class="stick-speed-tag" id="stickSpeedTag">ШАГ</span>
+        </div>
+      </div>
+
+      <!-- Left Stealth Action Buttons -->
+      <div class="touch-cluster-left">
+        <button type="button" class="touch-act-btn" data-key="KeyQ" aria-label="Наклон влево">Накл. L</button>
+        <button type="button" class="touch-act-btn" id="crouchBtn" data-key="KeyX" data-toggle="true" aria-pressed="false" aria-label="Присесть">Присесть</button>
+        <button type="button" class="touch-act-btn" data-key="KeyE" aria-label="Наклон вправо">Накл. R</button>
+      </div>
+
+      <!-- Right Swipe Camera Look Zone -->
+      <div class="touch-zone-right" id="lookZone" data-testid="touch-look-zone"></div>
+
+      <!-- Right Action Buttons Cluster -->
+      <div class="touch-cluster-right">
+        <button type="button" class="touch-act-btn is-primary-act" data-mouse="0" aria-label="Атака или удар">Удар</button>
+        <button type="button" class="touch-act-btn" data-mouse="2" aria-label="Блок или использовать предмет">Блок</button>
+        <button type="button" class="touch-act-btn" data-key="KeyF" aria-label="Взаимодействовать">Действие</button>
+        <button type="button" class="touch-act-btn" data-key="Space" aria-label="Прыжок">Прыжок</button>
+      </div>
+    </div>
+  </section>
 
   <script>
-    const pickBtn = document.getElementById('pick-btn');
-    const folderInput = document.getElementById('folder-input');
-    const statusEl = document.getElementById('status');
-    const progressWrap = document.getElementById('progress-wrap');
-    const progressBar = document.getElementById('progress-bar');
-    const setupPanel = document.getElementById('setup-panel');
-    const gameWrap = document.getElementById('game-wrap');
-    const canvas = document.getElementById('canvas');
-    const logBox = document.getElementById('log-box');
+    (function () {
+      'use strict';
 
-    document.getElementById('toggle-log').onclick = () => {
-      logBox.style.display = logBox.style.display === 'block' ? 'none' : 'block';
-    };
+      /* =======================================================================
+       * 1. PURE CORE LOGIC (Deterministic, testable, zero external deps)
+       * ======================================================================= */
+      const DarkWebCore = {
+        QUALITY_PRESETS: {
+          ultralow: { id: 'ultralow', scale: 0.5, maxDpr: 1.0, label: 'Ультра-низкое (Слабые тел. · 0.50×)' },
+          low: { id: 'low', scale: 0.65, maxDpr: 1.0, label: 'Низкое (Телефоны · 0.65×)' },
+          medium: { id: 'medium', scale: 0.85, maxDpr: 1.5, label: 'Среднее (Баланс · 0.85×)' },
+          high: { id: 'high', scale: 1.0, maxDpr: 2.0, label: 'Высокое (ПК · 1.0×)' }
+        },
 
-    function appendLog(msg, isErr = false) {
-      const line = document.createElement('div');
-      if (isErr) line.style.color = '#e06c75';
-      line.textContent = msg;
-      logBox.appendChild(line);
-      logBox.scrollTop = logBox.scrollHeight;
-    }
+        normalizeTargetFps(val) {
+          const n = Number(val);
+          if (n === 30 || n === 60) return n;
+          return 0;
+        },
 
-    var Module = {
-      canvas: canvas,
-      print: (t) => { console.log(t); appendLog(t); },
-      printErr: (t) => { console.error(t); appendLog(t, true); },
-      onRuntimeInitialized: () => {
-        statusEl.textContent = 'Ядро готово. Выберите папку с игрой.';
-        pickBtn.textContent = 'Выбрать папку с Thief';
-        pickBtn.disabled = false;
-      }
-    };
+        normalizeTouchMode(mode) {
+          if (mode === 'on' || mode === 'buttons') return 'buttons';
+          if (mode === 'gestures') return 'gestures';
+          if (mode === 'off') return 'off';
+          return 'auto';
+        },
 
-    pickBtn.onclick = () => folderInput.click();
+        resolveTouchLayout(touchMode, isCoarse, isPreviewMode) {
+          const normalized = this.normalizeTouchMode(touchMode);
+          let layout = normalized;
+          if (normalized === 'auto') {
+            layout = (isCoarse || isPreviewMode) ? 'buttons' : 'off';
+          }
+          return {
+            mode: normalized,
+            layout,
+            showButtons: layout === 'buttons',
+            showGestures: layout === 'gestures'
+          };
+        },
 
-    folderInput.onchange = async (e) => {
-      const files = Array.from(e.target.files);
-      if (!files.length) return;
+        classifyTouchGesture(gesture) {
+          const g = gesture || {};
+          const dx = Number(g.dx) || 0;
+          const dy = Number(g.dy) || 0;
+          const dist = Math.hypot(dx, dy);
+          const durationMs = Number(g.durationMs) || 0;
+          const fingers = Number(g.fingers) || 1;
 
-      pickBtn.disabled = true;
-      progressWrap.style.display = 'block';
-      statusEl.textContent = `Подготовка файлов (${files.length})...`;
-
-      try {
-        try { FS.mkdir('/game'); } catch (err) {}
-
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const parts = file.webkitRelativePath.split('/');
-          parts.shift();
-          if (!parts.length) continue;
-
-          let currentDir = '/game';
-          for (let j = 0; j < parts.length - 1; j++) {
-            currentDir += '/' + parts[j];
-            try { FS.mkdir(currentDir); } catch (err) {}
+          if (fingers >= 2) {
+            if (dist >= 46) {
+              if (Math.abs(dx) >= Math.abs(dy)) {
+                return dx < 0
+                  ? { action: 'lean-left', key: 'KeyQ', holdMs: 260, label: 'НАКЛОН ВЛЕВО' }
+                  : { action: 'lean-right', key: 'KeyE', holdMs: 260, label: 'НАКЛОН ВПРАВО' };
+              }
+              return dy < 0
+                ? { action: 'cycle-weapon', key: 'BracketLeft', holdMs: 90, label: 'СМЕНА ОРУЖИЯ' }
+                : { action: 'map', key: 'KeyM', holdMs: 90, label: 'КАРТА' };
+            }
+            if (durationMs <= 280 && dist < 28) {
+              return { action: 'block-item', mouseButton: 2, holdMs: 140, label: 'БЛОК / ПРЕДМЕТ' };
+            }
+            return null;
           }
 
-          const buffer = await file.arrayBuffer();
-          FS.writeFile('/game/' + parts.join('/'), new Uint8Array(buffer));
+          if (dist <= 16 && durationMs <= 240) {
+            if (g.zone === 'left') {
+              return g.isDoubleTap
+                ? { action: 'crouch', key: 'KeyX', holdMs: 90, label: 'ПРИСЕСТЬ' }
+                : { action: 'interact', key: 'KeyF', holdMs: 90, label: 'ДЕЙСТВИЕ' };
+            }
+            return g.isDoubleTap
+              ? { action: 'jump', key: 'Space', holdMs: 110, label: 'ПРЫЖОК' }
+              : { action: 'attack', mouseButton: 0, holdMs: 110, label: 'УДАР' };
+          }
+          return null;
+        },
 
-          if (i % 30 === 0 || i === files.length - 1) {
-            const pct = Math.round(((i + 1) / files.length) * 100);
-            progressBar.style.width = pct + '%';
-            statusEl.textContent = `Загрузка в память: ${pct}% (${i + 1}/${files.length})`;
-            await new Promise(r => setTimeout(r, 0));
+        mapGamepadState(axes, buttons, config) {
+          const cfg = config || {};
+          const dz = Math.max(0.05, Math.min(0.4, Number(cfg.deadzone) || 0.15));
+          const sens = Math.max(0.4, Math.min(3.0, Number(cfg.sensitivity) || 1.2));
+          const invertY = Boolean(cfg.invertY);
+          const dtSec = Math.max(0.004, Math.min(0.05, Number(cfg.dtSec) || (1 / 60)));
+
+          const ax = Array.isArray(axes) ? axes : [];
+          const btns = Array.isArray(buttons) ? buttons : [];
+          const btnDown = (idx) => {
+            const b = btns[idx];
+            if (!b) return false;
+            return typeof b === 'number' ? b > 0.35 : Boolean(b.pressed || (b.value || 0) > 0.35);
+          };
+
+          // Left Stick -> radial deadzone + 3-band Thief stealth movement
+          const lx = Number(ax[0]) || 0;
+          const ly = Number(ax[1]) || 0;
+          const lMag = Math.hypot(lx, ly);
+          let moveMode = 'idle';
+          let moveLabel = 'ПОКОЙ';
+          const keys = {
+            KeyW: false, KeyS: false, KeyA: false, KeyD: false,
+            ShiftLeft: false, ControlLeft: false,
+            Space: btnDown(0),
+            KeyX: btnDown(1),
+            KeyF: btnDown(2),
+            KeyM: btnDown(3),
+            KeyQ: btnDown(4),
+            KeyE: btnDown(5),
+            Escape: btnDown(9),
+            F5: btnDown(12),
+            F9: btnDown(13),
+            BracketLeft: btnDown(14),
+            BracketRight: btnDown(15)
+          };
+
+          if (lMag > dz) {
+            const norm = Math.min(1, (lMag - dz) / (1 - dz));
+            const nx = lx / lMag;
+            const ny = ly / lMag;
+            keys.KeyW = ny < -0.35;
+            keys.KeyS = ny > 0.35;
+            keys.KeyA = nx < -0.35;
+            keys.KeyD = nx > 0.35;
+            if (norm < 0.42) {
+              moveMode = 'creep';
+              moveLabel = 'КРАСТЬСЯ';
+              keys.ControlLeft = true;
+            } else if (norm > 0.85) {
+              moveMode = 'run';
+              moveLabel = 'БЕГ';
+              keys.ShiftLeft = true;
+            } else {
+              moveMode = 'walk';
+              moveLabel = 'ШАГ';
+            }
+          }
+
+          // Right Stick -> radial deadzone + precision power curve (1.8)
+          const rx = Number(ax[2]) || 0;
+          const ry = Number(ax[3]) || 0;
+          const rMag = Math.hypot(rx, ry);
+          let lookDx = 0;
+          let lookDy = 0;
+          if (rMag > dz) {
+            const norm = Math.min(1, (rMag - dz) / (1 - dz));
+            const curved = Math.pow(norm, 1.8);
+            const speed = 520 * sens * dtSec;
+            lookDx = (rx / rMag) * curved * speed;
+            lookDy = (ry / rMag) * curved * speed * (invertY ? -1 : 1);
+          }
+
+          return {
+            keys,
+            mouseLeft: btnDown(7),
+            mouseRight: btnDown(6),
+            lookDx,
+            lookDy,
+            moveMode,
+            moveLabel
+          };
+        },
+
+        buildWebGLContextOptions(requestedOpts) {
+          return Object.assign({}, requestedOpts || {}, {
+            antialias: false,
+            alpha: false,
+            desynchronized: true,
+            preserveDrawingBuffer: false,
+            powerPreference: 'high-performance'
+          });
+        },
+
+        formatMB(bytes) {
+          return (Math.max(0, Number(bytes) || 0) / (1024 * 1024)).toFixed(1);
+        },
+
+        normalizeGamePath(rawPath, stripPrefix) {
+          let p = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+          const segments = [];
+          for (const seg of p.split('/')) {
+            if (!seg || seg === '.') continue;
+            if (seg === '..') {
+              segments.pop();
+            } else {
+              segments.push(seg);
+            }
+          }
+          p = segments.join('/');
+          if (stripPrefix && p.startsWith(stripPrefix + '/')) {
+            p = p.slice(stripPrefix.length + 1);
+          }
+          return p;
+        },
+
+        detectCommonRootPrefix(paths) {
+          if (!Array.isArray(paths) || paths.length === 0) return '';
+          let common = null;
+          for (const raw of paths) {
+            const norm = this.normalizeGamePath(raw, '');
+            if (!norm) continue;
+            const slash = norm.indexOf('/');
+            if (slash <= 0) return '';
+            const first = norm.slice(0, slash);
+            if (common === null) {
+              common = first;
+            } else if (common !== first) {
+              return '';
+            }
+          }
+          return common || '';
+        },
+
+        detectThiefEdition(fileNames) {
+          const lower = new Set((fileNames || []).map((n) => String(n).toLowerCase()));
+          const has = (name) => {
+            for (const f of lower) {
+              if (f === name || f.endsWith('/' + name)) return true;
+            }
+            return false;
+          };
+          if (has('thief2.exe') || has('dark2.gam') || has('miss15.mis') || has('miss16.mis')) {
+            return 'Thief II: The Metal Age';
+          }
+          if (has('thief.exe') || has('dark.gam') || has('miss1.mis') || has('cam.cfg') || has('dark.cfg')) {
+            return 'Thief Gold / The Dark Project';
+          }
+          return fileNames && fileNames.length > 0 ? 'Пользовательский архив Dark Engine' : 'Файлы не загружены';
+        },
+
+        resolveGraphicsBackend(requested, capabilities) {
+          const caps = capabilities || { webgpu: false, webgl2: true };
+          if (requested === 'webgpu') {
+            if (caps.webgpu) {
+              return {
+                active: 'webgpu',
+                fallback: false,
+                tone: 'ok',
+                message: 'WebGPU обнаружен и готов. При необходимости OpenGL ES 3 использует мост WebGL 2.0.'
+              };
+            }
+            return {
+              active: 'webgl2',
+              fallback: true,
+              tone: 'warn',
+              message: 'Браузер или GPU не поддерживает WebGPU — выполнен безопасный откат на WebGL 2.0 (чёрный экран исключён).'
+            };
+          }
+          if (!caps.webgl2) {
+            return {
+              active: 'webgl2',
+              fallback: true,
+              tone: 'warn',
+              message: 'WebGL 2.0 ограничен на этом устройстве — будет использован совместимый профиль отрисовки.'
+            };
+          }
+          return {
+            active: 'webgl2',
+            fallback: false,
+            tone: 'ok',
+            message: 'WebGL 2.0 активен: оптимальный прямой путь OpenGL ES 3 для телефонов и ПК.'
+          };
+        },
+
+        computeCanvasResolution(cssWidth, cssHeight, dpr, presetId) {
+          const preset = this.QUALITY_PRESETS[presetId] || this.QUALITY_PRESETS.high;
+          const clampedDpr = Math.min(Math.max(1, Number(dpr) || 1), preset.maxDpr);
+          const eff = clampedDpr * preset.scale;
+          return {
+            width: Math.max(320, Math.round((Number(cssWidth) || 1280) * eff)),
+            height: Math.max(200, Math.round((Number(cssHeight) || 720) * eff)),
+            effectiveScale: Number(eff.toFixed(2))
+          };
+        },
+
+        evaluateLaunchReadiness(state) {
+          const s = state || {};
+          if (s.extracting) {
+            return {
+              canLaunch: false,
+              canPreview: false,
+              gemState: 'loading',
+              title: 'Распаковка и сохранение файлов в кэш...',
+              subtitle: 'Подождите завершения записи в IndexedDB'
+            };
+          }
+          if (s.wasmState === 'loading') {
+            return {
+              canLaunch: false,
+              canPreview: true,
+              gemState: 'loading',
+              title: 'Инициализация WebAssembly...',
+              subtitle: s.cachedFiles > 0
+                ? 'Кэш игры найден (' + s.cachedFiles + ' файлов) — запуск разблокируется сразу после загрузки WASM'
+                : 'Загружается thief-runner.wasm — одновременно можно выбрать .zip архив игры'
+            };
+          }
+          if (s.wasmState === 'ready') {
+            if (s.cachedFiles > 0) {
+              return {
+                canLaunch: true,
+                canPreview: true,
+                gemState: 'ready',
+                title: 'Готово к мгновенному запуску из кэша',
+                subtitle: s.edition + ' · ' + s.cachedFiles + ' файлов (' + this.formatMB(s.cachedBytes) + ' МБ)'
+              };
+            }
+            return {
+              canLaunch: false,
+              canPreview: true,
+              gemState: 'shadow',
+              title: 'Движок WebAssembly готов — укажите файлы Thief',
+              subtitle: 'Выберите .zip архив или папку с игрой слева, чтобы активировать запуск'
+            };
+          }
+          // wasmState === 'unavailable' (e.g. local preview before CI compiles thief-runner.wasm)
+          if (s.cachedFiles > 0) {
+            return {
+              canLaunch: true,
+              canPreview: true,
+              gemState: 'ready',
+              title: 'Кэш игры готов (режим предпросмотра без .wasm)',
+              subtitle: 'Файлы сохранены в IndexedDB (' + s.cachedFiles + ' шт.) · при деплое с thief-runner.wasm запуск пойдёт напрямую'
+            };
+          }
+          return {
+            canLaunch: false,
+            canPreview: true,
+            gemState: 'shadow',
+            title: 'Выберите архив .zip или папку с игрой',
+            subtitle: 'Можно протестировать распаковку в кэш или открыть «Тест управления» в шапке'
+          };
+        },
+
+        mapJoystickToInput(dx, dy, maxRadius) {
+          const radius = Math.max(1, Number(maxRadius) || 56);
+          const dist = Math.hypot(dx, dy);
+          const norm = Math.min(1, dist / radius);
+          if (norm < 0.16) {
+            return {
+              norm: 0,
+              clampedX: 0,
+              clampedY: 0,
+              speedMode: 'idle',
+              speedLabel: 'ПОКОЙ',
+              keys: { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ShiftLeft: false, ControlLeft: false }
+            };
+          }
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const clampedDist = Math.min(dist, radius);
+          let speedMode = 'walk';
+          let speedLabel = 'ШАГ';
+          if (norm < 0.38) {
+            speedMode = 'creep';
+            speedLabel = 'КРАСТЬСЯ';
+          } else if (norm > 0.82) {
+            speedMode = 'run';
+            speedLabel = 'БЕГ';
+          }
+          return {
+            norm,
+            clampedX: nx * clampedDist,
+            clampedY: ny * clampedDist,
+            speedMode,
+            speedLabel,
+            keys: {
+              KeyW: ny < -0.35,
+              KeyS: ny > 0.35,
+              KeyA: nx < -0.35,
+              KeyD: nx > 0.35,
+              ShiftLeft: speedMode === 'run',
+              ControlLeft: speedMode === 'creep'
+            }
+          };
+        },
+
+        /**
+         * Standards-compliant Central Directory ZIP parser (Stored=0 & Deflate=8).
+         * Supports large archives with data descriptors & UTF-8 filenames.
+         */
+        parseZipCentralDirectory(arrayBuffer) {
+          const bytes = new Uint8Array(arrayBuffer);
+          const view = new DataView(arrayBuffer);
+          const len = bytes.length;
+          if (len < 22) {
+            throw new Error('Файл слишком мал для корректного .zip архива');
+          }
+
+          // Locate End of Central Directory (EOCD: 0x06054b50)
+          const minOffset = Math.max(0, len - 65557);
+          let eocdOffset = -1;
+          for (let i = len - 22; i >= minOffset; i--) {
+            if (view.getUint32(i, true) === 0x06054b50) {
+              eocdOffset = i;
+              break;
+            }
+          }
+          if (eocdOffset === -1) {
+            throw new Error('Не найдена структура ZIP (End of Central Directory)');
+          }
+
+          const totalEntries = view.getUint16(eocdOffset + 10, true);
+          const cdSize = view.getUint32(eocdOffset + 12, true);
+          const cdOffset = view.getUint32(eocdOffset + 16, true);
+          if (cdOffset + cdSize > len) {
+            throw new Error('Повреждённый каталог ZIP архива');
+          }
+
+          const decoder = new TextDecoder('utf-8');
+          const entries = [];
+          let pos = cdOffset;
+
+          for (let i = 0; i < totalEntries && pos + 46 <= cdOffset + cdSize; i++) {
+            if (view.getUint32(pos, true) !== 0x02014b50) {
+              throw new Error('Некорректная запись в Central Directory ZIP');
+            }
+            const method = view.getUint16(pos + 10, true);
+            const compSize = view.getUint32(pos + 20, true);
+            const uncompSize = view.getUint32(pos + 24, true);
+            const nameLen = view.getUint16(pos + 28, true);
+            const extraLen = view.getUint16(pos + 30, true);
+            const commentLen = view.getUint16(pos + 32, true);
+            const localHeaderOffset = view.getUint32(pos + 42, true);
+
+            const nameBytes = bytes.subarray(pos + 46, pos + 46 + nameLen);
+            const name = decoder.decode(nameBytes);
+            pos += 46 + nameLen + extraLen + commentLen;
+
+            if (name.endsWith('/')) continue;
+
+            if (localHeaderOffset + 30 > len || view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
+              throw new Error('Повреждён локальный заголовок файла: ' + name);
+            }
+            const lNameLen = view.getUint16(localHeaderOffset + 26, true);
+            const lExtraLen = view.getUint16(localHeaderOffset + 28, true);
+            const dataOffset = localHeaderOffset + 30 + lNameLen + lExtraLen;
+            if (dataOffset + compSize > len) {
+              throw new Error('Файл выходит за границы архива: ' + name);
+            }
+
+            entries.push({
+              name,
+              method,
+              compSize,
+              uncompSize,
+              dataOffset
+            });
+          }
+
+          return entries;
+        },
+
+        async inflateRawBytes(compressedUint8) {
+          if (typeof DecompressionStream !== 'function') {
+            throw new Error('Браузер не поддерживает DecompressionStream(deflate-raw). Обновите браузер или выберите папку.');
+          }
+          const ds = new DecompressionStream('deflate-raw');
+          const stream = new Blob([compressedUint8]).stream().pipeThrough(ds);
+          const buf = await new Response(stream).arrayBuffer();
+          return new Uint8Array(buf);
+        }
+      };
+
+      window.DarkWebCore = DarkWebCore;
+
+      /* =======================================================================
+       * 2. PERSISTENT BROWSER CACHE (IndexedDB + Emscripten IDBFS Sync)
+       * ======================================================================= */
+      const DB_NAME = 'DarkEngineThiefCache';
+      const DB_VERSION = 1;
+      const STORE_FILES = 'files';
+      const STORE_META = 'meta';
+      const GAMEDATA_DIR = '/gamedata';
+
+      function openCacheDB() {
+        return new Promise((resolve, reject) => {
+          if (typeof indexedDB === 'undefined') {
+            reject(new Error('IndexedDB недоступен'));
+            return;
+          }
+          const req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_FILES)) {
+              db.createObjectStore(STORE_FILES, { keyPath: 'path' });
+            }
+            if (!db.objectStoreNames.contains(STORE_META)) {
+              db.createObjectStore(STORE_META, { keyPath: 'key' });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error || new Error('Ошибка открытия IndexedDB'));
+        });
+      }
+
+      async function saveFilesToCacheDB(fileRecords, meta) {
+        const db = await openCacheDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_FILES, STORE_META], 'readwrite');
+          const fStore = tx.objectStore(STORE_FILES);
+          const mStore = tx.objectStore(STORE_META);
+          for (const rec of fileRecords) {
+            fStore.put(rec);
+          }
+          if (meta) {
+            mStore.put({ key: 'summary', ...meta });
+          }
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      }
+
+      async function readCacheSummaryFromDB() {
+        try {
+          const db = await openCacheDB();
+          const summary = await new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_META], 'readonly');
+            const req = tx.objectStore(STORE_META).get('summary');
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => reject(req.error);
+          });
+          db.close();
+          return summary;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      async function readAllFilesFromDB() {
+        const db = await openCacheDB();
+        const items = await new Promise((resolve, reject) => {
+          const tx = db.transaction([STORE_FILES], 'readonly');
+          const req = tx.objectStore(STORE_FILES).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+        db.close();
+        return items;
+      }
+
+      async function clearCacheDB() {
+        try {
+          const db = await openCacheDB();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_FILES, STORE_META], 'readwrite');
+            tx.objectStore(STORE_FILES).clear();
+            tx.objectStore(STORE_META).clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+          db.close();
+        } catch (_) {
+          // Ignore if DB didn't exist yet
+        }
+      }
+
+      function ensureFsDir(FS, fullDirPath) {
+        const parts = fullDirPath.split('/').filter(Boolean);
+        let curr = '';
+        for (const p of parts) {
+          curr += '/' + p;
+          try {
+            FS.mkdir(curr);
+          } catch (_) {
+            // Directory already exists
+          }
+        }
+      }
+
+      function removeFsRecursive(FS, targetPath) {
+        try {
+          const stat = FS.stat(targetPath);
+          if (FS.isDir(stat.mode)) {
+            for (const entry of FS.readdir(targetPath)) {
+              if (entry === '.' || entry === '..') continue;
+              removeFsRecursive(FS, targetPath + '/' + entry);
+            }
+            if (targetPath !== GAMEDATA_DIR) {
+              FS.rmdir(targetPath);
+            }
+          } else {
+            FS.unlink(targetPath);
+          }
+        } catch (_) {
+          // Ignore missing entries
+        }
+      }
+
+      function countFsTree(FS, dirPath, names) {
+        let count = 0;
+        let bytes = 0;
+        try {
+          const entries = FS.readdir(dirPath);
+          for (const entry of entries) {
+            if (entry === '.' || entry === '..') continue;
+            const full = dirPath + '/' + entry;
+            const st = FS.stat(full);
+            if (FS.isDir(st.mode)) {
+              const sub = countFsTree(FS, full, names);
+              count += sub.count;
+              bytes += sub.bytes;
+            } else {
+              count += 1;
+              bytes += st.size || 0;
+              if (names) names.push(full.replace(GAMEDATA_DIR + '/', ''));
+            }
+          }
+        } catch (_) {
+          // Empty or unmounted
+        }
+        return { count, bytes };
+      }
+
+      /* =======================================================================
+       * 3. APPLICATION STATE & EMSCRIPTEN BOOTSTRAP (Zero-Hang Architecture)
+       * ======================================================================= */
+      const isCoarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+      const savedPrefs = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('darkEngineWebPrefs') || '{}');
+        } catch (_) {
+          return {};
+        }
+      })();
+
+      const appState = {
+        wasmState: 'loading', // 'loading' | 'ready' | 'unavailable'
+        wasmLoadedBytes: 0,
+        wasmTotalBytes: 0,
+        idbfsMounted: false,
+        extracting: false,
+        cachedFiles: 0,
+        cachedBytes: 0,
+        edition: 'Файлы не загружены',
+        requestedBackend: savedPrefs.backend || 'webgl2',
+        capabilities: { webgpu: false, webgl2: true },
+        quality: savedPrefs.quality || (isCoarsePointer ? 'low' : 'high'),
+        targetFps: savedPrefs.targetFps !== undefined
+          ? DarkWebCore.normalizeTargetFps(savedPrefs.targetFps)
+          : (isCoarsePointer ? 60 : 0),
+        touchMode: DarkWebCore.normalizeTouchMode(savedPrefs.touchMode || 'auto'),
+        sensitivity: Number(savedPrefs.sensitivity) || 1.2,
+        gamepadDeadzone: Number(savedPrefs.gamepadDeadzone) || 0.15,
+        invertY: Boolean(savedPrefs.invertY),
+        rawMouse: savedPrefs.rawMouse !== undefined ? Boolean(savedPrefs.rawMouse) : true,
+        connectedGamepadName: '',
+        pointerLocked: false,
+        isPreviewMode: false,
+        gameRunning: false,
+        previewCanvasAnimId: 0
+      };
+
+      function persistPrefs() {
+        try {
+          localStorage.setItem('darkEngineWebPrefs', JSON.stringify({
+            backend: appState.requestedBackend,
+            quality: appState.quality,
+            targetFps: appState.targetFps,
+            touchMode: appState.touchMode,
+            sensitivity: appState.sensitivity,
+            gamepadDeadzone: appState.gamepadDeadzone,
+            invertY: appState.invertY,
+            rawMouse: appState.rawMouse
+          }));
+        } catch (_) {
+          // Ignore storage quota errors
+        }
+      }
+
+      async function requestPersistentStorage() {
+        try {
+          if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
+            await navigator.storage.persist();
+          }
+        } catch (_) {
+          // Optional browser capability
+        }
+      }
+
+      // Synchronous Emscripten Module setup BEFORE thief-runner.js executes.
+      // Uses WebAssembly.instantiateStreaming with a zero-copy progress
+      // ReadableStream so mobile devices compile WASM in parallel while
+      // downloading without doubling RAM usage.
+      let runtimeReadyHook = null;
+      let wasmProgressHook = null;
+
+      window.Module = window.Module || {};
+      Object.assign(window.Module, {
+        noInitialRun: true,
+        canvas: null,
+        print(text) {
+          if (text) console.log('[DarkEngine]', text);
+        },
+        printErr(text) {
+          if (text) console.warn('[DarkEngine]', text);
+        },
+        locateFile(path) {
+          return path;
+        },
+        instantiateWasm(imports, receiveInstance) {
+          (async () => {
+            try {
+              const resp = await fetch('thief-runner.wasm', { cache: 'default' });
+              if (!resp.ok) {
+                throw new Error('HTTP ' + resp.status);
+              }
+              const total = parseInt(resp.headers.get('Content-Length') || '0', 10) || 0;
+              const contentType = (resp.headers.get('Content-Type') || '').toLowerCase();
+              const canStreamCompile = typeof WebAssembly.instantiateStreaming === 'function'
+                && typeof ReadableStream === 'function'
+                && resp.body
+                && contentType.includes('application/wasm');
+
+              if (canStreamCompile) {
+                try {
+                  const reader = resp.body.getReader();
+                  let received = 0;
+                  const progressStream = new ReadableStream({
+                    async pull(controller) {
+                      const { done, value } = await reader.read();
+                      if (done) {
+                        controller.close();
+                        return;
+                      }
+                      received += value.byteLength;
+                      appState.wasmLoadedBytes = received;
+                      appState.wasmTotalBytes = total || received;
+                      if (wasmProgressHook) wasmProgressHook(received, total);
+                      controller.enqueue(value);
+                    },
+                    cancel(reason) {
+                      return reader.cancel(reason);
+                    }
+                  });
+                  const meteredResp = new Response(progressStream, {
+                    status: resp.status,
+                    statusText: resp.statusText,
+                    headers: { 'Content-Type': 'application/wasm' }
+                  });
+                  const streamed = await WebAssembly.instantiateStreaming(meteredResp, imports);
+                  receiveInstance(streamed.instance, streamed.module);
+                  return;
+                } catch (streamErr) {
+                  console.warn('[DarkEngine] Streaming WASM fallback:', streamErr.message);
+                }
+              }
+
+              // Fallback buffered path (handles non-wasm Content-Type or older browsers)
+              const fallbackResp = canStreamCompile
+                ? await fetch('thief-runner.wasm', { cache: 'force-cache' })
+                : resp;
+              if (!fallbackResp.ok) {
+                throw new Error('HTTP ' + fallbackResp.status);
+              }
+              let bytes;
+              if (fallbackResp.body && typeof fallbackResp.body.getReader === 'function') {
+                const reader = fallbackResp.body.getReader();
+                const chunks = [];
+                let received = 0;
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  chunks.push(value);
+                  received += value.byteLength;
+                  appState.wasmLoadedBytes = received;
+                  appState.wasmTotalBytes = total || received;
+                  if (wasmProgressHook) wasmProgressHook(received, total);
+                }
+                bytes = new Uint8Array(received);
+                let offset = 0;
+                for (const c of chunks) {
+                  bytes.set(c, offset);
+                  offset += c.byteLength;
+                }
+              } else {
+                const buf = await fallbackResp.arrayBuffer();
+                bytes = new Uint8Array(buf);
+                appState.wasmLoadedBytes = bytes.byteLength;
+                appState.wasmTotalBytes = bytes.byteLength;
+                if (wasmProgressHook) wasmProgressHook(bytes.byteLength, bytes.byteLength);
+              }
+
+              const result = await WebAssembly.instantiate(bytes, imports);
+              receiveInstance(result.instance, result.module);
+            } catch (err) {
+              console.warn('[DarkEngine] WASM download/instantiate notice:', err.message);
+              appState.wasmState = 'unavailable';
+              if (runtimeReadyHook) runtimeReadyHook();
+            }
+          })();
+          return {};
+        },
+        onRuntimeInitialized() {
+          appState.wasmState = 'ready';
+          if (runtimeReadyHook) runtimeReadyHook();
+        }
+      });
+
+      /* =======================================================================
+       * 4. UI BINDING, GPU DETECTION, IDBFS SYNC & LAUNCH FLOW
+       * ======================================================================= */
+      function initUI() {
+        const $ = (id) => document.getElementById(id);
+
+        const lightGem = $('lightGem');
+        const gemStop1 = $('gemStop1');
+        const gemStop2 = $('gemStop2');
+        const gemStop3 = $('gemStop3');
+        const wasmStatusText = $('wasmStatusText');
+        const wasmMetrics = $('wasmMetrics');
+        const wasmProgressBar = $('wasmProgressBar');
+        const wasmProgressFill = $('wasmProgressFill');
+        const dropzone = $('dropzone');
+        const pickZipBtn = $('pickZipBtn');
+        const pickFolderBtn = $('pickFolderBtn');
+        const zipInput = $('zipInput');
+        const folderInput = $('folderInput');
+        const extractProgressBox = $('extractProgressBox');
+        const extractStatusText = $('extractStatusText');
+        const extractMetrics = $('extractMetrics');
+        const extractProgressFill = $('extractProgressFill');
+        const cacheStatusLine = $('cacheStatusLine');
+        const cacheDetailLine = $('cacheDetailLine');
+        const clearCacheBtn = $('clearCacheBtn');
+        const gpuProbeText = $('gpuProbeText');
+        const backendNotice = $('backendNotice');
+        const topbarBackendLabel = $('topbar-backend-label');
+        const resPreviewText = $('resPreviewText');
+        const qualityDescText = $('qualityDescText');
+        const fpsCapDescText = $('fpsCapDescText');
+        const gamepadStatusText = $('gamepadStatusText');
+        const controlModeHint = $('controlModeHint');
+        const sensitivitySlider = $('sensitivitySlider');
+        const sensitivityReadout = $('sensitivityReadout');
+        const deadzoneSlider = $('deadzoneSlider');
+        const deadzoneReadout = $('deadzoneReadout');
+        const invertYBtn = $('invertYBtn');
+        const invertYVal = $('invertYVal');
+        const rawMouseBtn = $('rawMouseBtn');
+        const rawMouseVal = $('rawMouseVal');
+        const launchReadoutTitle = $('launchReadoutTitle');
+        const launchReadoutSub = $('launchReadoutSub');
+        const launchBtn = $('launchBtn');
+        const previewHudTopBtn = $('previewHudTopBtn');
+        const gameStage = $('game-stage');
+        const canvas = $('canvas');
+        const touchHud = $('touch-hud');
+        const gestureHud = $('gesture-hud');
+        const gestureGhostRing = $('gestureGhostRing');
+        const gestureGhostDot = $('gestureGhostDot');
+        const gestureToast = $('gestureToast');
+        const hudSettingsBtn = $('hudSettingsBtn');
+        const hudDrawer = $('hudDrawer');
+        const hudGestureCheatSheet = $('hudGestureCheatSheet');
+        const hudSensSlider = $('hudSensSlider');
+        const hudSensVal = $('hudSensVal');
+        const hudInvertYBtn = $('hudInvertYBtn');
+        const hudInvertYVal = $('hudInvertYVal');
+        const hudRuntimeMeta = $('hudRuntimeMeta');
+        const exitToLauncherBtn = $('exitToLauncherBtn');
+
+        // Enforce low-latency high-performance WebGL 2 context attributes before
+        // Emscripten initializes SDL2/OpenGL ES 3 on the canvas (eliminates
+        // expensive MSAA & alpha compositing overhead on mobile GPUs).
+        const nativeGetContext = canvas.getContext.bind(canvas);
+        canvas.getContext = function (type, attrs) {
+          if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+            return nativeGetContext(type, DarkWebCore.buildWebGLContextOptions(attrs));
+          }
+          return nativeGetContext(type, attrs);
+        };
+
+        window.Module.canvas = canvas;
+
+        function setLightGemVisual(state) {
+          lightGem.dataset.state = state;
+          const labels = {
+            shadow: 'Световой кристалл: ожидание файлов игры',
+            loading: 'Световой кристалл: загрузка и подготовка',
+            ready: 'Световой кристалл: готов к запуску',
+            error: 'Световой кристалл: ошибка загрузки'
+          };
+          lightGem.setAttribute('aria-label', labels[state] || labels.shadow);
+
+          if (state === 'ready') {
+            gemStop1.setAttribute('stop-color', '#fff0be');
+            gemStop2.setAttribute('stop-color', '#d9ad5b');
+            gemStop3.setAttribute('stop-color', '#866127');
+          } else if (state === 'loading') {
+            gemStop1.setAttribute('stop-color', '#d99e4e');
+            gemStop2.setAttribute('stop-color', '#94672c');
+            gemStop3.setAttribute('stop-color', '#3d2a16');
+          } else if (state === 'error') {
+            gemStop1.setAttribute('stop-color', '#d96c62');
+            gemStop2.setAttribute('stop-color', '#8c342e');
+            gemStop3.setAttribute('stop-color', '#331210');
+          } else {
+            gemStop1.setAttribute('stop-color', '#49423a');
+            gemStop2.setAttribute('stop-color', '#2d261f');
+            gemStop3.setAttribute('stop-color', '#14110e');
           }
         }
 
-        statusEl.textContent = 'Запуск Dark Engine...';
-        setupPanel.style.display = 'none';
-        gameWrap.style.display = 'block';
-        canvas.focus();
+        function updateWasmProgressUI(loaded, total) {
+          const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : (loaded > 0 ? 50 : 0);
+          const loadedMB = DarkWebCore.formatMB(loaded);
+          const totalMB = total > 0 ? DarkWebCore.formatMB(total) : '?';
+          wasmProgressFill.style.width = pct + '%';
+          wasmProgressFill.dataset.state = '';
+          wasmProgressBar.setAttribute('aria-valuenow', String(pct));
+          wasmMetrics.textContent = total > 0
+            ? loadedMB + ' / ' + totalMB + ' МБ · ' + pct + '%'
+            : loadedMB + ' МБ · ' + pct + '%';
+          wasmStatusText.textContent = pct >= 100
+            ? 'Компиляция WebAssembly...'
+            : 'Скачивание thief-runner.wasm...';
+        }
 
-        Module.callMain([]);
-      } catch (err) {
-        statusEl.textContent = 'Ошибка: ' + err.message;
-        appendLog(err.stack || err.message, true);
-        pickBtn.disabled = false;
+        wasmProgressHook = updateWasmProgressUI;
+
+        function formatTargetFpsTag(fps) {
+          if (fps === 30) return '30 FPS';
+          if (fps === 60) return '60 FPS';
+          return 'VSync';
+        }
+
+        function updateBackendUI() {
+          const res = DarkWebCore.resolveGraphicsBackend(appState.requestedBackend, appState.capabilities);
+          const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
+          document.querySelectorAll('[data-backend]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.backend === appState.requestedBackend));
+          });
+          backendNotice.textContent = res.message;
+          backendNotice.dataset.tone = res.tone;
+          topbarBackendLabel.textContent = res.active === 'webgpu' ? 'WebGPU' : 'WebGL 2.0';
+          const liveFps = typeof window.__darkEngineFps === 'number' && window.__darkEngineFps > 0
+            ? ' · ' + window.__darkEngineFps + ' к/с'
+            : '';
+          hudRuntimeMeta.textContent = (res.active === 'webgpu' ? 'WebGPU' : 'WebGL 2.0')
+            + ' · ' + preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps) + liveFps;
+        }
+
+        function applyTargetFpsToEngine() {
+          if (window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
+            } catch (_) {
+              // Optional exported hook
+            }
+          }
+        }
+
+        function updateQualityUI() {
+          const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
+          document.querySelectorAll('[data-quality]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.quality === appState.quality));
+          });
+          document.querySelectorAll('[data-fps]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(Number(btn.dataset.fps) === appState.targetFps));
+          });
+          resPreviewText.textContent = preset.scale + '× · ' + formatTargetFpsTag(appState.targetFps);
+          qualityDescText.textContent = preset.label;
+          if (fpsCapDescText) {
+            fpsCapDescText.textContent = appState.targetFps === 30
+              ? '30 FPS · Минимум нагрева'
+              : appState.targetFps === 60
+                ? '60 FPS · Стабильно'
+                : 'Авто VSync · Макс. Гц';
+          }
+          applyTargetFpsToEngine();
+          updateBackendUI();
+        }
+
+        function applyInputProfileToEngine() {
+          if (window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              const resolvedLayout = DarkWebCore.resolveTouchLayout(appState.touchMode, isCoarsePointer, appState.isPreviewMode);
+              window.Module.ccall(
+                'dark_web_set_input_profile',
+                null,
+                ['string', 'number', 'number', 'number'],
+                [resolvedLayout.layout, appState.sensitivity, appState.gamepadDeadzone, appState.invertY ? 1 : 0]
+              );
+            } catch (_) {
+              // Optional exported hook
+            }
+          }
+        }
+
+        function updateTouchPrefsUI() {
+          const resolved = DarkWebCore.resolveTouchLayout(appState.touchMode, isCoarsePointer, appState.isPreviewMode);
+          document.querySelectorAll('[data-touch]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.touch === appState.touchMode));
+          });
+          sensitivitySlider.value = String(appState.sensitivity);
+          hudSensSlider.value = String(appState.sensitivity);
+          sensitivityReadout.textContent = appState.sensitivity.toFixed(1) + '×';
+          hudSensVal.textContent = appState.sensitivity.toFixed(1) + '×';
+
+          if (deadzoneSlider) deadzoneSlider.value = String(appState.gamepadDeadzone);
+          if (deadzoneReadout) deadzoneReadout.textContent = Math.round(appState.gamepadDeadzone * 100) + '%';
+
+          if (invertYBtn) invertYBtn.setAttribute('aria-pressed', String(appState.invertY));
+          if (invertYVal) invertYVal.textContent = appState.invertY ? 'ВКЛ' : 'ВЫКЛ';
+          if (hudInvertYBtn) hudInvertYBtn.setAttribute('aria-pressed', String(appState.invertY));
+          if (hudInvertYVal) hudInvertYVal.textContent = appState.invertY ? 'ВКЛ' : 'ВЫКЛ';
+
+          if (rawMouseBtn) rawMouseBtn.setAttribute('aria-pressed', String(appState.rawMouse));
+          if (rawMouseVal) rawMouseVal.textContent = appState.rawMouse ? 'ВКЛ' : 'ВЫКЛ';
+
+          if (controlModeHint) {
+            if (appState.touchMode === 'gestures') {
+              controlModeHint.innerHTML = '<strong>Жесты (без кнопок):</strong> слева шаг/тап=действ./2×тап=присед · справа обзор/тап=удар/2×тап=прыжок · 2 пальца=наклон/блок/карта.';
+            } else if (appState.touchMode === 'buttons') {
+              controlModeHint.innerHTML = '<strong>Кнопки + Стик:</strong> плавающий 3-ступенчатый стик скрытности (красться/шаг/бег), свайп-обзор и кнопки Thief.';
+            } else if (appState.touchMode === 'off') {
+              controlModeHint.innerHTML = '<strong>ПК / Геймпад:</strong> чистый экран без тач-HUD, Raw Pointer Lock (клик по экрану), F5/F9 быстрые сохранения, авто-мост Xbox/DualSense.';
+            } else {
+              controlModeHint.innerHTML = '<strong>Авто:</strong> Raw-мышь и геймпад на ПК · кнопки или жесты на смартфоне (можно переключить прямо в игре через «Опции»).';
+            }
+          }
+
+          if (gamepadStatusText) {
+            gamepadStatusText.textContent = appState.connectedGamepadName
+              ? 'Геймпад: ' + appState.connectedGamepadName
+              : 'Геймпад: автопоиск';
+          }
+
+          gameStage.dataset.touchLayout = resolved.layout;
+          touchHud.dataset.hidden = resolved.showButtons ? 'false' : 'true';
+          gestureHud.dataset.hidden = resolved.showGestures ? 'false' : 'true';
+          if (hudGestureCheatSheet) {
+            hudGestureCheatSheet.style.display = resolved.showGestures ? 'block' : 'none';
+          }
+          applyInputProfileToEngine();
+        }
+
+        function updateCacheUI() {
+          if (appState.cachedFiles > 0) {
+            cacheStatusLine.textContent = 'Кэш активен: ' + appState.edition;
+            cacheDetailLine.textContent = appState.cachedFiles + ' файлов · ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ · мгновенный старт';
+            clearCacheBtn.disabled = false;
+          } else {
+            cacheStatusLine.textContent = 'Локальный кэш пуст';
+            cacheDetailLine.textContent = '0 файлов · 0.0 МБ';
+            clearCacheBtn.disabled = true;
+          }
+        }
+
+        function reconcileLaunchState() {
+          // Critical fix for race condition: check Module.calledRun / FS directly
+          if (appState.wasmState === 'loading' && window.Module && (window.Module.calledRun || window.Module.FS)) {
+            appState.wasmState = 'ready';
+          }
+
+          if (appState.wasmState === 'ready') {
+            wasmProgressFill.style.width = '100%';
+            wasmProgressFill.dataset.state = '';
+            wasmProgressBar.setAttribute('aria-valuenow', '100');
+            wasmStatusText.textContent = 'Модуль WebAssembly готов к запуску';
+            if (appState.wasmLoadedBytes > 0) {
+              wasmMetrics.textContent = DarkWebCore.formatMB(appState.wasmLoadedBytes) + ' МБ · 100%';
+            } else {
+              wasmMetrics.textContent = 'Готово · 100%';
+            }
+          } else if (appState.wasmState === 'unavailable') {
+            wasmProgressFill.style.width = '100%';
+            wasmProgressFill.dataset.state = '';
+            wasmProgressBar.setAttribute('aria-valuenow', '100');
+            wasmStatusText.textContent = 'thief-runner.wasm не найден — активен режим лаунчера и кэша';
+            wasmMetrics.textContent = 'Ожидание сборки CI';
+          }
+
+          const readiness = DarkWebCore.evaluateLaunchReadiness(appState);
+          setLightGemVisual(readiness.gemState);
+          launchReadoutTitle.textContent = readiness.title;
+          launchReadoutSub.textContent = readiness.subtitle;
+          launchBtn.disabled = !readiness.canLaunch;
+          launchBtn.textContent = appState.wasmState === 'unavailable' && appState.cachedFiles > 0
+            ? 'Открыть экран игры'
+            : 'Запустить Thief';
+        }
+
+        async function mountAndRestoreIdbfs() {
+          if (window.Module && window.Module.FS && window.Module.IDBFS && !appState.idbfsMounted) {
+            const FS = window.Module.FS;
+            ensureFsDir(FS, GAMEDATA_DIR);
+            try {
+              FS.mount(window.Module.IDBFS, {}, GAMEDATA_DIR);
+              appState.idbfsMounted = true;
+              await new Promise((resolve) => {
+                FS.syncfs(true, (err) => {
+                  if (err) console.warn('[DarkEngine] IDBFS restore warning:', err);
+                  resolve();
+                });
+              });
+              const names = [];
+              const stats = countFsTree(FS, GAMEDATA_DIR, names);
+              if (stats.count > 0) {
+                appState.cachedFiles = stats.count;
+                appState.cachedBytes = stats.bytes;
+                appState.edition = DarkWebCore.detectThiefEdition(names);
+              }
+            } catch (err) {
+              console.warn('[DarkEngine] IDBFS mount fallback:', err);
+            }
+          }
+
+          // Always reconcile with browser IndexedDB cache summary
+          if (appState.cachedFiles === 0) {
+            const summary = await readCacheSummaryFromDB();
+            if (summary && summary.count > 0) {
+              appState.cachedFiles = summary.count;
+              appState.cachedBytes = summary.bytes || 0;
+              appState.edition = summary.edition || 'Кэш Dark Engine';
+            }
+          }
+          updateCacheUI();
+          reconcileLaunchState();
+        }
+
+        runtimeReadyHook = () => {
+          mountAndRestoreIdbfs();
+          reconcileLaunchState();
+        };
+
+        /* ----- GPU Capability Probe (WebGPU + WebGL 2.0) ----- */
+        async function probeGraphicsCapabilities() {
+          let webgl2Ok = false;
+          try {
+            const testCanvas = document.createElement('canvas');
+            const gl = testCanvas.getContext('webgl2', { antialias: false, powerPreference: 'high-performance' });
+            webgl2Ok = Boolean(gl);
+          } catch (_) {
+            webgl2Ok = false;
+          }
+
+          let webgpuOk = false;
+          try {
+            if (typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu) {
+              const adapter = await navigator.gpu.requestAdapter();
+              webgpuOk = Boolean(adapter);
+            }
+          } catch (_) {
+            webgpuOk = false;
+          }
+
+          appState.capabilities = { webgpu: webgpuOk, webgl2: webgl2Ok };
+          gpuProbeText.textContent = (webgl2Ok ? 'WebGL2 ✓' : 'WebGL2 ×') + ' · ' + (webgpuOk ? 'WebGPU ✓' : 'WebGPU ×');
+          updateBackendUI();
+        }
+
+        /* ----- File Import: Fast Pure-JS ZIP & Folder Upload -> IDBFS/IndexedDB ----- */
+        function setExtractProgress(active, text, pct) {
+          extractProgressBox.classList.toggle('is-active', active);
+          if (text) extractStatusText.textContent = text;
+          if (typeof pct === 'number') {
+            const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+            extractProgressFill.style.width = clamped + '%';
+            extractMetrics.textContent = clamped + '%';
+          }
+        }
+
+        async function writeEntriesToStorage(entriesList, onStep) {
+          const FS = window.Module && window.Module.FS ? window.Module.FS : null;
+          if (FS) {
+            ensureFsDir(FS, GAMEDATA_DIR);
+            removeFsRecursive(FS, GAMEDATA_DIR);
+            ensureFsDir(FS, GAMEDATA_DIR);
+          }
+
+          await clearCacheDB();
+
+          const totalCount = entriesList.length;
+          let totalBytes = 0;
+          const storedNames = [];
+          let batchRecords = [];
+          let lastYield = performance.now();
+
+          for (let i = 0; i < totalCount; i++) {
+            const item = entriesList[i];
+            const relPath = item.relPath;
+            const data = await item.readBytes();
+            totalBytes += data.byteLength;
+            storedNames.push(relPath);
+
+            if (FS) {
+              const fullPath = GAMEDATA_DIR + '/' + relPath;
+              const lastSlash = fullPath.lastIndexOf('/');
+              if (lastSlash > GAMEDATA_DIR.length) {
+                ensureFsDir(FS, fullPath.slice(0, lastSlash));
+              }
+              FS.writeFile(fullPath, data);
+            } else {
+              // Persist directly into IndexedDB when WASM FS isn't mounted yet
+              batchRecords.push({ path: relPath, data });
+              if (batchRecords.length >= 40) {
+                await saveFilesToCacheDB(batchRecords, null);
+                batchRecords = [];
+              }
+            }
+
+            const now = performance.now();
+            if (now - lastYield > 24 || i === totalCount - 1) {
+              onStep(i + 1, totalCount, totalBytes, relPath);
+              lastYield = now;
+              await new Promise((r) => requestAnimationFrame(r));
+            }
+          }
+
+          const edition = DarkWebCore.detectThiefEdition(storedNames);
+          const summary = {
+            count: totalCount,
+            bytes: totalBytes,
+            edition,
+            updatedAt: Date.now()
+          };
+
+          if (FS && appState.idbfsMounted) {
+            onStep(totalCount, totalCount, totalBytes, 'Синхронизация IDBFS...');
+            await new Promise((resolve) => {
+              FS.syncfs(false, (err) => {
+                if (err) console.warn('[DarkEngine] IDBFS persist warning:', err);
+                resolve();
+              });
+            });
+            // Save lightweight metadata record too
+            await saveFilesToCacheDB([], summary);
+          } else {
+            await saveFilesToCacheDB(batchRecords, summary);
+          }
+
+          await requestPersistentStorage();
+
+          appState.cachedFiles = totalCount;
+          appState.cachedBytes = totalBytes;
+          appState.edition = edition;
+        }
+
+        async function handleZipFile(file) {
+          if (!file) return;
+          appState.extracting = true;
+          reconcileLaunchState();
+          setExtractProgress(true, 'Чтение заголовков ' + file.name + '...', 4);
+
+          try {
+            const buffer = await file.arrayBuffer();
+            const zipEntries = DarkWebCore.parseZipCentralDirectory(buffer);
+            if (zipEntries.length === 0) {
+              throw new Error('Архив не содержит файлов');
+            }
+            const prefix = DarkWebCore.detectCommonRootPrefix(zipEntries.map((e) => e.name));
+            const rawBytes = new Uint8Array(buffer);
+
+            const descriptors = zipEntries
+              .map((entry) => {
+                const relPath = DarkWebCore.normalizeGamePath(entry.name, prefix);
+                if (!relPath) return null;
+                return {
+                  relPath,
+                  async readBytes() {
+                    const slice = rawBytes.subarray(entry.dataOffset, entry.dataOffset + entry.compSize);
+                    if (entry.method === 0) {
+                      return new Uint8Array(slice);
+                    }
+                    if (entry.method === 8) {
+                      return DarkWebCore.inflateRawBytes(slice);
+                    }
+                    throw new Error('Неподдерживаемый метод сжатия ZIP (' + entry.method + ') для ' + relPath);
+                  }
+                };
+              })
+              .filter(Boolean);
+
+            await writeEntriesToStorage(descriptors, (done, total, bytes, name) => {
+              const pct = (done / total) * 100;
+              setExtractProgress(true, 'Распаковка (' + done + '/' + total + '): ' + name, pct);
+              cacheDetailLine.textContent = done + ' файлов · ' + DarkWebCore.formatMB(bytes) + ' МБ';
+            });
+
+            setExtractProgress(false, '', 100);
+          } catch (err) {
+            console.error('[DarkEngine] ZIP import error:', err);
+            setExtractProgress(true, 'Ошибка распаковки: ' + (err.message || String(err)), 0);
+            setLightGemVisual('error');
+          } finally {
+            appState.extracting = false;
+            updateCacheUI();
+            reconcileLaunchState();
+          }
+        }
+
+        async function handleFolderFiles(fileList) {
+          const files = Array.from(fileList || []).filter((f) => f && f.size >= 0);
+          if (files.length === 0) return;
+
+          // If user dropped a single .zip onto the dropzone, handle it as ZIP
+          if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
+            return handleZipFile(files[0]);
+          }
+
+          appState.extracting = true;
+          reconcileLaunchState();
+          setExtractProgress(true, 'Подготовка списка файлов...', 2);
+
+          try {
+            const rawPaths = files.map((f) => f.webkitRelativePath || f.name);
+            const prefix = DarkWebCore.detectCommonRootPrefix(rawPaths);
+            const descriptors = files
+              .map((f) => {
+                const relPath = DarkWebCore.normalizeGamePath(f.webkitRelativePath || f.name, prefix);
+                if (!relPath) return null;
+                return {
+                  relPath,
+                  async readBytes() {
+                    return new Uint8Array(await f.arrayBuffer());
+                  }
+                };
+              })
+              .filter(Boolean);
+
+            await writeEntriesToStorage(descriptors, (done, total, bytes, name) => {
+              const pct = (done / total) * 100;
+              setExtractProgress(true, 'Кэширование (' + done + '/' + total + '): ' + name, pct);
+              cacheDetailLine.textContent = done + ' файлов · ' + DarkWebCore.formatMB(bytes) + ' МБ';
+            });
+
+            setExtractProgress(false, '', 100);
+          } catch (err) {
+            console.error('[DarkEngine] Folder import error:', err);
+            setExtractProgress(true, 'Ошибка копирования: ' + (err.message || String(err)), 0);
+            setLightGemVisual('error');
+          } finally {
+            appState.extracting = false;
+            updateCacheUI();
+            reconcileLaunchState();
+          }
+        }
+
+        async function handleClearCache() {
+          clearCacheBtn.disabled = true;
+          cacheStatusLine.textContent = 'Очистка кэша...';
+          try {
+            if (window.Module && window.Module.FS) {
+              removeFsRecursive(window.Module.FS, GAMEDATA_DIR);
+              if (appState.idbfsMounted) {
+                await new Promise((resolve) => {
+                  window.Module.FS.syncfs(false, () => resolve());
+                });
+              }
+            }
+            await clearCacheDB();
+            appState.cachedFiles = 0;
+            appState.cachedBytes = 0;
+            appState.edition = 'Файлы не загружены';
+          } finally {
+            updateCacheUI();
+            reconcileLaunchState();
+          }
+        }
+
+        /* ----- Canvas Sizing & Gameplay Launch ----- */
+        function applyCanvasResolution() {
+          const rect = canvas.getBoundingClientRect();
+          const dims = DarkWebCore.computeCanvasResolution(
+            rect.width || window.innerWidth,
+            rect.height || window.innerHeight,
+            window.devicePixelRatio || 1,
+            appState.quality
+          );
+          canvas.width = dims.width;
+          canvas.height = dims.height;
+        }
+
+        // Subtle atmospheric preview canvas rendered ONLY when thief-runner.wasm is
+        // not present on this preview server (lets users verify touch stick & swipe look!)
+        let previewYaw = 0;
+        let previewPitch = 0;
+        let previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
+        let previewLastAction = 'Ожидание ввода';
+
+        function startPreviewCanvasLoop() {
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          const renderFrame = () => {
+            if (!appState.gameRunning || appState.wasmState === 'ready') return;
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.fillStyle = '#09080c';
+            ctx.fillRect(0, 0, w, h);
+
+            // Gothic vaulted horizon lines responding to swipe camera look
+            const horizonY = h * 0.5 + Math.max(-h * 0.25, Math.min(h * 0.25, previewPitch * 2.2));
+            const grad = ctx.createLinearGradient(0, 0, 0, h);
+            grad.addColorStop(0, '#0d0c14');
+            grad.addColorStop(0.5, '#191410');
+            grad.addColorStop(1, '#080709');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Parallax stone arches driven by yaw
+            const spacing = Math.max(120, w * 0.22);
+            const offset = ((previewYaw * 3) % spacing + spacing) % spacing;
+            ctx.strokeStyle = 'rgba(207, 168, 102, 0.22)';
+            ctx.lineWidth = Math.max(1, w / 640);
+            for (let x = -spacing + offset; x < w + spacing; x += spacing) {
+              ctx.beginPath();
+              ctx.moveTo(x, horizonY + h * 0.32);
+              ctx.lineTo(x, horizonY - h * 0.24);
+              ctx.quadraticCurveTo(x + spacing * 0.5, horizonY - h * 0.42, x + spacing, horizonY - h * 0.24);
+              ctx.stroke();
+            }
+
+            // Floor perspective grid
+            ctx.strokeStyle = 'rgba(141, 151, 196, 0.14)';
+            ctx.beginPath();
+            ctx.moveTo(0, horizonY);
+            ctx.lineTo(w, horizonY);
+            ctx.stroke();
+
+            // Subtle Thief crosshair
+            ctx.strokeStyle = 'rgba(235, 208, 148, 0.65)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(w * 0.5 - 8, h * 0.5);
+            ctx.lineTo(w * 0.5 + 8, h * 0.5);
+            ctx.moveTo(w * 0.5, h * 0.5 - 8);
+            ctx.lineTo(w * 0.5, h * 0.5 + 8);
+            ctx.stroke();
+
+            // Clean top-center orientation caption well clear of bottom thumb controls
+            const fontPx = Math.max(11, Math.min(14, Math.round(w * 0.028)));
+            ctx.fillStyle = 'rgba(228, 221, 208, 0.78)';
+            ctx.font = fontPx + 'px JetBrains Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(
+              'ОБЗОР ' + Math.round(previewYaw) + '°/' + Math.round(previewPitch) + '° · ' + previewMoveState.speed,
+              w * 0.5,
+              Math.max(66, Math.round(h * 0.11))
+            );
+
+            appState.previewCanvasAnimId = requestAnimationFrame(renderFrame);
+          };
+          appState.previewCanvasAnimId = requestAnimationFrame(renderFrame);
+        }
+
+        async function launchGame(isPreviewMode) {
+          const resolved = DarkWebCore.resolveGraphicsBackend(appState.requestedBackend, appState.capabilities);
+          const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
+
+          appState.isPreviewMode = Boolean(isPreviewMode);
+          appState.gameRunning = true;
+          document.body.dataset.mode = 'playing';
+          updateTouchPrefsUI();
+
+          applyCanvasResolution();
+          canvas.focus();
+
+          if (!isPreviewMode && appState.wasmState === 'ready' && window.Module) {
+            try {
+              // Ensure cached IndexedDB files are materialized into /gamedata if uploaded prior to FS mount
+              if (window.Module.FS) {
+                const existing = countFsTree(window.Module.FS, GAMEDATA_DIR);
+                if (existing.count === 0 && appState.cachedFiles > 0) {
+                  const cachedRecords = await readAllFilesFromDB();
+                  ensureFsDir(window.Module.FS, GAMEDATA_DIR);
+                  for (const rec of cachedRecords) {
+                    const fullPath = GAMEDATA_DIR + '/' + rec.path;
+                    const idx = fullPath.lastIndexOf('/');
+                    if (idx > GAMEDATA_DIR.length) ensureFsDir(window.Module.FS, fullPath.slice(0, idx));
+                    window.Module.FS.writeFile(fullPath, new Uint8Array(rec.data));
+                  }
+                }
+              }
+
+              if (typeof window.Module.ccall === 'function') {
+                try {
+                  window.Module.ccall('dark_web_set_graphics_backend', null, ['string'], [resolved.active]);
+                  window.Module.ccall('dark_web_set_quality_preset', null, ['number'], [preset.scale]);
+                  window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
+                  applyInputProfileToEngine();
+                } catch (_) {
+                  // Optional exported hooks
+                }
+              }
+
+              if (typeof window.Module.callMain === 'function') {
+                window.Module.callMain([]);
+                return;
+              }
+            } catch (err) {
+              console.error('[DarkEngine] Launch error:', err);
+              previewLastAction = 'Ошибка запуска: ' + (err.message || err);
+            }
+          }
+
+          startPreviewCanvasLoop();
+        }
+
+        function exitToLauncher() {
+          appState.gameRunning = false;
+          appState.isPreviewMode = false;
+          if (document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
+            try { document.exitPointerLock(); } catch (_) {}
+          }
+          if (appState.previewCanvasAnimId) {
+            cancelAnimationFrame(appState.previewCanvasAnimId);
+            appState.previewCanvasAnimId = 0;
+          }
+          if (window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              window.Module.ccall('dark_web_sync_saves', null, [], []);
+            } catch (_) {
+              // Ignore if not running
+            }
+          }
+          hudDrawer.classList.remove('is-open');
+          hudSettingsBtn.setAttribute('aria-expanded', 'false');
+          document.body.dataset.mode = 'launcher';
+          reconcileLaunchState();
+        }
+
+        /* =====================================================================
+         * 5. SYNTHETIC INPUT DISPATCH, PC RAW MOUSE, GAMEPAD & TOUCH/GESTURES
+         * ===================================================================== */
+        const activeKeys = Object.create(null);
+        let toastTimerId = 0;
+
+        function triggerHaptic(ms) {
+          try {
+            if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+              navigator.vibrate(ms || 12);
+            }
+          } catch (_) {}
+        }
+
+        function showInputToast(text) {
+          if (!gestureToast || !text) return;
+          gestureToast.textContent = text;
+          gestureToast.classList.add('is-visible');
+          if (toastTimerId) clearTimeout(toastTimerId);
+          toastTimerId = setTimeout(() => {
+            gestureToast.classList.remove('is-visible');
+          }, 950);
+        }
+
+        function dispatchKey(code, down) {
+          if (Boolean(activeKeys[code]) === down) return;
+          activeKeys[code] = down;
+          const keyMap = {
+            KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd',
+            KeyQ: 'q', KeyE: 'e', KeyX: 'x', KeyF: 'f', KeyM: 'm',
+            Space: ' ', Escape: 'Escape', ShiftLeft: 'Shift', ControlLeft: 'Control',
+            BracketLeft: '[', BracketRight: ']', F5: 'F5', F9: 'F9'
+          };
+          const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', {
+            code,
+            key: keyMap[code] || code,
+            bubbles: true,
+            cancelable: true
+          });
+          canvas.dispatchEvent(ev);
+          window.dispatchEvent(ev);
+          if (down) previewLastAction = 'Клавиша: ' + (keyMap[code] || code).toUpperCase();
+        }
+
+        function pulseKey(code, holdMs) {
+          dispatchKey(code, true);
+          setTimeout(() => dispatchKey(code, false), holdMs || 95);
+        }
+
+        function dispatchMouseButton(button, down) {
+          const rect = canvas.getBoundingClientRect();
+          const ev = new MouseEvent(down ? 'mousedown' : 'mouseup', {
+            button,
+            buttons: down ? (button === 0 ? 1 : 2) : 0,
+            clientX: rect.left + rect.width * 0.5,
+            clientY: rect.top + rect.height * 0.5,
+            bubbles: true,
+            cancelable: true
+          });
+          canvas.dispatchEvent(ev);
+          if (down) previewLastAction = button === 0 ? 'Удар (ЛКМ)' : 'Блок / Предмет (ПКМ)';
+        }
+
+        function pulseMouseButton(button, holdMs) {
+          dispatchMouseButton(button, true);
+          setTimeout(() => dispatchMouseButton(button, false), holdMs || 110);
+        }
+
+        function dispatchMouseLook(dx, dy, skipScaling) {
+          const mult = skipScaling ? 1 : appState.sensitivity;
+          const scaledX = dx * mult;
+          const scaledY = dy * mult * (appState.invertY ? -1 : 1);
+          previewYaw += scaledX * 0.35;
+          previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.28));
+
+          const rect = canvas.getBoundingClientRect();
+          const ev = new MouseEvent('mousemove', {
+            clientX: rect.left + rect.width * 0.5 + scaledX,
+            clientY: rect.top + rect.height * 0.5 + scaledY,
+            movementX: Math.round(scaledX),
+            movementY: Math.round(scaledY),
+            bubbles: true,
+            cancelable: true
+          });
+          canvas.dispatchEvent(ev);
+        }
+
+        // --- 5A. PC Raw Pointer Lock & Browser Key-Hijack Protection ---
+        async function requestPcPointerLock() {
+          if (!appState.gameRunning || !canvas.requestPointerLock) return;
+          if (document.pointerLockElement === canvas) return;
+          try {
+            if (appState.rawMouse) {
+              const maybePromise = canvas.requestPointerLock({ unadjustedMovement: true });
+              if (maybePromise && typeof maybePromise.catch === 'function') {
+                await maybePromise.catch(() => canvas.requestPointerLock());
+              }
+            } else {
+              canvas.requestPointerLock();
+            }
+          } catch (_) {
+            try { canvas.requestPointerLock(); } catch (__) {}
+          }
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+          if (e.pointerType === 'mouse' && appState.gameRunning && !hudDrawer.classList.contains('is-open')) {
+            requestPcPointerLock();
+          }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+          appState.pointerLocked = document.pointerLockElement === canvas;
+          if (appState.pointerLocked) {
+            showInputToast(appState.rawMouse ? 'RAW-МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД' : 'МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД');
+          }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!appState.gameRunning || !appState.pointerLocked || appState.wasmState === 'ready') return;
+          if (e.movementX || e.movementY) {
+            previewYaw += e.movementX * appState.sensitivity * 0.25;
+            previewPitch = Math.max(-75, Math.min(75, previewPitch + e.movementY * appState.sensitivity * (appState.invertY ? -0.22 : 0.22)));
+          }
+        });
+
+        // --- 5B. Web Gamepad API Bridge (Xbox / DualSense / Switch Pro) ---
+        let gamepadPollRaf = 0;
+        let gamepadLastTs = 0;
+        const prevPadKeys = Object.create(null);
+        let prevPadLmb = false;
+        let prevPadRmb = false;
+
+        function getPrimaryGamepad() {
+          if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return null;
+          const pads = navigator.getGamepads();
+          for (let i = 0; i < pads.length; i++) {
+            if (pads[i] && pads[i].connected) return pads[i];
+          }
+          return null;
+        }
+
+        function triggerGamepadRumble(pad, weak, strong, duration) {
+          try {
+            if (pad && pad.vibrationActuator && typeof pad.vibrationActuator.playEffect === 'function') {
+              pad.vibrationActuator.playEffect('dual-rumble', {
+                duration: duration || 55,
+                weakMagnitude: weak || 0.2,
+                strongMagnitude: strong || 0.35
+              });
+            }
+          } catch (_) {}
+        }
+
+        function pollGamepadFrame(ts) {
+          const pad = getPrimaryGamepad();
+          if (!pad) {
+            gamepadPollRaf = 0;
+            return;
+          }
+          const dtSec = gamepadLastTs ? (ts - gamepadLastTs) / 1000 : (1 / 60);
+          gamepadLastTs = ts;
+
+          if (appState.gameRunning) {
+            const mapped = DarkWebCore.mapGamepadState(pad.axes, pad.buttons, {
+              deadzone: appState.gamepadDeadzone,
+              sensitivity: appState.sensitivity,
+              invertY: appState.invertY,
+              dtSec
+            });
+
+            for (const [code, isDown] of Object.entries(mapped.keys)) {
+              if (Boolean(prevPadKeys[code]) !== isDown) {
+                prevPadKeys[code] = isDown;
+                dispatchKey(code, isDown);
+                if (isDown && (code === 'F5' || code === 'F9')) {
+                  showInputToast(code === 'F5' ? 'БЫСТРОЕ СОХРАНЕНИЕ (F5)' : 'БЫСТРАЯ ЗАГРУЗКА (F9)');
+                  triggerGamepadRumble(pad, 0.2, 0.25, 45);
+                }
+              }
+            }
+
+            if (mapped.mouseLeft !== prevPadLmb) {
+              prevPadLmb = mapped.mouseLeft;
+              dispatchMouseButton(0, mapped.mouseLeft);
+              if (mapped.mouseLeft) triggerGamepadRumble(pad, 0.18, 0.42, 60);
+            }
+            if (mapped.mouseRight !== prevPadRmb) {
+              prevPadRmb = mapped.mouseRight;
+              dispatchMouseButton(2, mapped.mouseRight);
+            }
+            if (mapped.lookDx !== 0 || mapped.lookDy !== 0) {
+              dispatchMouseLook(mapped.lookDx, mapped.lookDy, true);
+            }
+            if (mapped.moveMode !== 'idle') {
+              previewMoveState.speed = mapped.moveLabel;
+            }
+          }
+          gamepadPollRaf = requestAnimationFrame(pollGamepadFrame);
+        }
+
+        function refreshGamepadConnection() {
+          const pad = getPrimaryGamepad();
+          appState.connectedGamepadName = pad
+            ? String(pad.id || 'Геймпад').replace(/\s*\(.*?\)\s*/g, '').slice(0, 26)
+            : '';
+          updateTouchPrefsUI();
+          if (pad && !gamepadPollRaf) {
+            gamepadLastTs = 0;
+            gamepadPollRaf = requestAnimationFrame(pollGamepadFrame);
+          }
+        }
+
+        window.addEventListener('gamepadconnected', (e) => {
+          refreshGamepadConnection();
+          if (appState.gameRunning) {
+            showInputToast('ГЕЙМПАД ПОДКЛЮЧЁН: ' + (appState.connectedGamepadName || 'OK'));
+          }
+        });
+        window.addEventListener('gamepaddisconnected', () => {
+          for (const k of Object.keys(prevPadKeys)) {
+            if (prevPadKeys[k]) {
+              prevPadKeys[k] = false;
+              dispatchKey(k, false);
+            }
+          }
+          if (prevPadLmb) { prevPadLmb = false; dispatchMouseButton(0, false); }
+          if (prevPadRmb) { prevPadRmb = false; dispatchMouseButton(2, false); }
+          refreshGamepadConnection();
+        });
+
+        // --- 5C. Button-Free Smartphone Gesture Controller ---
+        const activeGesturePointers = new Map();
+        let gMovePointerId = null;
+        let gMoveOriginX = 0;
+        let gMoveOriginY = 0;
+        let gLookPointerId = null;
+        let gLookLastX = 0;
+        let gLookLastY = 0;
+        let gPendingLookDx = 0;
+        let gPendingLookDy = 0;
+        let gLookRaf = 0;
+        let gRightHoldTimer = 0;
+        let gRightHoldActive = false;
+        let gTwoFingerActive = false;
+        let gTwoFingerStartX = 0;
+        let gTwoFingerStartY = 0;
+        let gTwoFingerStartTs = 0;
+        let gLastTapLeftTs = 0;
+        let gLastTapRightTs = 0;
+
+        function flushGestureLook() {
+          gLookRaf = 0;
+          if (gPendingLookDx !== 0 || gPendingLookDy !== 0) {
+            const dx = gPendingLookDx;
+            const dy = gPendingLookDy;
+            gPendingLookDx = 0;
+            gPendingLookDy = 0;
+            dispatchMouseLook(dx, dy);
+          }
+        }
+
+        function resetGestureMove() {
+          gMovePointerId = null;
+          gestureGhostRing.classList.remove('is-visible');
+          gestureGhostDot.style.transform = 'translate3d(0px, 0px, 0px)';
+          previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
+          ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ControlLeft'].forEach((k) => dispatchKey(k, false));
+        }
+
+        function executeGestureAction(result) {
+          if (!result) return;
+          if (result.key) pulseKey(result.key, result.holdMs);
+          if (result.mouseButton !== undefined) pulseMouseButton(result.mouseButton, result.holdMs);
+          triggerHaptic(14);
+          showInputToast(result.label);
+        }
+
+        gestureHud.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          gestureHud.setPointerCapture(e.pointerId);
+          const halfW = window.innerWidth * 0.5;
+          const zone = e.clientX < halfW ? 'left' : 'right';
+          activeGesturePointers.set(e.pointerId, {
+            id: e.pointerId,
+            zone,
+            startX: e.clientX,
+            startY: e.clientY,
+            currX: e.clientX,
+            currY: e.clientY,
+            startTs: performance.now(),
+            moved: false
+          });
+
+          if (activeGesturePointers.size === 2) {
+            // Switch cleanly into 2-finger gesture mode
+            if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
+            if (gRightHoldActive) { gRightHoldActive = false; dispatchMouseButton(2, false); }
+            resetGestureMove();
+            gLookPointerId = null;
+            const pts = Array.from(activeGesturePointers.values());
+            gTwoFingerActive = true;
+            gTwoFingerStartX = (pts[0].currX + pts[1].currX) * 0.5;
+            gTwoFingerStartY = (pts[0].currY + pts[1].currY) * 0.5;
+            gTwoFingerStartTs = performance.now();
+            return;
+          }
+
+          if (zone === 'left' && gMovePointerId === null) {
+            gMovePointerId = e.pointerId;
+            gMoveOriginX = e.clientX;
+            gMoveOriginY = e.clientY;
+            gestureGhostRing.style.left = e.clientX + 'px';
+            gestureGhostRing.style.top = e.clientY + 'px';
+            gestureGhostRing.classList.add('is-visible');
+          } else if (zone === 'right' && gLookPointerId === null) {
+            gLookPointerId = e.pointerId;
+            gLookLastX = e.clientX;
+            gLookLastY = e.clientY;
+            if (gRightHoldTimer) clearTimeout(gRightHoldTimer);
+            gRightHoldTimer = setTimeout(() => {
+              const pt = activeGesturePointers.get(e.pointerId);
+              if (pt && !pt.moved && !gTwoFingerActive) {
+                gRightHoldActive = true;
+                dispatchMouseButton(2, true);
+                triggerHaptic(18);
+                showInputToast('БЛОК / ПРЕДМЕТ (УДЕРЖ.)');
+              }
+            }, 260);
+          }
+        });
+
+        gestureHud.addEventListener('pointermove', (e) => {
+          const pt = activeGesturePointers.get(e.pointerId);
+          if (!pt) return;
+          e.preventDefault();
+          pt.currX = e.clientX;
+          pt.currY = e.clientY;
+          if (Math.hypot(pt.currX - pt.startX, pt.currY - pt.startY) > 14) {
+            pt.moved = true;
+            if (e.pointerId === gLookPointerId && gRightHoldTimer) {
+              clearTimeout(gRightHoldTimer);
+              gRightHoldTimer = 0;
+            }
+          }
+
+          if (gTwoFingerActive) return;
+
+          if (e.pointerId === gMovePointerId) {
+            const mapped = DarkWebCore.mapJoystickToInput(e.clientX - gMoveOriginX, e.clientY - gMoveOriginY, 54);
+            gestureGhostDot.style.transform = 'translate3d(' + (mapped.clampedX * 0.65).toFixed(1) + 'px, ' + (mapped.clampedY * 0.65).toFixed(1) + 'px, 0px)';
+            previewMoveState = { x: mapped.clampedX, y: mapped.clampedY, speed: mapped.speedLabel };
+            for (const [k, isDown] of Object.entries(mapped.keys)) {
+              dispatchKey(k, isDown);
+            }
+          } else if (e.pointerId === gLookPointerId) {
+            const dx = e.clientX - gLookLastX;
+            const dy = e.clientY - gLookLastY;
+            gLookLastX = e.clientX;
+            gLookLastY = e.clientY;
+            if (dx !== 0 || dy !== 0) {
+              gPendingLookDx += dx;
+              gPendingLookDy += dy;
+              if (!gLookRaf) gLookRaf = requestAnimationFrame(flushGestureLook);
+            }
+          }
+        });
+
+        const endGesturePointer = (e) => {
+          const pt = activeGesturePointers.get(e.pointerId);
+          if (!pt) return;
+          const now = performance.now();
+
+          if (gTwoFingerActive && activeGesturePointers.size === 2) {
+            const pts = Array.from(activeGesturePointers.values());
+            const avgX = (pts[0].currX + pts[1].currX) * 0.5;
+            const avgY = (pts[0].currY + pts[1].currY) * 0.5;
+            const res = DarkWebCore.classifyTouchGesture({
+              fingers: 2,
+              dx: avgX - gTwoFingerStartX,
+              dy: avgY - gTwoFingerStartY,
+              durationMs: now - gTwoFingerStartTs
+            });
+            executeGestureAction(res);
+          }
+
+          activeGesturePointers.delete(e.pointerId);
+
+          if (gTwoFingerActive) {
+            if (activeGesturePointers.size === 0) gTwoFingerActive = false;
+            return;
+          }
+
+          if (e.pointerId === gMovePointerId) {
+            resetGestureMove();
+          }
+          if (e.pointerId === gLookPointerId) {
+            gLookPointerId = null;
+            if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
+            if (gLookRaf) { cancelAnimationFrame(gLookRaf); flushGestureLook(); }
+            if (gRightHoldActive) {
+              gRightHoldActive = false;
+              dispatchMouseButton(2, false);
+              return;
+            }
+          }
+
+          // Single-finger tap / double-tap classification
+          const dt = now - pt.startTs;
+          const dx = pt.currX - pt.startX;
+          const dy = pt.currY - pt.startY;
+          if (Math.hypot(dx, dy) <= 16 && dt <= 240) {
+            const prevTap = pt.zone === 'left' ? gLastTapLeftTs : gLastTapRightTs;
+            const isDoubleTap = (now - prevTap) < 310;
+            if (pt.zone === 'left') gLastTapLeftTs = isDoubleTap ? 0 : now;
+            else gLastTapRightTs = isDoubleTap ? 0 : now;
+            const res = DarkWebCore.classifyTouchGesture({
+              zone: pt.zone,
+              fingers: 1,
+              dx,
+              dy,
+              durationMs: dt,
+              isDoubleTap
+            });
+            executeGestureAction(res);
+          }
+        };
+
+        gestureHud.addEventListener('pointerup', endGesturePointer);
+        gestureHud.addEventListener('pointercancel', endGesturePointer);
+
+        // Floating Virtual Joystick (Left)
+        const stickZone = $('stickZone');
+        const stickBase = $('stickBase');
+        const stickKnob = $('stickKnob');
+        const stickSpeedTag = $('stickSpeedTag');
+        let stickPointerId = null;
+        let stickOriginX = 0;
+        let stickOriginY = 0;
+        const STICK_RADIUS = 54;
+
+        function resetStick() {
+          stickPointerId = null;
+          stickBase.classList.remove('is-active');
+          stickKnob.style.transform = 'translate3d(0px, 0px, 0px)';
+          stickSpeedTag.textContent = 'ШАГ';
+          previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
+          ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ControlLeft'].forEach((k) => dispatchKey(k, false));
+        }
+
+        stickZone.addEventListener('pointerdown', (e) => {
+          if (stickPointerId !== null) return;
+          e.preventDefault();
+          stickPointerId = e.pointerId;
+          stickZone.setPointerCapture(e.pointerId);
+          const zoneRect = stickZone.getBoundingClientRect();
+          const localX = Math.max(68, Math.min(zoneRect.width - 68, e.clientX - zoneRect.left));
+          const localY = Math.max(68, Math.min(zoneRect.height - 68, e.clientY - zoneRect.top));
+          stickBase.style.left = (localX - 64) + 'px';
+          stickBase.style.bottom = (zoneRect.height - localY - 64) + 'px';
+          stickBase.classList.add('is-active');
+          stickOriginX = e.clientX;
+          stickOriginY = e.clientY;
+        });
+
+        stickZone.addEventListener('pointermove', (e) => {
+          if (e.pointerId !== stickPointerId) return;
+          e.preventDefault();
+          const mapped = DarkWebCore.mapJoystickToInput(
+            e.clientX - stickOriginX,
+            e.clientY - stickOriginY,
+            STICK_RADIUS
+          );
+          stickKnob.style.transform = 'translate3d(' + mapped.clampedX.toFixed(1) + 'px, ' + mapped.clampedY.toFixed(1) + 'px, 0px)';
+          stickSpeedTag.textContent = mapped.speedLabel;
+          previewMoveState = { x: mapped.clampedX, y: mapped.clampedY, speed: mapped.speedLabel };
+          for (const [key, isDown] of Object.entries(mapped.keys)) {
+            dispatchKey(key, isDown);
+          }
+        });
+
+        stickZone.addEventListener('pointerup', (e) => {
+          if (e.pointerId === stickPointerId) resetStick();
+        });
+        stickZone.addEventListener('pointercancel', (e) => {
+          if (e.pointerId === stickPointerId) resetStick();
+        });
+
+        // Swipe Camera Look Zone (Right) — rAF-coalesced so 120–240Hz mobile
+        // touchscreens dispatch at most one synthetic mousemove per frame.
+        const lookZone = $('lookZone');
+        let lookPointerId = null;
+        let lastLookX = 0;
+        let lastLookY = 0;
+        let pendingLookDx = 0;
+        let pendingLookDy = 0;
+        let lookFlushRaf = 0;
+
+        function flushPendingLook() {
+          lookFlushRaf = 0;
+          if (pendingLookDx !== 0 || pendingLookDy !== 0) {
+            const dx = pendingLookDx;
+            const dy = pendingLookDy;
+            pendingLookDx = 0;
+            pendingLookDy = 0;
+            dispatchMouseLook(dx, dy);
+          }
+        }
+
+        lookZone.addEventListener('pointerdown', (e) => {
+          if (lookPointerId !== null) return;
+          e.preventDefault();
+          lookPointerId = e.pointerId;
+          lookZone.setPointerCapture(e.pointerId);
+          lastLookX = e.clientX;
+          lastLookY = e.clientY;
+        });
+
+        lookZone.addEventListener('pointermove', (e) => {
+          if (e.pointerId !== lookPointerId) return;
+          e.preventDefault();
+          const dx = e.clientX - lastLookX;
+          const dy = e.clientY - lastLookY;
+          lastLookX = e.clientX;
+          lastLookY = e.clientY;
+          if (dx !== 0 || dy !== 0) {
+            pendingLookDx += dx;
+            pendingLookDy += dy;
+            if (!lookFlushRaf) {
+              lookFlushRaf = requestAnimationFrame(flushPendingLook);
+            }
+          }
+        });
+
+        const endLook = (e) => {
+          if (e.pointerId === lookPointerId) {
+            lookPointerId = null;
+            if (lookFlushRaf) {
+              cancelAnimationFrame(lookFlushRaf);
+              flushPendingLook();
+            }
+          }
+        };
+        lookZone.addEventListener('pointerup', endLook);
+        lookZone.addEventListener('pointercancel', endLook);
+
+        // Action & Top HUD Buttons
+        document.querySelectorAll('[data-key], [data-mouse]').forEach((btn) => {
+          const isToggle = btn.dataset.toggle === 'true';
+          const keyCode = btn.dataset.key;
+          const mouseBtn = btn.dataset.mouse !== undefined ? Number(btn.dataset.mouse) : null;
+
+          if (isToggle && keyCode) {
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              const next = btn.getAttribute('aria-pressed') !== 'true';
+              btn.setAttribute('aria-pressed', String(next));
+              btn.classList.toggle('is-toggled', next);
+              dispatchKey(keyCode, true);
+              setTimeout(() => dispatchKey(keyCode, false), 90);
+            });
+            return;
+          }
+
+          btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            btn.classList.add('is-pressed');
+            if (keyCode) dispatchKey(keyCode, true);
+            if (mouseBtn !== null) dispatchMouseButton(mouseBtn, true);
+          });
+
+          const release = () => {
+            btn.classList.remove('is-pressed');
+            if (keyCode) dispatchKey(keyCode, false);
+            if (mouseBtn !== null) dispatchMouseButton(mouseBtn, false);
+          };
+
+          btn.addEventListener('pointerup', release);
+          btn.addEventListener('pointercancel', release);
+          btn.addEventListener('pointerleave', release);
+        });
+
+        /* ----- Event Wiring for Launcher Controls ----- */
+        pickZipBtn.addEventListener('click', () => zipInput.click());
+        pickFolderBtn.addEventListener('click', () => folderInput.click());
+
+        zipInput.addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) handleZipFile(file);
+          zipInput.value = '';
+        });
+
+        folderInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFolderFiles(e.target.files);
+          }
+          folderInput.value = '';
+        });
+
+        dropzone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropzone.classList.add('is-dragover');
+        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+        dropzone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropzone.classList.remove('is-dragover');
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFolderFiles(e.dataTransfer.files);
+          }
+        });
+
+        clearCacheBtn.addEventListener('click', handleClearCache);
+
+        document.querySelectorAll('[data-backend]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.requestedBackend = btn.dataset.backend;
+            persistPrefs();
+            updateBackendUI();
+          });
+        });
+
+        document.querySelectorAll('[data-quality]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.quality = btn.dataset.quality;
+            persistPrefs();
+            updateQualityUI();
+          });
+        });
+
+        document.querySelectorAll('[data-fps]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.targetFps = DarkWebCore.normalizeTargetFps(btn.dataset.fps);
+            persistPrefs();
+            updateQualityUI();
+          });
+        });
+
+        document.querySelectorAll('[data-touch]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.touchMode = DarkWebCore.normalizeTouchMode(btn.dataset.touch);
+            persistPrefs();
+            updateTouchPrefsUI();
+          });
+        });
+
+        const onSensitivityChange = (val) => {
+          appState.sensitivity = Math.max(0.4, Math.min(3.0, Number(val) || 1.2));
+          persistPrefs();
+          updateTouchPrefsUI();
+        };
+        sensitivitySlider.addEventListener('input', (e) => onSensitivityChange(e.target.value));
+        hudSensSlider.addEventListener('input', (e) => onSensitivityChange(e.target.value));
+
+        if (deadzoneSlider) {
+          deadzoneSlider.addEventListener('input', (e) => {
+            appState.gamepadDeadzone = Math.max(0.05, Math.min(0.30, Number(e.target.value) || 0.15));
+            persistPrefs();
+            updateTouchPrefsUI();
+          });
+        }
+
+        const toggleInvertY = () => {
+          appState.invertY = !appState.invertY;
+          persistPrefs();
+          updateTouchPrefsUI();
+        };
+        if (invertYBtn) invertYBtn.addEventListener('click', toggleInvertY);
+        if (hudInvertYBtn) hudInvertYBtn.addEventListener('click', toggleInvertY);
+
+        if (rawMouseBtn) {
+          rawMouseBtn.addEventListener('click', () => {
+            appState.rawMouse = !appState.rawMouse;
+            persistPrefs();
+            updateTouchPrefsUI();
+          });
+        }
+
+        launchBtn.addEventListener('click', () => launchGame(appState.wasmState !== 'ready'));
+        previewHudTopBtn.addEventListener('click', () => launchGame(true));
+        exitToLauncherBtn.addEventListener('click', exitToLauncher);
+        const drawerExitBtn = $('drawerExitBtn');
+        if (drawerExitBtn) drawerExitBtn.addEventListener('click', exitToLauncher);
+
+        hudSettingsBtn.addEventListener('click', () => {
+          const open = !hudDrawer.classList.contains('is-open');
+          hudDrawer.classList.toggle('is-open', open);
+          hudSettingsBtn.setAttribute('aria-expanded', String(open));
+          if (open) updateBackendUI();
+        });
+
+        window.addEventListener('resize', () => {
+          if (appState.gameRunning) applyCanvasResolution();
+        });
+
+        // PC Keyboard protection (prevents browser F5 reload / Space scroll / Tab focus jump during Thief gameplay)
+        window.addEventListener('keydown', (e) => {
+          if (!appState.gameRunning) return;
+          if (['Space', 'Tab', 'F5', 'F9', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+            e.preventDefault();
+          }
+          if (e.code === 'ArrowLeft') previewYaw -= 4;
+          if (e.code === 'ArrowRight') previewYaw += 4;
+          if (e.code === 'ArrowUp') previewPitch = Math.max(-75, previewPitch - 3);
+          if (e.code === 'ArrowDown') previewPitch = Math.min(75, previewPitch + 3);
+          if (e.code === 'KeyW') previewMoveState.speed = 'ВПЕРЁД';
+          if (e.code === 'KeyS') previewMoveState.speed = 'НАЗАД';
+        });
+
+        // Initial render + GPU probe + Gamepad check + IDBFS cache check
+        updateQualityUI();
+        updateTouchPrefsUI();
+        refreshGamepadConnection();
+        probeGraphicsCapabilities();
+        mountAndRestoreIdbfs();
+        reconcileLaunchState();
+
+        // Safety watchdog: catches late Module.calledRun even if onRuntimeInitialized was missed
+        const readinessPoll = setInterval(() => {
+          if (appState.wasmState !== 'loading') {
+            clearInterval(readinessPoll);
+            return;
+          }
+          if (window.Module && (window.Module.calledRun || window.Module.FS)) {
+            appState.wasmState = 'ready';
+            mountAndRestoreIdbfs();
+            reconcileLaunchState();
+            clearInterval(readinessPoll);
+          }
+        }, 250);
+
+        // Dynamically load Emscripten glue script (gracefully handles missing build artifact on preview host)
+        const loaderScript = document.createElement('script');
+        loaderScript.src = 'thief-runner.js';
+        loaderScript.async = true;
+        loaderScript.onerror = () => {
+          if (appState.wasmState === 'loading') {
+            appState.wasmState = 'unavailable';
+            reconcileLaunchState();
+          }
+        };
+        document.body.appendChild(loaderScript);
+
+        // Support ?autostart=1 to jump directly into the active gameplay & touch HUD viewport
+        if (new URLSearchParams(window.location.search).get('autostart') === '1') {
+          launchGame(true);
+        }
       }
-    };
 
-    // Полноэкранный режим
-    document.getElementById('btn-fs').onclick = () => {
-      if (!document.fullscreenElement) gameWrap.requestFullscreen().catch(() => {});
-      else document.exitFullscreen().catch(() => {});
-    };
-
-    // Эмуляция клавиатуры для экранных кнопок телефона
-    document.querySelectorAll('.t-btn[data-key]').forEach(btn => {
-      const code = btn.dataset.key;
-      const keyCode = parseInt(btn.dataset.code, 10);
-      const fire = (type) => {
-        const ev = new KeyboardEvent(type, { code, key: code.replace('Key', '').toLowerCase(), keyCode, which: keyCode, bubbles: true });
-        canvas.dispatchEvent(ev);
-        window.dispatchEvent(ev);
-      };
-      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); fire('keydown'); });
-      btn.addEventListener('pointerup', (e) => { e.preventDefault(); fire('keyup'); });
-      btn.addEventListener('pointerleave', (e) => { e.preventDefault(); fire('keyup'); });
-      btn.addEventListener('pointercancel', (e) => { e.preventDefault(); fire('keyup'); });
-    });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initUI, { once: true });
+      } else {
+        initUI();
+      }
+    })();
   </script>
 </body>
 </html>

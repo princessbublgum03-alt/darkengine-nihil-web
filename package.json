@@ -1,0 +1,12 @@
+{
+  "name": "dark-engine-web-launcher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Thief: Dark Engine WebAssembly launcher preview server and verification harness",
+  "scripts": {
+    "dev": "node preview-server.mjs",
+    "start": "node preview-server.mjs",
+    "build": "node --check preview-server.mjs && node --test web-launcher.test.mjs",
+    "lint": "node --check preview-server.mjs && node --check web-launcher.test.mjs"
+  }
+}
