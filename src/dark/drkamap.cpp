@@ -1297,7 +1297,7 @@ automap_im_everywhere( int onOff )
 
 static Command commands [] = 
 {
-   { "automap", FUNC_STRING, do_automap, "Display the automap", HK_ALL },
+   { "automap", FUNC_VOID, do_automap, "Display the automap", HK_ALL },
    { "amap_visited", FUNC_INT, automap_set_visited, "mark an automap location on current page visited", HK_ALL },
    { "amap_im_everywhere", FUNC_INT, automap_im_everywhere, "make all decals display as current location", HK_ALL },
    { "amap_spew", TOGGLE_BOOL, &gbAutomapSpew },

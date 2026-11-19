@@ -41,7 +41,7 @@
 #include <coronag.h>
 
 
-extern "C" void FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);
+extern "C" BOOL FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);
 extern "C" void (*portal_post_render_cback)(void);
 #ifdef EDITOR
 extern "C" BOOL g_lgd3d;

@@ -58,6 +58,15 @@ static BOOL grunpref = FALSE; //does gtoggleon currently override gcreepon?
 #define NORMSPEED 2
 #define SLOWSPEED 1
 
+static tBindHandler g_inpbnd_handler = NULL;
+
+static BOOL input_binder_ui_handler(uiEvent *event, Region *region, void *state)
+{
+   (void)region;
+   (void)state;
+   return g_inpbnd_handler ? g_inpbnd_handler(event) : FALSE;
+}
+
 /*
 -------------------------------------------------
 For installing and removing the binding handler
@@ -67,12 +76,13 @@ void InstallIBHandler (ulong context, ulong events, BOOL poll)
 {
    tBindHandler inpbnd_handler;
    g_pInputBinder->GetHandler (&inpbnd_handler);
+   g_inpbnd_handler = inpbnd_handler;
 
    uiSlab* slabptr;
    uiGetCurrentSlab(&slabptr);
    g_root = slabptr->creg;
 
-   uiInstallRegionHandler (g_root, events, reinterpret_cast<uiHandlerProc>(inpbnd_handler), NULL, &g_cookie);
+   uiInstallRegionHandler (g_root, events, input_binder_ui_handler, NULL, &g_cookie);
    g_pInputBinder->SetContext (context,poll);
    // we need to poll here because SetContext can early exit with polling
    // this is to prevent stuck keys
@@ -83,6 +93,7 @@ void InstallIBHandler (ulong context, ulong events, BOOL poll)
 void RemoveIBHandler ()
 {
    uiRemoveRegionHandler (g_root, g_cookie);
+   g_inpbnd_handler = NULL;
 }
 
 

@@ -280,7 +280,7 @@ EXTERN BOOL mp_get_component_id(int *compID, int motionNum, int jointID)
 }
 
 // XXX HACK HACK HACK HACK
-EXTERN void MotCompRotCallback(mps_motion_info *mi,mps_comp_motion *cm,int frame, quat *data);
+EXTERN void MotCompRotCallback(mps_motion_info *mi,mps_comp_motion *cm,float frame, quat *data);
 
 
 EXTERN void mp_get_rot_at_frame(quat *rot, int motionNum, int frame, int compID)
@@ -291,7 +291,7 @@ EXTERN void mp_get_rot_at_frame(quat *rot, int motionNum, int frame, int compID)
    AssertMsg((m->components+compID)->type==CM_ROT,"mp_get_rot_at_frame: component %d is not a rotation");
 
 //   mp_capture_component_rot_func(&m->info,m->components+compID,frame,rot);
-   MotCompRotCallback(&m->info,m->components+compID,frame,rot);
+   MotCompRotCallback(&m->info,m->components+compID,(float)frame,rot);
 }
 
 // this only works with valid motion-captured motions, not virtual ones.

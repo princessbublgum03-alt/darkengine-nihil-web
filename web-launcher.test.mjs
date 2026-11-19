@@ -529,3 +529,36 @@ test('input routing, viewport sync, and OpenAL Web Audio runtime are wired end-t
   assert.ok(html.includes('unlockDarkAudio'), 'web/index.html must resume suspended Web Audio AudioContexts on user gestures');
 });
 
+test('WASM 3D gameplay fixes eliminate uiHandlerProc, MotCompRotCallback, FindVhotLocation, and automap signature mismatches', () => {
+  const genBind = fs.readFileSync(new URL('./src/framewrk/gen_bind.cpp', import.meta.url), 'utf8');
+  const mvrUtils = fs.readFileSync(new URL('./src/motion/mvrutils.cpp', import.meta.url), 'utf8');
+  const corona = fs.readFileSync(new URL('./src/render/corona.cpp', import.meta.url), 'utf8');
+  const drkAmap = fs.readFileSync(new URL('./src/dark/drkamap.cpp', import.meta.url), 'utf8');
+
+  assert.ok(
+    genBind.includes('static BOOL input_binder_ui_handler(uiEvent *event, Region *region, void *state)'),
+    'gen_bind.cpp must wrap 1-arg tBindHandler in a 3-arg uiHandlerProc trampoline'
+  );
+  assert.ok(
+    !genBind.includes('reinterpret_cast<uiHandlerProc>'),
+    'gen_bind.cpp must never reinterpret_cast 1-arg tBindHandler to 3-arg uiHandlerProc (traps in WASM call_indirect)'
+  );
+  assert.ok(
+    genBind.includes('uiInstallRegionHandler (g_root, events, input_binder_ui_handler, NULL, &g_cookie);'),
+    'InstallIBHandler must register input_binder_ui_handler'
+  );
+  assert.ok(
+    mvrUtils.includes('EXTERN void MotCompRotCallback(mps_motion_info *mi,mps_comp_motion *cm,float frame, quat *data);'),
+    'mvrutils.cpp must declare MotCompRotCallback with float frame matching motset.cpp'
+  );
+  assert.ok(
+    corona.includes('extern "C" BOOL FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);'),
+    'corona.cpp must declare FindVhotLocation returning BOOL matching litprop.cpp'
+  );
+  assert.ok(
+    drkAmap.includes('{ "automap", FUNC_VOID, do_automap,'),
+    'drkamap.cpp must register 0-arg do_automap as FUNC_VOID instead of FUNC_STRING'
+  );
+});
+
+
