@@ -284,21 +284,22 @@ test('splitFileForIndexedDB chunks large files into independent ArrayBuffers bel
   assert.deepEqual(Buffer.from(reassembled), Buffer.from(payload));
 });
 
-test('build-web.yml includes Clang Full LTO -O3, WASM 2.0, ASYNCIFY-safe EVAL_CTORS=0, and removes deprecated WASM_BIGINT', () => {
+test('build-web.yml uses LTO-free -O3 WASM 2.0 flags to avoid Clang C/C++ bool (i8/i1) unreachable traps and keeps ASYNCIFY-safe EVAL_CTORS=0', () => {
   const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
   for (const flag of [
     '-O3',
-    '-flto',
-    '-Wl,--lto-O3',
+    '-fno-strict-aliasing',
     'emar',
     'emranlib',
     '-msimd128',
     '-mbulk-memory',
     '-mnontrapping-fptoint',
-    '-ffast-math',
+    '-fno-math-errno',
+    '-fno-trapping-math',
     '-sASSERTIONS=0',
     '-sGL_TRACK_ERRORS=0',
     '-sASYNCIFY',
+    '-sASYNCIFY_STACK_SIZE=1048576',
     '-sEVAL_CTORS=0',
     '-sINITIAL_MEMORY=134217728',
     '-sALLOW_MEMORY_GROWTH=1',
@@ -307,13 +308,17 @@ test('build-web.yml includes Clang Full LTO -O3, WASM 2.0, ASYNCIFY-safe EVAL_CT
   ]) {
     assert.ok(yml.includes(flag), `Expected build-web.yml to include ${flag}`);
   }
+  assert.ok(!yml.includes('-flto'), 'Clang -flto causes LLVM IR unreachable traps on C unsigned-char bool vs C++ bool calls');
+  assert.ok(!yml.includes('--lto-O3'), '--lto-O3 must not be enabled without LTO');
+  assert.ok(!yml.includes('-ffast-math'), '-ffast-math breaks finite/NaN checks in legacy engine physics and scripting');
   assert.ok(!yml.includes('-sEVAL_CTORS=1'), 'EVAL_CTORS=1 conflicts with ASYNCIFY and must not be present');
   assert.ok(!yml.includes('WASM_BIGINT'), 'Deprecated WASM_BIGINT flag must be removed');
 });
 
-test('gameshell.cpp, main.cpp, and web/index.html prevent black screen and 1-minute cache freeze', () => {
+test('gameshell.cpp, main.cpp, config.c, and web/index.html prevent black screen, unreachable traps, and cache freeze', () => {
   const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
   const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const configC = fs.readFileSync(new URL('./libsrc/config/config.c', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
 
   assert.ok(gameshell.includes('dark_web_yield_animation_frame(g_darkWebTargetFps)'), 'EndFrame must pass g_darkWebTargetFps');
@@ -325,11 +330,20 @@ test('gameshell.cpp, main.cpp, and web/index.html prevent black screen and 1-min
   assert.ok(mainCpp.includes('dark_web_set_input_profile'), 'main.cpp must export dark_web_set_input_profile');
   assert.ok(mainCpp.includes('SDL_HINT_MOUSE_RELATIVE_MODE_WARP'), 'main.cpp must configure raw relative mouse mode');
   assert.ok(mainCpp.includes('SDL_HINT_RENDER_BATCHING'), 'main.cpp must enable SDL render batching hint');
+  assert.ok(mainCpp.includes('DARK_ASSERT_ACTION'), 'main.cpp must set DARK_ASSERT_ACTION=ignore to prevent WASM assert traps');
+  assert.ok(mainCpp.includes('std::fflush(stderr)'), 'main.cpp must flush stderr after verbose diagnostics');
+
+  // Guard against UB in config.c (NULL strncpy via config_is_defined and HashIterFunc casts)
+  assert.ok(configC.includes('if (buf != NULL && bufsize > 0)'), 'config_get_raw must guard NULL buf before strncpy');
+  assert.ok(configC.includes('bool config_get_raw_all_iter(void* elem, void* data)'), 'config_get_raw_all_iter must match HashIterFunc');
+  assert.ok(configC.includes('bool config_write_iter(void* elem, void* data)'), 'config_write_iter must match HashIterFunc');
 
   // Separate 2D preview canvas so #canvas is never locked out of WebGL 2.0
   assert.ok(html.includes('id="preview-canvas"'), 'Dedicated #preview-canvas must exist');
   assert.ok(!html.includes("canvas.getContext('2d')"), 'Main WebGL #canvas must NEVER be polluted with a 2D context');
   assert.ok(html.includes('FS.chdir(GAMEDATA_DIR)'), 'launchGame must chdir into /gamedata before callMain');
+  assert.ok(html.includes("'+skip_starting_checks'"), 'launchGame must pass +skip_starting_checks to callMain');
+  assert.ok(html.includes('darkengine-diagnostics.log'), 'launchGame must capture darkengine-diagnostics.log on failure/timeout');
   assert.ok(html.includes('id="bootOverlay"'), 'In-stage boot overlay must exist');
   assert.ok(!html.includes('.getAll()'), 'Blocking IndexedDB getAll() on 1 GB cache must not be used');
 });

@@ -110,6 +110,11 @@ void ConfigureEmscriptenRuntime()
     SDL_SetHint(SDL_HINT_VIDEO_DOUBLE_BUFFER, "1");
     SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "0");
 
+    // Prevent non-fatal PLAYTEST assertions from invoking PlatformDebugBreak()
+    // (which traps with WebAssembly `unreachable` in the browser). Assertions
+    // are still logged to darkengine-diagnostics.log and stderr.
+    setenv("DARK_ASSERT_ACTION", "ignore", 0);
+
     // Resolve the persistent IndexedDB-backed game data directory if present.
     const char *envDir = std::getenv("DARK_GAME_DIR");
     const char *candidateDir = (envDir && envDir[0]) ? envDir : "/gamedata";
@@ -118,6 +123,7 @@ void ConfigureEmscriptenRuntime()
         if (chdir(candidateDir) != 0)
         {
             PlatformDebugOutput("[web] Warning: failed to chdir to game directory\n");
+            std::fflush(stderr);
         }
     }
     else if (g_webVerboseLogging)
@@ -126,6 +132,7 @@ void ConfigureEmscriptenRuntime()
         std::snprintf(msg, sizeof(msg),
                       "[web][diag] Game directory not found: %s\n", candidateDir);
         PlatformDebugOutput(msg);
+        std::fflush(stderr);
     }
 
     if (g_webVerboseLogging)
@@ -138,6 +145,7 @@ void ConfigureEmscriptenRuntime()
                       cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps,
                       g_webInputProfile, g_webMouseSensitivity, g_webGamepadDeadzone, g_webInvertY);
         PlatformDebugOutput(diagBuf);
+        std::fflush(stderr);
     }
 
     // Flush save games and modified cam.cfg back to IndexedDB on clean exit.
@@ -235,6 +243,7 @@ void dark_web_set_verbose_logging(int enabled)
                       "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d)\n",
                       g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps);
         PlatformDebugOutput(msg);
+        std::fflush(stderr);
     }
 }
 

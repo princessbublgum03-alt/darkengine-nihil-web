@@ -377,8 +377,10 @@ typedef struct _config_iter_struct
    writefunc writable;
 } citer;
 
-bool config_write_iter(config_elem* e, citer* iter)
+bool config_write_iter(void* elem, void* data)
 {
+   config_elem* e = (config_elem*)elem;
+   citer* iter = (citer*)data;
    if (e->priority == PRIORITY_TRANSIENT
       || e->priority == PRIORITY_COMMANDLINE) return FALSE;
    if (iter->writable != NULL && !iter->writable(iter->fn,e->var)) return FALSE;
@@ -538,7 +540,7 @@ errtype config_write_file(const char* in,writefunc writable)
    iter.fd = ofd;
    iter.writable = writable;
    iter.fn = input;
-   hash_iter(&config_table,(HashIterFunc)config_write_iter,&iter);
+   hash_iter(&config_table,config_write_iter,&iter);
    close(ofd);
    hash_destroy(&config_table);
    hash_copy(&config_table,&seen_vars);
@@ -669,10 +671,13 @@ bool config_get_raw(const char* varname, char* buf, int bufsize)
 {
    config_elem e;
    config_elem *r;
+   if (varname == NULL) return FALSE;
    strncpy(e.var,varname,VARNAME_LEN+1);
+   e.var[VARNAME_LEN] = '\0';
    hash_lookup(&config_table,&e,(void **)&r);
    if (r == NULL) return FALSE;
-   strncpy(buf,r->val,bufsize);
+   if (buf != NULL && bufsize > 0)
+      strncpy(buf,r->val,bufsize);
    return TRUE;
 }
 
@@ -683,9 +688,12 @@ typedef struct _config_iter_rawall_struct
    ConfigIterFunc ifunc;
 } citer_rawall;
 
-bool config_get_raw_all_iter(config_elem* e, citer_rawall *iter)
+bool config_get_raw_all_iter(void* elem, void* data)
 {
-   strncpy(iter->buffer,e->val,iter->bufsize);
+   config_elem* e = (config_elem*)elem;
+   citer_rawall* iter = (citer_rawall*)data;
+   if (iter->buffer != NULL && iter->bufsize > 0)
+      strncpy(iter->buffer,e->val,iter->bufsize);
    return (iter->ifunc)(e->var);
 }
 
@@ -697,7 +705,7 @@ void config_get_raw_all(ConfigIterFunc ifunc, char* buf, int bufsize)
    iter.bufsize = bufsize;
    iter.ifunc = ifunc;
 
-   hash_iter(&config_table,(HashIterFunc)config_get_raw_all_iter,&iter);
+   hash_iter(&config_table,config_get_raw_all_iter,&iter);
 }
 
 void config_set_assign_characters (char* str)

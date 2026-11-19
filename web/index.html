@@ -4459,10 +4459,25 @@
               }
             }
 
+            const dumpEngineDiagnosticLog = (reason) => {
+              try {
+                const FS = window.Module && window.Module.FS;
+                if (!FS || typeof FS.readFile !== 'function') return;
+                const diagPath = GAMEDATA_DIR + '/darkengine-diagnostics.log';
+                const text = FS.readFile(diagPath, { encoding: 'utf8' });
+                if (!text || !text.trim()) return;
+                const trimmedLines = text.trim().split(/\r?\n/).slice(-40);
+                logDiag('info', 'ENGINE', 'darkengine-diagnostics.log (' + reason + ', ' + trimmedLines.length + ' строк)', trimmedLines.join('\n'));
+              } catch (_) {
+                // File may not exist yet if crash happened before PlatformDiagnosticsStartSession
+              }
+            };
+
             // Watchdog: if first frame doesn't arrive within 12s, show actionable hint instead of hanging forever
             bootTimeoutId = setTimeout(() => {
               if (!window.__darkFirstFrameRendered && appState.gameRunning) {
                 logDiag('warn', 'BOOT', 'Таймаут 12с: первый кадр Dark Engine не поступил (проверьте cam.cfg / dark.cfg / WebGL2)');
+                dumpEngineDiagnosticLog('таймаут 12с');
                 setBootOverlayState(true, {
                   title: 'Ожидание кадра от Dark Engine',
                   status: 'Движок ещё загружается или не нашёл cam.cfg / dark.cfg',
@@ -4473,8 +4488,9 @@
             }, 12000);
 
             if (typeof window.Module.callMain === 'function') {
-              logDiag('info', 'BOOT', 'Вызов Module.callMain([])...');
-              window.Module.callMain([]);
+              const launchArgs = ['+skip_starting_checks'];
+              logDiag('info', 'BOOT', 'Вызов Module.callMain(' + JSON.stringify(launchArgs) + ')...');
+              window.Module.callMain(launchArgs);
               if (window.__darkFirstFrameRendered) {
                 setBootOverlayState(false);
               }
@@ -4482,6 +4498,16 @@
             }
           } catch (err) {
             logDiag('error', 'BOOT', 'Исключение при запуске Dark Engine: ' + (err && err.message ? err.message : String(err)), err && err.stack ? err.stack : '');
+            try {
+              const FS = window.Module && window.Module.FS;
+              if (FS && typeof FS.readFile === 'function') {
+                const text = FS.readFile(GAMEDATA_DIR + '/darkengine-diagnostics.log', { encoding: 'utf8' });
+                if (text && text.trim()) {
+                  const tail = text.trim().split(/\r?\n/).slice(-40).join('\n');
+                  logDiag('info', 'ENGINE', 'Содержимое /gamedata/darkengine-diagnostics.log на момент сбоя', tail);
+                }
+              }
+            } catch (_) {}
             setBootOverlayState(true, {
               title: 'Ошибка запуска Dark Engine',
               status: err.message || String(err),
