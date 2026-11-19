@@ -6,6 +6,7 @@
 #include <SDL2/SDL_system.h>
 #endif
 #if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
 #include <emscripten/html5.h>
 #endif
 #ifdef DARK_OPENGL_ES
@@ -965,6 +966,26 @@ bool DarkRenderPumpMovieEvents(void)
          }
       }
    }
+#if defined(__EMSCRIPTEN__)
+   if (!stop) {
+      const int skipped = EM_ASM_INT({
+         var q = window.__darkWebInputQueue;
+         if (!q || q.length === 0) return 0;
+         for (var i = 0; i < q.length; i++) {
+            var ev = q[i];
+            if (!ev) continue;
+            var t = ev[0] | 0;
+            if ((t === 3 && (ev[1] | 0) === 1) || ((t === 1 || t === 2) && (ev[2] | 0) === 1)) {
+               q.length = 0;
+               return 1;
+            }
+         }
+         return 0;
+      });
+      if (skipped)
+         stop = true;
+   }
+#endif
    return stop;
 }
 

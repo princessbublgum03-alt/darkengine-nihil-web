@@ -2626,6 +2626,63 @@
         },
 
         /**
+         * Map DOM KeyboardEvent.code values to standard USB HID SDL_Scancode
+         * integers so JS can enqueue Asyncify-safe numeric key events without
+         * calling Module.ccall() or allocating WASM stack strings.
+         */
+        mapKeyCodeToSdlScancode(code) {
+          const table = {
+            KeyA: 4, KeyC: 6, KeyD: 7, KeyE: 8, KeyF: 9, KeyM: 16,
+            KeyQ: 20, KeyR: 21, KeyS: 22, KeyW: 26, KeyX: 27, KeyZ: 29,
+            Digit1: 30, Digit2: 31, Digit3: 32, Digit4: 33, Digit5: 34,
+            Digit6: 35, Digit7: 36, Digit8: 37, Digit9: 38, Digit0: 39,
+            Enter: 40, Escape: 41, Backspace: 42, Tab: 43, Space: 44,
+            BracketLeft: 47, BracketRight: 48,
+            F5: 62, F9: 66,
+            ArrowRight: 79, ArrowLeft: 80, ArrowDown: 81, ArrowUp: 82,
+            ControlLeft: 224, ShiftLeft: 225, AltLeft: 226,
+            ControlRight: 228, ShiftRight: 229, AltRight: 230
+          };
+          return table[code] || 0;
+        },
+
+        /**
+         * Push a compact numeric event [type, i1, i2, f1, f2] onto the
+         * Asyncify-safe JS->C++ pull queue. Coalesces consecutive relative-look
+         * (type 4) and pointer-move (type 3, action 0) events so high-rate touch
+         * sensors stay bounded with zero input lag.
+         */
+        enqueueWebInputEvent(queue, evt, maxLen) {
+          if (!Array.isArray(queue) || !Array.isArray(evt) || evt.length < 5) return 0;
+          const cap = Math.max(16, Number(maxLen) || 256);
+          const type = evt[0] | 0;
+          if (queue.length > 0) {
+            const last = queue[queue.length - 1];
+            if (type === 4 && last && (last[0] | 0) === 4) {
+              last[3] = (Number(last[3]) || 0) + (Number(evt[3]) || 0);
+              last[4] = (Number(last[4]) || 0) + (Number(evt[4]) || 0);
+              return queue.length;
+            }
+            if (type === 3 && (evt[1] | 0) === 0 && last && (last[0] | 0) === 3 && (last[1] | 0) === 0) {
+              last[3] = Number(evt[3]) || 0;
+              last[4] = Number(evt[4]) || 0;
+              return queue.length;
+            }
+          }
+          if (queue.length >= cap) {
+            queue.shift();
+          }
+          queue.push([
+            type,
+            evt[1] | 0,
+            evt[2] | 0,
+            Number(evt[3]) || 0,
+            Number(evt[4]) || 0
+          ]);
+          return queue.length;
+        },
+
+        /**
          * Standards-compliant Central Directory ZIP parser (Stored=0 & Deflate=8).
          * Supports large archives with data descriptors & UTF-8 filenames.
          */
@@ -3723,11 +3780,57 @@
           requestAnimationFrame(renderDiagLogsNow);
         };
 
+        // Asyncify-safe JS->C++ shared state: once Module.callMain() starts,
+        // Emscripten Asyncify suspends on every frame inside
+        // dark_web_yield_animation_frame. Calling Module.ccall() from DOM/HUD
+        // handlers while suspended corrupts the Asyncify rewind stack. Instead,
+        // C++ pulls window.__darkWebInputQueue and window.__darkWebConfig
+        // synchronously inside cUnixGameShell::DrainSdlEvents().
+        window.__darkWebInputQueue = [];
+        window.__darkWebConfig = {
+          rev: 0,
+          targetFps: 0,
+          adaptiveAspect: true,
+          stretchFill: false,
+          sens: 1.0,
+          invertY: false
+        };
+
+        function publishWebConfigToEngine() {
+          const mode = DarkWebCore.normalizeDisplayFit(appState.displayFit);
+          const prev = window.__darkWebConfig || { rev: 0 };
+          window.__darkWebConfig = {
+            rev: ((prev.rev | 0) + 1) || 1,
+            targetFps: DarkWebCore.normalizeTargetFps(appState.targetFps),
+            adaptiveAspect: mode !== 'fit',
+            stretchFill: mode === 'stretch',
+            sens: Math.max(0.25, Math.min(4.0, Number(appState.sensitivity) || 1.0)),
+            invertY: Boolean(appState.invertY)
+          };
+        }
+
+        function syncSavesDirectToIdbfs() {
+          if (appState.wasmState !== 'ready' || !window.Module || !window.Module.FS || typeof window.Module.FS.syncfs !== 'function') {
+            return false;
+          }
+          try {
+            window.Module.FS.syncfs(false, (err) => {
+              if (err) {
+                logDiag('warn', 'FS', 'Не удалось синхронизировать IDBFS сохранения', String(err));
+              }
+            });
+            return true;
+          } catch (_) {
+            return false;
+          }
+        }
+
         let lastSyncedVerboseState = null;
         function syncVerboseLoggingToEngine(force) {
           const desired = appState.loggingEnabled ? 1 : 0;
           if (!force && lastSyncedVerboseState === desired) return;
-          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+          // Only invoke ccall before Module.callMain() starts (Asyncify-safe)
+          if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
               window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [desired]);
               lastSyncedVerboseState = desired;
@@ -3972,7 +4075,8 @@
         }
 
         function applyTargetFpsToEngine() {
-          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+          publishWebConfigToEngine();
+          if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
               window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
             } catch (_) {
@@ -3986,7 +4090,8 @@
           const adaptiveEnabled = mode !== 'fit';
           const stretchEnabled = mode === 'stretch';
           if (gameStage) gameStage.dataset.displayFit = mode;
-          if (window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
+          publishWebConfigToEngine();
+          if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
               window.Module.ccall('dark_web_set_adaptive_aspect', null, ['number'], [adaptiveEnabled ? 1 : 0]);
             } catch (_) {
@@ -4033,7 +4138,8 @@
         }
 
         function applyInputProfileToEngine() {
-          if (window.Module && typeof window.Module.ccall === 'function') {
+          publishWebConfigToEngine();
+          if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
             try {
               const resolvedLayout = DarkWebCore.resolveTouchLayout(appState.touchMode, isCoarsePointer, appState.isPreviewMode);
               window.Module.ccall(
@@ -4781,13 +4887,8 @@
 
         function triggerCleanReloadLaunch() {
           window.__darkEnginePaused = false;
-          let synced = false;
-          if (appState.wasmState === 'ready' && window.Module && typeof window.Module.ccall === 'function') {
-            try {
-              window.Module.ccall('dark_web_sync_saves', null, [], []);
-              synced = true;
-            } catch (_) {}
-          }
+          if (Array.isArray(window.__darkWebInputQueue)) window.__darkWebInputQueue.length = 0;
+          const synced = syncSavesDirectToIdbfs();
           logDiag('info', 'BOOT', 'Перезапуск WASM-сессии (чистая перезагрузка с ?autolaunch=1)...');
           const navigate = () => {
             try {
@@ -5041,6 +5142,8 @@
 
             if (typeof window.Module.callMain === 'function') {
               const launchArgs = ['+skip_starting_checks'];
+              if (Array.isArray(window.__darkWebInputQueue)) window.__darkWebInputQueue.length = 0;
+              publishWebConfigToEngine();
               appState.wasmLaunched = true;
               appState.wasmTerminated = false;
               logDiag('info', 'BOOT', 'Вызов Module.callMain(' + JSON.stringify(launchArgs) + ')...');
@@ -5157,17 +5260,14 @@
             cancelAnimationFrame(appState.previewCanvasAnimId);
             appState.previewCanvasAnimId = 0;
           }
+          if (Array.isArray(window.__darkWebInputQueue)) {
+            window.__darkWebInputQueue.length = 0;
+          }
           if (wasRealWasm) {
             window.__darkEnginePaused = true;
             logDiag('info', 'BOOT', 'Dark Engine поставлен на паузу — доступно мгновенное продолжение или перезапуск');
           }
-          if (appState.wasmState === 'ready' && window.Module && typeof window.Module.ccall === 'function') {
-            try {
-              window.Module.ccall('dark_web_sync_saves', null, [], []);
-            } catch (_) {
-              // Ignore if not running
-            }
-          }
+          syncSavesDirectToIdbfs();
           hudDrawer.classList.remove('is-open');
           hudSettingsBtn.setAttribute('aria-expanded', 'false');
           document.body.dataset.mode = 'launcher';
@@ -5216,27 +5316,28 @@
           };
           if (down) previewLastAction = 'Клавиша: ' + (keyMap[code] || code).toUpperCase();
 
-          // Direct C++ key injection avoids browser focus-loss bugs when tapping
-          // HTML HUD buttons and eliminates duplicate bubbled KeyboardEvents.
-          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
-            try {
-              window.Module.ccall('dark_web_inject_key', null, ['string', 'number'], [code, down ? 1 : 0]);
+          // Asyncify-safe queue injection: never call Module.ccall() while
+          // Asyncify is suspended in dark_web_yield_animation_frame.
+          if (!appState.isPreviewMode && appState.wasmState === 'ready') {
+            const scancode = DarkWebCore.mapKeyCodeToSdlScancode(code);
+            if (scancode > 0) {
+              DarkWebCore.enqueueWebInputEvent(window.__darkWebInputQueue, [1, scancode, down ? 1 : 0, 0, 0]);
               return;
-            } catch (_) {
-              // Fallback for older WASM builds
             }
           }
 
-          const legacyCode = LEGACY_KEY_CODES[code] || 0;
-          const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', {
-            code,
-            key: keyMap[code] || code,
-            keyCode: legacyCode,
-            which: legacyCode,
-            bubbles: true,
-            cancelable: true
-          });
-          canvas.dispatchEvent(ev);
+          if (appState.isPreviewMode) {
+            const legacyCode = LEGACY_KEY_CODES[code] || 0;
+            const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', {
+              code,
+              key: keyMap[code] || code,
+              keyCode: legacyCode,
+              which: legacyCode,
+              bubbles: true,
+              cancelable: true
+            });
+            canvas.dispatchEvent(ev);
+          }
         }
 
         function pulseKey(code, holdMs) {
@@ -5247,27 +5348,24 @@
         function dispatchMouseButton(button, down) {
           if (down) previewLastAction = button === 0 ? 'Удар (ЛКМ)' : 'Блок / Предмет (ПКМ)';
 
-          // Direct C++ button injection keeps Attack/Block 100% reliable on mobile
-          // regardless of #canvas focus or SDL2 touch-mouse settings.
-          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
-            try {
-              window.Module.ccall('dark_web_inject_mouse_button', null, ['number', 'number'], [button, down ? 1 : 0]);
-              return;
-            } catch (_) {
-              // Fallback for older WASM builds
-            }
+          // Asyncify-safe queue injection for Attack / Block / Use buttons
+          if (!appState.isPreviewMode && appState.wasmState === 'ready') {
+            DarkWebCore.enqueueWebInputEvent(window.__darkWebInputQueue, [2, button | 0, down ? 1 : 0, 0, 0]);
+            return;
           }
 
-          const rect = canvas.getBoundingClientRect();
-          const ev = new MouseEvent(down ? 'mousedown' : 'mouseup', {
-            button,
-            buttons: down ? (button === 0 ? 1 : 2) : 0,
-            clientX: rect.left + rect.width * 0.5,
-            clientY: rect.top + rect.height * 0.5,
-            bubbles: true,
-            cancelable: true
-          });
-          canvas.dispatchEvent(ev);
+          if (appState.isPreviewMode) {
+            const rect = canvas.getBoundingClientRect();
+            const ev = new MouseEvent(down ? 'mousedown' : 'mouseup', {
+              button,
+              buttons: down ? (button === 0 ? 1 : 2) : 0,
+              clientX: rect.left + rect.width * 0.5,
+              clientY: rect.top + rect.height * 0.5,
+              bubbles: true,
+              cancelable: true
+            });
+            canvas.dispatchEvent(ev);
+          }
         }
 
         function pulseMouseButton(button, holdMs) {
@@ -5291,45 +5389,37 @@
           previewYaw += scaledX * 0.14;
           previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.12));
 
-          // Direct C++ injection bypasses browser Pointer Lock completely so
-          // smartphone touch swipes and gamepad right-stick turn Dark Engine smoothly.
-          if (!appState.isPreviewMode && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
-            try {
-              window.Module.ccall('dark_web_inject_look', null, ['number', 'number'], [scaledX, scaledY]);
-              return;
-            } catch (_) {
-              // Fallback to synthetic mousemove on older WASM builds
-            }
+          // Asyncify-safe queue injection bypasses Pointer Lock cleanly so
+          // smartphone touch swipes and gamepad right-stick turn smoothly.
+          if (!appState.isPreviewMode && appState.wasmState === 'ready') {
+            DarkWebCore.enqueueWebInputEvent(window.__darkWebInputQueue, [4, 0, 0, scaledX, scaledY]);
+            return;
           }
 
-          const rect = canvas.getBoundingClientRect();
-          const ev = new MouseEvent('mousemove', {
-            clientX: rect.left + rect.width * 0.5 + scaledX,
-            clientY: rect.top + rect.height * 0.5 + scaledY,
-            movementX: Math.round(scaledX),
-            movementY: Math.round(scaledY),
-            bubbles: true,
-            cancelable: true
-          });
-          canvas.dispatchEvent(ev);
+          if (appState.isPreviewMode) {
+            const rect = canvas.getBoundingClientRect();
+            const ev = new MouseEvent('mousemove', {
+              clientX: rect.left + rect.width * 0.5 + scaledX,
+              clientY: rect.top + rect.height * 0.5 + scaledY,
+              movementX: Math.round(scaledX),
+              movementY: Math.round(scaledY),
+              bubbles: true,
+              cancelable: true
+            });
+            canvas.dispatchEvent(ev);
+          }
         }
 
         function injectDirectCanvasPointer(clientX, clientY, action, button) {
-          if (appState.isPreviewMode || !window.Module || typeof window.Module.ccall !== 'function' || appState.wasmState !== 'ready') {
+          if (appState.isPreviewMode || appState.wasmState !== 'ready') {
             return false;
           }
           const pt = DarkWebCore.computeNormalizedCanvasPoint(clientX, clientY, canvas.getBoundingClientRect());
-          try {
-            window.Module.ccall(
-              'dark_web_inject_pointer',
-              null,
-              ['number', 'number', 'number', 'number'],
-              [pt.normX, pt.normY, action, button || 0]
-            );
-            return true;
-          } catch (_) {
-            return false;
-          }
+          DarkWebCore.enqueueWebInputEvent(
+            window.__darkWebInputQueue,
+            [3, action | 0, button | 0, pt.normX, pt.normY]
+          );
+          return true;
         }
 
         // --- 5A. PC Raw Pointer Lock & Exact Normalized Mobile Menu Touch Bridge ---

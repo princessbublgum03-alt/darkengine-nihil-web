@@ -645,12 +645,12 @@ test('adaptive native-aspect 3D, direct touch look injection, and safe re-launch
   assert.ok(mainCpp.includes('__onDarkEngineExited'), 'main.cpp must notify JS when main() exits');
   assert.ok(gameshellCpp.includes('window.__darkEnginePaused'), 'gameshell.cpp must pause cleanly while user is in launcher');
   assert.ok(html.includes("if (appState.wasmState !== 'ready') return;"), 'mountSavesIdbfsIfAvailable must wait for WASM runtime initialization before IDBFS syncfs');
-  assert.ok(html.includes('dark_web_inject_look'), 'dispatchMouseLook must inject relative camera turns directly into C++');
+  assert.ok(html.includes('window.__darkWebInputQueue'), 'dispatchMouseLook must enqueue relative camera turns onto Asyncify-safe __darkWebInputQueue');
   assert.ok(html.includes('id="relaunchBtn"'), 'web/index.html must include clean restart button when paused in launcher');
   assert.ok(html.includes('data-display-fit="adaptive"'), 'web/index.html must expose Adaptive / Stretch / 4:3 display selector');
 });
 
-test('mobile controls align with zero offset, inject directly into C++, and fullscreen toggles #game-stage cleanly', () => {
+test('mobile controls align with zero offset, enqueue Asyncify-safe input into C++, and fullscreen toggles #game-stage cleanly', () => {
   // 1. Normalized canvas pointer math stays 100% invariant to HiDPI DPR & quality scale
   const rect = { left: 10, top: 20, width: 432, height: 872 };
   const center = Core.computeNormalizedCanvasPoint(10 + 216, 20 + 436, rect);
@@ -669,9 +669,9 @@ test('mobile controls align with zero offset, inject directly into C++, and full
   assert.equal(landTouch.originX, landscapeZone.left + landTouch.baseLeft + 52);
   assert.equal(landTouch.originY, landscapeZone.top + landscapeZone.height - landTouch.baseBottom - 52);
 
-  // 3. C++ + HTML contracts for fullscreen ownership & direct input
+  // 3. C++ + HTML contracts for fullscreen ownership & Asyncify-safe direct input
   const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
-  const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const gameshellCpp = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
 
   assert.ok(openglCpp.includes('#if !defined(__EMSCRIPTEN__)\n   windowFlags |= SDL_WINDOW_ALLOW_HIGHDPI;'), 'opengl.cpp must omit SDL_WINDOW_ALLOW_HIGHDPI on Emscripten to prevent DPR mouse drift');
@@ -679,13 +679,59 @@ test('mobile controls align with zero offset, inject directly into C++, and full
   assert.ok(openglCpp.includes('void RenderBackendInjectKey(int sdlScancode, int down)'), 'opengl.cpp must export RenderBackendInjectKey');
   assert.ok(openglCpp.includes('void RenderBackendInjectMouseButton(int button, int down)'), 'opengl.cpp must export RenderBackendInjectMouseButton');
   assert.ok(openglCpp.includes('void RenderBackendInjectPointer(float normX, float normY, int action, int button)'), 'opengl.cpp must export RenderBackendInjectPointer');
-  assert.ok(mainCpp.includes('void dark_web_inject_key(const char *code, int down)'), 'main.cpp must export dark_web_inject_key');
-  assert.ok(mainCpp.includes('void dark_web_inject_mouse_button(int button, int down)'), 'main.cpp must export dark_web_inject_mouse_button');
-  assert.ok(mainCpp.includes('void dark_web_inject_pointer(float normX, float normY, int action, int button)'), 'main.cpp must export dark_web_inject_pointer');
+  assert.ok(openglCpp.includes('window.__darkWebInputQueue'), 'DarkRenderPumpMovieEvents must check __darkWebInputQueue so mobile taps skip intro movies');
+  assert.ok(gameshellCpp.includes('void cUnixGameShell::DrainWebInputQueue()'), 'gameshell.cpp must drain __darkWebInputQueue synchronously on the active C++ stack');
+  assert.ok(gameshellCpp.includes('void cUnixGameShell::SyncWebConfigFromJs()'), 'gameshell.cpp must pull __darkWebConfig synchronously without runtime ccall');
   assert.ok(html.includes('id="hudFullscreenBtn"') && html.includes('id="drawerFullscreenBtn"'), 'web/index.html must expose fullscreen enter/exit controls in HUD and drawer');
   assert.ok(html.includes('exitBrowserFullscreen();'), 'exitToLauncher must exit browser fullscreen cleanly');
-  assert.ok(html.includes("window.Module.ccall('dark_web_inject_key'") && html.includes("window.Module.ccall('dark_web_inject_mouse_button'") && html.includes("'dark_web_inject_pointer'"), 'web/index.html must route keys, mouse buttons, and normalized touch pointers directly to C++');
 });
+
+test('Asyncify-safe JS->C++ input queue maps scancodes, coalesces high-rate events, and forbids runtime Module.ccall after callMain', () => {
+  // 1. Standard USB HID SDL_Scancode mapping
+  assert.equal(Core.mapKeyCodeToSdlScancode('KeyW'), 26);
+  assert.equal(Core.mapKeyCodeToSdlScancode('KeyA'), 4);
+  assert.equal(Core.mapKeyCodeToSdlScancode('KeyS'), 22);
+  assert.equal(Core.mapKeyCodeToSdlScancode('KeyD'), 7);
+  assert.equal(Core.mapKeyCodeToSdlScancode('Space'), 44);
+  assert.equal(Core.mapKeyCodeToSdlScancode('Escape'), 41);
+  assert.equal(Core.mapKeyCodeToSdlScancode('ShiftLeft'), 225);
+  assert.equal(Core.mapKeyCodeToSdlScancode('ControlLeft'), 224);
+  assert.equal(Core.mapKeyCodeToSdlScancode('F5'), 62);
+  assert.equal(Core.mapKeyCodeToSdlScancode('F9'), 66);
+  assert.equal(Core.mapKeyCodeToSdlScancode('UnknownKey'), 0);
+
+  // 2. Coalescing consecutive look deltas and pointer moves while preserving click edges
+  const q = [];
+  Core.enqueueWebInputEvent(q, [4, 0, 0, 12.5, -3.25]);
+  Core.enqueueWebInputEvent(q, [4, 0, 0, 7.5, 1.25]);
+  assert.equal(q.length, 1);
+  assert.deepEqual([...q[0]], [4, 0, 0, 20, -2]);
+
+  Core.enqueueWebInputEvent(q, [3, 1, 0, 0.25, 0.5]); // pointerdown
+  Core.enqueueWebInputEvent(q, [3, 0, 0, 0.30, 0.52]); // pointermove 1
+  Core.enqueueWebInputEvent(q, [3, 0, 0, 0.40, 0.60]); // pointermove 2 (coalesced)
+  Core.enqueueWebInputEvent(q, [3, 2, 0, 0.40, 0.60]); // pointerup
+  assert.equal(q.length, 4);
+  assert.deepEqual([...q[1]], [3, 1, 0, 0.25, 0.5]);
+  assert.deepEqual([...q[2]], [3, 0, 0, 0.40, 0.60]);
+  assert.deepEqual([...q[3]], [3, 2, 0, 0.40, 0.60]);
+
+  // 3. Bounded capacity prevents unbounded growth
+  const smallQ = [];
+  for (let i = 0; i < 30; i++) {
+    Core.enqueueWebInputEvent(smallQ, [1, 26, i % 2, 0, 0], 16);
+  }
+  assert.equal(smallQ.length, 16);
+
+  // 4. Hard regression guard: web/index.html must NEVER call runtime ccall('dark_web_inject_*') or ccall('dark_web_sync_saves')
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(!html.includes("ccall('dark_web_inject_"), 'web/index.html must NEVER call Module.ccall(dark_web_inject_*) while Asyncify is suspended');
+  assert.ok(!html.includes("'dark_web_inject_pointer'"), 'web/index.html must NEVER call dark_web_inject_pointer via ccall (causes doRewind memory access out of bounds)');
+  assert.ok(!html.includes("ccall('dark_web_sync_saves'"), 'web/index.html must use direct Module.FS.syncfs(false) instead of runtime ccall(dark_web_sync_saves)');
+  assert.ok(html.includes('window.Module.FS.syncfs(false'), 'syncSavesDirectToIdbfs must call Module.FS.syncfs(false) directly');
+  assert.ok(html.includes('if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall'), 'Config ccall hooks must be gated on !appState.wasmLaunched');
+});
+
 
 
 

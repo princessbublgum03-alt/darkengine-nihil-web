@@ -38,6 +38,13 @@ extern "C" int DarkInputRelativeMouseActive(void);
 #include <emscripten/html5.h>
 
 extern "C" {
+void RenderBackendSetAdaptiveAspect(int enabled);
+void RenderBackendSetStretchToFill(int enabled);
+void RenderBackendInjectRelativeLook(int dx, int dy);
+void RenderBackendInjectKey(int sdlScancode, int down);
+void RenderBackendInjectMouseButton(int button, int down);
+void RenderBackendInjectPointer(float normX, float normY, int action, int button);
+
 static int g_darkWebTargetFps = 0; // 0 = native VSync (60/120Hz), 30 or 60 = paced cap
 static float g_darkWebMouseSens = 1.0f;
 static int g_darkWebInvertY = 0;
@@ -79,6 +86,65 @@ EM_JS(void, dark_web_notify_canvas_resized, (int cssW, int cssH), {
     if (typeof window.__onDarkCanvasResized === 'function') {
         try { window.__onDarkCanvasResized(cssW, cssH); } catch (_) {}
     }
+});
+
+// Asyncify-safe scalar-only JS->C++ pull helpers.
+// Calling Module.ccall() from DOM/touch/HUD handlers while Asyncify is
+// suspended inside dark_web_yield_animation_frame corrupts the Asyncify
+// rewind stack (memory access out of bounds in Object.doRewind). Instead, JS
+// appends events to window.__darkWebInputQueue and updates
+// window.__darkWebConfig, and C++ pulls them synchronously here on its own
+// active stack inside cUnixGameShell::DrainSdlEvents().
+EM_JS(int, dark_web_pop_input_event_type, (), {
+    var q = window.__darkWebInputQueue;
+    if (!q || q.length === 0) {
+        window.__darkWebCurEvent = null;
+        return 0;
+    }
+    var ev = q.shift();
+    window.__darkWebCurEvent = ev;
+    return (ev && ev.length > 0) ? (ev[0] | 0) : 0;
+});
+
+EM_JS(int, dark_web_event_i1, (), {
+    var ev = window.__darkWebCurEvent;
+    return ev ? (ev[1] | 0) : 0;
+});
+
+EM_JS(int, dark_web_event_i2, (), {
+    var ev = window.__darkWebCurEvent;
+    return ev ? (ev[2] | 0) : 0;
+});
+
+EM_JS(double, dark_web_event_f1, (), {
+    var ev = window.__darkWebCurEvent;
+    return (ev && typeof ev[3] === 'number' && isFinite(ev[3])) ? ev[3] : 0.0;
+});
+
+EM_JS(double, dark_web_event_f2, (), {
+    var ev = window.__darkWebCurEvent;
+    return (ev && typeof ev[4] === 'number' && isFinite(ev[4])) ? ev[4] : 0.0;
+});
+
+EM_JS(int, dark_web_config_rev, (), {
+    var c = window.__darkWebConfig;
+    return c ? (c.rev | 0) : 0;
+});
+
+EM_JS(int, dark_web_config_target_fps, (), {
+    var c = window.__darkWebConfig;
+    return c ? (c.targetFps | 0) : 0;
+});
+
+EM_JS(int, dark_web_config_flags, (), {
+    var c = window.__darkWebConfig;
+    if (!c) return 1;
+    return (c.adaptiveAspect ? 1 : 0) | (c.stretchFill ? 2 : 0) | (c.invertY ? 4 : 0);
+});
+
+EM_JS(double, dark_web_config_sens, (), {
+    var c = window.__darkWebConfig;
+    return (c && typeof c.sens === 'number' && isFinite(c.sens)) ? c.sens : 1.0;
 });
 
 // VSync-aligned frame yield with clean fallback timer cancellation (zero timer
@@ -209,6 +275,8 @@ private:
     void HandleQuitRequested();
 #ifdef __EMSCRIPTEN__
     void SyncEmscriptenCanvasSize(bool forceSync);
+    void SyncWebConfigFromJs();
+    void DrainWebInputQueue();
 #endif
 
     int m_fFlags;
@@ -229,6 +297,9 @@ private:
     int m_lastCssWidth;
     int m_lastCssHeight;
     int m_lastRelativeMouse;
+    int m_lastWebConfigRev;
+    float m_lookAccumX;
+    float m_lookAccumY;
 #endif
 };
 
@@ -252,7 +323,10 @@ cUnixGameShell::cUnixGameShell(IUnknown *pOuterUnknown, int fFlags, int msecBloc
       m_lastSyncedWindow(NULL),
       m_lastCssWidth(0),
       m_lastCssHeight(0),
-      m_lastRelativeMouse(-1)
+      m_lastRelativeMouse(-1),
+      m_lastWebConfigRev(0),
+      m_lookAccumX(0.0f),
+      m_lookAccumY(0.0f)
 #endif
 {
     INIT_AGGREGATION_1(pOuterUnknown, IID_IGameShell, this, kPriorityLibrary, NULL);
@@ -287,6 +361,9 @@ HRESULT cUnixGameShell::Init()
     m_lastCssWidth = 0;
     m_lastCssHeight = 0;
     m_lastRelativeMouse = -1;
+    m_lastWebConfigRev = 0;
+    m_lookAccumX = 0.0f;
+    m_lookAccumY = 0.0f;
 #endif
     SDL_ShowCursor(m_bCursorVisible ? SDL_ENABLE : SDL_DISABLE);
     return S_OK;
@@ -388,11 +465,73 @@ void cUnixGameShell::SyncEmscriptenCanvasSize(bool forceSync)
     focusEv.window.event = SDL_WINDOWEVENT_FOCUS_GAINED;
     SDL_PushEvent(&focusEv);
 }
+
+void cUnixGameShell::SyncWebConfigFromJs()
+{
+    const int rev = dark_web_config_rev();
+    if (rev == 0 || rev == m_lastWebConfigRev)
+        return;
+    m_lastWebConfigRev = rev;
+
+    DarkGameShellSetTargetFps(dark_web_config_target_fps());
+    const int flags = dark_web_config_flags();
+    RenderBackendSetAdaptiveAspect((flags & 1) ? 1 : 0);
+    RenderBackendSetStretchToFill((flags & 2) ? 1 : 0);
+    DarkGameShellConfigureInput(static_cast<float>(dark_web_config_sens()), (flags & 4) ? 1 : 0);
+}
+
+void cUnixGameShell::DrainWebInputQueue()
+{
+    int processed = 0;
+    while (processed < 128)
+    {
+        const int type = dark_web_pop_input_event_type();
+        if (type == 0)
+            break;
+        ++processed;
+
+        if (type == 1)
+        {
+            const int scancode = dark_web_event_i1();
+            const int down = dark_web_event_i2();
+            RenderBackendInjectKey(scancode, down);
+        }
+        else if (type == 2)
+        {
+            const int button = dark_web_event_i1();
+            const int down = dark_web_event_i2();
+            RenderBackendInjectMouseButton(button, down);
+        }
+        else if (type == 3)
+        {
+            const int action = dark_web_event_i1();
+            const int button = dark_web_event_i2();
+            const float normX = static_cast<float>(dark_web_event_f1());
+            const float normY = static_cast<float>(dark_web_event_f2());
+            RenderBackendInjectPointer(normX, normY, action, button);
+        }
+        else if (type == 4)
+        {
+            m_lookAccumX += static_cast<float>(dark_web_event_f1());
+            m_lookAccumY += static_cast<float>(dark_web_event_f2());
+        }
+    }
+
+    const int ix = static_cast<int>(m_lookAccumX);
+    const int iy = static_cast<int>(m_lookAccumY);
+    if (ix != 0 || iy != 0)
+    {
+        m_lookAccumX -= static_cast<float>(ix);
+        m_lookAccumY -= static_cast<float>(iy);
+        RenderBackendInjectRelativeLook(ix, iy);
+    }
+}
 #endif
 
 void cUnixGameShell::DrainSdlEvents(int /*fPumpFlags*/)
 {
 #ifdef __EMSCRIPTEN__
+    SyncWebConfigFromJs();
     const int relActive = DarkInputRelativeMouseActive() ? 1 : 0;
     const bool modeChanged = (relActive != m_lastRelativeMouse);
     if (modeChanged)
@@ -408,6 +547,12 @@ void cUnixGameShell::DrainSdlEvents(int /*fPumpFlags*/)
     // properly translated into DarkInputKey / DarkInputMouse / DarkInputMouseRelative.
     if (DarkRenderPumpEvents())
         HandleQuitRequested();
+
+#ifdef __EMSCRIPTEN__
+    // Drain queued touch/HUD/gamepad input AFTER DarkRenderPumpEvents() so
+    // g_clientWidth/g_clientHeight already reflect any resize in this frame.
+    DrainWebInputQueue();
+#endif
 
     GamepadUpdate();
 }

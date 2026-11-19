@@ -1,13 +1,62 @@
-# Thief: Dark Engine Restored for Windows, Linux, and Android
+# Thief: Dark Engine Web (WebAssembly) — Windows, Linux, Android и браузер
+
+> **Открыть в браузере (GitHub Pages):** https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+
+## Что это за проект
+
+**Dark Engine Web** — это порт восстановленного движка **Dark Engine** на **WebAssembly (WASM 2.0 + SIMD + Asyncify)** и **WebGL 2.0 / OpenGL ES 3**, позволяющий запускать классические стелс-игры **Thief: The Dark Project**, **Thief Gold**, **Thief II: The Metal Age** (а также ряд фанатских миссий и скриптов Squirrel 3.2) **прямо в браузере** — на ПК, смартфоне или планшете, без установки программ и эмуляторов.
+
+Проект объединяет кроссплатформенное C/C++ ядро Dark Engine с автономным веб-лаунчером (`web/index.html`) и автоматической сборкой через Emscripten в GitHub Actions.
+
+> **Важно:** репозиторий **не содержит** игровых файлов, миссий, звуков, видеороликов или ассетов. Для запуска потребуется ваша собственная легальная копия *Thief: The Dark Project*, *Thief Gold* или *Thief II: The Metal Age* (папка игры или `.zip`-архив).
+
+---
+
+## Чем этот проект хорош
+
+- **Запуск в браузере без установки.** Работает на Windows, macOS, Linux, Android и iOS/iPadOS в современных браузерах с поддержкой WebGL 2.0 и WebAssembly. Достаточно открыть ссылку.
+- **100% локально и приватно.** Ваши файлы игры никуда не отправляются: распаковка, кэширование, сохранение прогресса и сам движок целиком работают локально на устройстве.
+- **Мгновенные повторные запуски и работа с большими архивами.** Встроенный потоковый распаковщик `.zip` (читает архивы по фрагментам без переполнения ОЗУ даже на 2–3 ГБ сборках) сохраняет ресурсы в чанкованный кэш **IndexedDB** (с обходом ограничения Chromium 127 МБ для крупных `.crf`-файлов), а сохранения игры хранятся в постоянной файловой системе **IDBFS** (`/gamedata/saves`). Загрузить игру нужно всего один раз.
+- **Адаптивный полноэкранный режим без чёрных полос и искажений.** Поддерживаются режимы экрана **«Адаптивный»**, **«Растянуть»** и **«4:3»**. В адаптивном режиме 3D-рендер динамически подстраивается под соотношение сторон любого устройства (смартфоны, планшеты, 16:9, 21:9), заполняя весь экран с правильными пропорциями мира, при этом 2D-меню остаётся чётким и точно реагирует на нажатия.
+- **Продуманное управление для смартфонов, ПК и геймпадов:**
+  - **Смартфоны и планшеты:** плавающий 3-зонный стелс-джойстик (красться / шаг / бег), плавный обзор свайпом через прямой C++ мост (работает без Pointer Lock), режим жестов без кнопок, точные касания в меню без смещения на HiDPI-экранах, компактный интерфейс под альбомную ориентацию и вырезы экрана (`safe-area`), а также корректный вход и выход из полноэкранного режима вместе с сенсорным HUD.
+  - **ПК:** клавиатура и мышь с Raw Mouse Pointer Lock (`unadjustedMovement`), перехват служебных клавиш (`Space`, `Tab`, `F5`/`F9` для быстрого сохранения/загрузки).
+  - **Геймпады:** встроенный мост Web Gamepad API (Xbox, DualSense, Switch Pro) с настройкой мёртвой зоны, инверсии оси Y и виброотдачей.
+- **Контроль производительности и нагрева.** Пресеты масштаба рендера (от `0.50×` до `1.0×`), ограничение частоты кадров (`30 FPS`, `60 FPS`, нативный `VSync`), Web Audio микшер OpenAL, мягкая пауза с мгновенным возвратом в игру или перезапуском.
+- **Удобная диагностика и автоматизация.** Встроенная диагностическая консоль (выгрузка отчёта с данными GPU, кэша и логов движка в один клик), режим **«Тест управления»** (можно проверить HUD и сенсор без загрузки файлов игры), набор автотестов лаунчера и автоматический деплой на GitHub Pages через `.github/workflows/build-web.yml`.
+
+---
+
+## Быстрый старт в браузере
+
+1. Откройте веб-лаунчер: https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+2. Выберите `.zip`-архив или папку с установленной игрой (*Thief Gold*, *Thief: The Dark Project* или *Thief II: The Metal Age*). При желании можно заранее нажать **«Тест управления»**, чтобы опробовать интерфейс.
+3. Дождитесь индексации в локальный кэш IndexedDB и нажмите **«Запустить игру»**. При следующих визитах игра подхватится из кэша автоматически.
+
+### Локальный запуск лаунчера и тесты
+
+```bash
+# Проверка синтаксиса и запуск всех автотестов веб-лаунчера
+npm run build
+
+# Локальный сервер предпросмотра на http://localhost:3000
+npm run dev
+```
+
+Сборка `thief-runner.js` и `thief-runner.wasm` (Emscripten SDK, CMake + Ninja, Clang `-O3`, WASM 2.0 + SIMD + WebGL 2.0 + Asyncify) полностью описана и автоматизирована в [`.github/workflows/build-web.yml`](.github/workflows/build-web.yml).
+
+---
+
+## Upstream Documentation (Windows, Linux, Android, and DromEd)
 
 This repository restores the historical Dark Engine sources as a portable,
 working codebase for the Thief and Thief 2 games. It builds the ThiefRunner
-game executable on Windows, Linux, and Android, plus a work-in-progress DromEd
-mission viewer and editor on Windows and Linux. The engine core is shared
-across platforms; operating-system, rendering, input, audio, movie, and
-filesystem services are supplied by platform backends. The engine
-experimentally implements many of the anonymously created but closed-source
-NewDark extensions.
+game executable on Windows, Linux, Android, and Web (WebAssembly), plus a
+work-in-progress DromEd mission viewer and editor on Windows and Linux. The
+engine core is shared across platforms; operating-system, rendering, input,
+audio, movie, and filesystem services are supplied by platform backends. The
+engine experimentally implements many of the anonymously created but
+closed-source NewDark extensions.
 
 The repository does not include retail missions, movies, sounds, scripts, or
 other game assets. A legally obtained installation of *Thief: The Dark
@@ -23,6 +72,9 @@ Project*, *Thief Gold*, or *Thief II: The Metal Age* is required.
 
 ## Table of contents
 
+- [Что это за проект (WebAssembly)](#что-это-за-проект)
+  - [Чем этот проект хорош](#чем-этот-проект-хорош)
+  - [Быстрый старт в браузере](#быстрый-старт-в-браузере)
 - [Screenshots](#screenshots)
 - [Platform status](#platform-status)
   - [Mission compatibility and goals](#mission-compatibility-and-goals)
@@ -70,23 +122,23 @@ NewDark compatibility. In the table, **playable** means that normal missions
 can be loaded and played; the qualifiers identify where validation is still
 limited.
 
-| Capability | Windows x86 | Windows x64 | Linux x64 | Android ARM64 |
-| --- | --- | --- | --- | --- |
-| Thief 2 | Playable | Playable; broader validation ongoing | Playable early port | Playable early port |
-| Thief Gold/TDP | Playable; less stable than Thief 2 | Playable; less stable than Thief 2 | Playable early port; less stable than Thief 2 | Playable early port; less stable than Thief 2 |
-| Thief FMs | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP |
-| System Shock 2 | Unsupported; source available | Unsupported; source available | Unsupported; source available | Unsupported; source available |
-| DromEd | Viewer and playtest | Viewer and playtest; broader validation ongoing | Early viewer/playtest port | Not built |
-| Graphics | D3D11 | D3D11 | SDL2/OpenGL | SDL2/OpenGL ES 3 |
-| Audio | DirectSound 3D or OpenAL | DirectSound 3D or OpenAL | OpenAL Soft | OpenAL Soft/OpenSL |
-| Movies | Media Foundation with legacy fallbacks | Media Foundation with legacy fallbacks | FFmpeg | LibVLC |
-| Legacy `.osm` scripts | Native PE32 modules | IA-32 compatibility runtime | Partial IA-32 compatibility runtime | Partial IA-32 compatibility runtime |
-| Squirrel scripts | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider |
-| Build system | Visual Studio 2022 | Visual Studio 2022 | CMake and Ninja | Gradle, CMake, and Android NDK |
+| Capability | Windows x86 | Windows x64 | Linux x64 | Android ARM64 | Web (WebAssembly) |
+| --- | --- | --- | --- | --- | --- |
+| Thief 2 | Playable | Playable; broader validation ongoing | Playable early port | Playable early port | Playable browser port (desktop & mobile) |
+| Thief Gold/TDP | Playable; less stable than Thief 2 | Playable; less stable than Thief 2 | Playable early port; less stable than Thief 2 | Playable early port; less stable than Thief 2 | Playable browser port; less stable than Thief 2 |
+| Thief FMs | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP | Playable subset; less stable than Gold/TDP |
+| System Shock 2 | Unsupported; source available | Unsupported; source available | Unsupported; source available | Unsupported; source available | Unsupported; source available |
+| DromEd | Viewer and playtest | Viewer and playtest; broader validation ongoing | Early viewer/playtest port | Not built | Not built |
+| Graphics | D3D11 | D3D11 | SDL2/OpenGL | SDL2/OpenGL ES 3 | SDL2/WebGL 2.0 (OpenGL ES 3) |
+| Audio | DirectSound 3D or OpenAL | DirectSound 3D or OpenAL | OpenAL Soft | OpenAL Soft/OpenSL | Emscripten OpenAL (Web Audio) |
+| Movies | Media Foundation with legacy fallbacks | Media Foundation with legacy fallbacks | FFmpeg | LibVLC | Skipped / stubbed |
+| Legacy `.osm` scripts | Native PE32 modules | IA-32 compatibility runtime | Partial IA-32 compatibility runtime | Partial IA-32 compatibility runtime | Partial IA-32 compatibility runtime |
+| Squirrel scripts | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider | Native Squirrel 3.2 provider |
+| Build system | Visual Studio 2022 | Visual Studio 2022 | CMake and Ninja | Gradle, CMake, and Android NDK | Emscripten SDK, CMake, and Ninja |
 
 The legacy `.osm` row refers to ordinary compiled mission script modules.
 NewDark's `squirrel.osm` is not loaded through that compatibility path: on all
-four targets it is replaced by the engine's native Squirrel 3.2 provider,
+supported targets it is replaced by the engine's native Squirrel 3.2 provider,
 which loads the FM's loose `sq_scripts/*.nut` sources directly.
 
 The source tree also contains historical System Shock 2 code, but this project
