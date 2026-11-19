@@ -76,6 +76,12 @@ EM_ASYNC_JS(void, dark_web_yield_animation_frame, (int targetFps), {
         };
     }
     var st = window.__darkFrameState;
+    if (!window.__darkFirstFrameRendered) {
+        window.__darkFirstFrameRendered = true;
+        if (typeof window.__onDarkFirstFrame === 'function') {
+            try { window.__onDarkFirstFrame(); } catch (_) {}
+        }
+    }
     st.fpsFrames += 1;
     var fpsElapsed = now - st.fpsWindowStart;
     if (fpsElapsed >= 500) {

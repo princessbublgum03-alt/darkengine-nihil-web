@@ -49,7 +49,7 @@
       font-size: 16px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
 
     body {
@@ -250,34 +250,60 @@
       max-width: 66ch;
     }
 
-    /* WASM Progress Block */
+    /* WASM & Cache Progress Blocks (strictly bounded, never stretches panels) */
     .wasm-progress-wrap {
       width: 100%;
       max-width: 680px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
     .wasm-progress-header {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: baseline;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 6px 12px;
+      gap: 4px 10px;
       font-size: 0.9rem;
+      min-width: 0;
+      width: 100%;
     }
 
     .wasm-status-text {
       color: var(--text-primary);
       text-align: left;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .wasm-metrics {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--gold);
       white-space: nowrap;
       flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      width: 100%;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-meta-row span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .progress-track {
@@ -289,15 +315,33 @@
       position: relative;
     }
 
+    @keyframes progressShimmer {
+      0% { background-position: 0 0; }
+      100% { background-position: 28px 0; }
+    }
+
     .progress-fill {
       height: 100%;
       width: 0%;
       background: linear-gradient(90deg, #7d5b2b 0%, #cfa866 60%, #f0d79a 100%);
-      transition: width 180ms var(--ease-settle);
+      transition: width 150ms var(--ease-settle);
+    }
+
+    .progress-fill.is-busy {
+      background-image: repeating-linear-gradient(
+        -55deg,
+        #84602c 0px,
+        #84602c 8px,
+        #e5c580 8px,
+        #e5c580 16px
+      );
+      background-size: 28px 100%;
+      animation: progressShimmer 0.75s linear infinite;
     }
 
     .progress-fill[data-state="error"] {
       background: linear-gradient(90deg, #6e2d29 0%, #c9574e 100%);
+      animation: none;
     }
 
     /* Two-Column Balanced Workspace */
@@ -306,6 +350,11 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
       align-items: stretch;
+      min-width: 0;
+    }
+
+    .grid-panels > * {
+      min-width: 0;
     }
 
     .panel {
@@ -316,6 +365,9 @@
       display: flex;
       flex-direction: column;
       gap: 13px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .panel-head {
@@ -372,6 +424,9 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
       transition: border-color 180ms var(--ease-settle), background-color 180ms var(--ease-settle);
     }
 
@@ -471,22 +526,40 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
+      flex: 1 1 180px;
+      overflow: hidden;
     }
 
     .cache-state-line {
       font-size: 0.98rem;
       color: var(--text-primary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .cache-detail-line {
       font-size: 0.82rem;
       color: var(--text-secondary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
     }
 
     .extract-progress {
       display: none;
       flex-direction: column;
       gap: 6px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      padding: 10px 12px;
+      background: rgba(18, 15, 13, 0.9);
+      border: 1px solid var(--border-bronze);
     }
 
     .extract-progress.is-active {
@@ -656,39 +729,240 @@
       line-height: 1.38;
     }
 
+    .mini-toggle-btn.is-full-span {
+      grid-column: 1 / -1;
+    }
+
     .gesture-guide-box strong {
       color: var(--gold);
       font-weight: 600;
     }
 
-    /* Launch Footer Strip */
-    .launch-bar {
-      background: var(--bg-panel);
+    /* Diagnostic Logging Panel (Hidden when toggled OFF) */
+    .diag-panel {
+      gap: 10px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .diag-panel[data-open="false"] {
+      display: none;
+    }
+
+    .diag-meta-line {
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      background: var(--bg-inset);
+      border: 1px solid var(--border-hairline);
+      padding: 6px 10px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .diag-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .diag-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .diag-filter-btn {
+      min-height: 30px;
+      padding: 4px 10px;
+      background: var(--bg-inset);
       border: 1px solid var(--border-bronze);
-      padding: 14px 20px;
+      color: var(--slate-thief);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: border-color 140ms var(--ease-settle), color 140ms var(--ease-settle), background-color 140ms var(--ease-settle);
+    }
+
+    .diag-filter-btn[aria-pressed="true"] {
+      border-color: var(--gold);
+      color: var(--gold-bright);
+      background: rgba(110, 82, 52, 0.34);
+    }
+
+    .diag-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .diag-action-btn {
+      min-height: 30px;
+      padding: 4px 10px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-bronze);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 140ms var(--ease-settle), background-color 140ms var(--ease-settle);
+    }
+
+    .diag-action-btn:hover {
+      border-color: var(--gold);
+      background: rgba(110, 82, 52, 0.24);
+    }
+
+    .diag-action-btn.is-danger {
+      border-color: rgba(196, 86, 78, 0.5);
+      color: #e4a39e;
+    }
+
+    .diag-log-viewport {
+      max-height: 260px;
+      min-height: 112px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: #090808;
+      border: 1px solid var(--border-hairline);
+      padding: 6px 8px;
+      font-family: var(--font-mono);
+      font-size: 0.73rem;
+      line-height: 1.42;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .diag-empty {
+      color: var(--text-secondary);
+      padding: 16px 8px;
+      text-align: center;
+      font-size: 0.76rem;
+    }
+
+    .diag-entry {
+      display: grid;
+      grid-template-columns: 80px 56px minmax(0, 1fr);
+      gap: 8px;
+      padding: 4px 5px;
+      border-bottom: 1px solid rgba(110, 82, 52, 0.12);
+      align-items: start;
+      min-width: 0;
+    }
+
+    .diag-entry:last-child {
+      border-bottom: none;
+    }
+
+    .diag-entry[data-level="error"] {
+      background: rgba(154, 49, 43, 0.18);
+      color: #f4b4ae;
+    }
+
+    .diag-entry[data-level="warn"] {
+      background: rgba(176, 121, 45, 0.12);
+      color: #f0cf8e;
+    }
+
+    .diag-entry[data-level="info"] {
+      color: var(--text-primary);
+    }
+
+    .diag-entry[data-level="debug"] {
+      color: var(--slate-thief);
+    }
+
+    .diag-time {
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .diag-tag {
+      color: var(--gold);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .diag-entry[data-level="error"] .diag-tag {
+      color: #ff8c82;
+    }
+
+    .diag-entry[data-level="warn"] .diag-tag {
+      color: #ebb760;
+    }
+
+    .diag-msg {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .diag-details {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-secondary);
+      font-size: 0.69rem;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* Sticky Launch Footer Dock (always visible above the fold on PC & mobile) */
+    .launch-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 30;
+      background: #120f0d;
+      border: 1px solid var(--border-bronze-bright);
+      box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(235, 208, 148, 0.08);
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
       flex-wrap: wrap;
+      transition: border-color 220ms var(--ease-settle), box-shadow 220ms var(--ease-settle);
+    }
+
+    .launch-bar[data-ready="true"] {
+      border-color: var(--gold);
+      box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.82), 0 0 22px rgba(207, 168, 102, 0.22), inset 0 1px 0 rgba(242, 218, 159, 0.22);
     }
 
     .launch-readout {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      min-width: 240px;
-      flex: 1;
+      min-width: 0;
+      flex: 1 1 240px;
+      overflow: hidden;
     }
 
     .launch-readout-title {
       font-size: 1rem;
       color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .launch-readout-sub {
       font-size: 0.84rem;
       color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .launch-cta-group {
@@ -758,13 +1032,79 @@
       display: block;
     }
 
-    #canvas {
+    #canvas,
+    #preview-canvas {
       display: block;
       width: 100%;
       height: 100%;
       background: #050507;
       outline: none;
       touch-action: none;
+    }
+
+    #preview-canvas {
+      display: none;
+    }
+
+    #game-stage[data-preview="true"] #canvas {
+      display: none;
+    }
+
+    #game-stage[data-preview="true"] #preview-canvas {
+      display: block;
+    }
+
+    /* In-stage Boot & Cache-to-RAM Streaming Overlay (prevents silent black screen) */
+    .boot-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 68;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(ellipse at 50% 42%, rgba(28, 22, 16, 0.94) 0%, rgba(7, 6, 8, 0.98) 72%);
+    }
+
+    .boot-overlay.is-visible {
+      display: flex;
+    }
+
+    .boot-card {
+      width: min(480px, 100%);
+      min-width: 0;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bronze-bright);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.78), inset 0 0 0 1px rgba(235, 208, 148, 0.06);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      overflow: hidden;
+    }
+
+    .boot-card-title {
+      font-family: var(--font-display);
+      font-size: 1.32rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      letter-spacing: 0.04em;
+    }
+
+    .boot-log-line {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .boot-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 4px;
     }
 
     /* Compact Top In-Game Utility Bar (<= 46px height, zero clipping on 390px mobile) */
@@ -820,6 +1160,11 @@
       }
       .segmented.cols-4 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .extract-progress .wasm-progress-header,
+      .boot-card .wasm-progress-header {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
       }
     }
 
@@ -1111,9 +1456,18 @@
       }
 
       .launch-bar {
-        padding: 16px;
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
+      }
+
+      .launch-readout {
+        flex: 0 0 auto;
+      }
+
+      .launch-readout-sub {
+        display: none;
       }
 
       .launch-cta-group {
@@ -1123,6 +1477,19 @@
 
       .btn-primary-launch {
         width: 100%;
+        min-height: 46px;
+        padding: 10px 20px;
+      }
+
+      .diag-entry {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 2px 8px;
+        padding: 5px 4px;
+        font-size: 0.7rem;
+      }
+
+      .diag-msg {
+        grid-column: 1 / -1;
       }
     }
 
@@ -1224,13 +1591,17 @@
           <input type="file" id="zipInput" class="sr-only-input" accept=".zip,application/zip,application/x-zip-compressed" aria-label="Выбрать ZIP архив с игрой" />
           <input type="file" id="folderInput" class="sr-only-input" webkitdirectory directory multiple aria-label="Выбрать папку с игрой" />
 
-          <div class="extract-progress" id="extractProgressBox">
+          <div class="extract-progress" id="extractProgressBox" data-testid="extract-progress">
             <div class="wasm-progress-header">
               <span class="wasm-status-text" id="extractStatusText">Распаковка архива...</span>
               <span class="wasm-metrics mono" id="extractMetrics">0%</span>
             </div>
             <div class="progress-track">
               <div class="progress-fill" id="extractProgressFill"></div>
+            </div>
+            <div class="progress-meta-row mono">
+              <span id="extractSpeedText">Подготовка...</span>
+              <span id="extractEtaText">Оценка времени...</span>
             </div>
           </div>
         </div>
@@ -1384,13 +1755,42 @@
               <span>ПК Raw Input</span>
               <small id="rawMouseVal">ВКЛ</small>
             </button>
+            <button type="button" class="mini-toggle-btn is-full-span" id="loggingToggleBtn" aria-pressed="false" aria-controls="diagPanel">
+              <span>Подробное логирование и диагностика</span>
+              <small id="loggingToggleVal">ВЫКЛ</small>
+            </button>
           </div>
         </div>
       </section>
     </div>
 
-    <!-- Primary Action Launch Bar -->
-    <section class="launch-bar" aria-label="Запуск игры">
+    <!-- Collapsible Verbose Diagnostic Logs Panel (OFF by default) -->
+    <section class="panel diag-panel" id="diagPanel" data-open="false" data-testid="diag-panel" aria-labelledby="diagHeading">
+      <div class="panel-head">
+        <h2 class="panel-title" id="diagHeading">Диагностический журнал</h2>
+        <span class="panel-note mono" id="diagCountBadge">0 записей</span>
+      </div>
+      <div class="diag-meta-line mono" id="diagEnvSummary">Сбор системных данных...</div>
+      <div class="diag-toolbar">
+        <div class="diag-filters" role="group" aria-label="Фильтр записей журнала">
+          <button type="button" class="diag-filter-btn" data-log-filter="all" aria-pressed="true">Все</button>
+          <button type="button" class="diag-filter-btn" data-log-filter="errors" aria-pressed="false">Ошибки</button>
+          <button type="button" class="diag-filter-btn" data-log-filter="engine" aria-pressed="false">Движок</button>
+          <button type="button" class="diag-filter-btn" data-log-filter="fs" aria-pressed="false">Кэш/ФС</button>
+        </div>
+        <div class="diag-actions">
+          <button type="button" class="diag-action-btn" id="copyLogsBtn">Копировать</button>
+          <button type="button" class="diag-action-btn" id="downloadLogsBtn">Скачать .log</button>
+          <button type="button" class="diag-action-btn is-danger" id="clearLogsBtn">Очистить</button>
+        </div>
+      </div>
+      <div class="diag-log-viewport" id="diagLogViewport" role="log" aria-live="off" aria-label="Подробный лог событий Dark Engine">
+        <div class="diag-empty">Записей пока нет.</div>
+      </div>
+    </section>
+
+    <!-- Primary Action Launch Bar (sticky bottom dock) -->
+    <section class="launch-bar" id="launchBar" data-ready="false" aria-label="Запуск игры">
       <div class="launch-readout">
         <span class="launch-readout-title" id="launchReadoutTitle">Подготовка к запуску...</span>
         <span class="launch-readout-sub" id="launchReadoutSub">Загрузите .zip или папку с игрой, либо используйте сохранённый кэш</span>
@@ -1402,8 +1802,36 @@
   </main>
 
   <!-- Fullscreen Gameplay Viewport + Touch/Gesture Controls Overlay -->
-  <section id="game-stage" data-touch-layout="buttons" aria-label="Игровой экран Dark Engine">
+  <section id="game-stage" data-touch-layout="buttons" data-preview="false" aria-label="Игровой экран Dark Engine">
+    <!-- Dedicated WebGL 2.0 canvas for Emscripten/SDL2 (never polluted with 2D context) -->
     <canvas id="canvas" data-testid="game-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+    <!-- Dedicated 2D canvas strictly for Control Test preview mode -->
+    <canvas id="preview-canvas" data-testid="preview-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+    <!-- Live Boot & Cache Streaming Overlay (shows progress/ETA and prevents silent black screen) -->
+    <div class="boot-overlay" id="bootOverlay" data-testid="boot-overlay" role="status" aria-live="polite">
+      <div class="boot-card">
+        <div class="boot-card-title" id="bootTitle">Запуск Dark Engine...</div>
+        <div class="wasm-progress-header">
+          <span class="wasm-status-text" id="bootStatusText">Подготовка кэша игры...</span>
+          <span class="wasm-metrics mono" id="bootMetrics">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill is-busy" id="bootProgressFill"></div>
+        </div>
+        <div class="progress-meta-row mono">
+          <span id="bootSpeedText">Инициализация...</span>
+          <span id="bootEtaText">Оценка времени...</span>
+        </div>
+        <div class="boot-log-line mono" id="bootLogLine">Ожидание OpenGL ES 3 / WebGL 2.0...</div>
+        <div class="gesture-guide-box" id="bootHelpText" style="display: none;"></div>
+        <div class="boot-actions">
+          <button type="button" class="btn-secondary" id="bootCopyLogsBtn">Скопировать логи</button>
+          <button type="button" class="btn-secondary" id="bootTryControlsBtn" style="display: none;">Тест управления</button>
+          <button type="button" class="btn-danger-ghost" id="bootCancelBtn">Выход в лаунчер</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Ephemeral Gesture / Gamepad / Pointer Lock Feedback Toast -->
     <div class="gesture-toast" id="gestureToast" aria-live="polite"></div>
@@ -1459,6 +1887,13 @@
           <span>Инверсия оси Y</span>
           <small id="hudInvertYVal">ВЫКЛ</small>
         </button>
+      </div>
+      <div class="setting-group">
+        <button type="button" class="mini-toggle-btn" id="hudLoggingBtn" aria-pressed="false">
+          <span>Логирование</span>
+          <small id="hudLoggingVal">ВЫКЛ</small>
+        </button>
+        <button type="button" class="diag-action-btn" id="hudCopyLogsBtn">Скопировать логи</button>
       </div>
       <div class="setting-group">
         <button type="button" class="btn-danger-ghost" id="drawerExitBtn">Выход в лаунчер</button>
@@ -1669,10 +2104,14 @@
         },
 
         buildWebGLContextOptions(requestedOpts) {
+          // NOTE: desynchronized: true causes black screen compositing bugs on
+          // many Android Chrome / desktop GPUs when overlaid with HTML HUD elements.
           return Object.assign({}, requestedOpts || {}, {
             antialias: false,
             alpha: false,
-            desynchronized: true,
+            depth: true,
+            stencil: true,
+            desynchronized: false,
             preserveDrawingBuffer: false,
             powerPreference: 'high-performance'
           });
@@ -1680,6 +2119,49 @@
 
         formatMB(bytes) {
           return (Math.max(0, Number(bytes) || 0) / (1024 * 1024)).toFixed(1);
+        },
+
+        computeProgressMetrics(loadedBytes, totalBytes, elapsedMs) {
+          const loaded = Math.max(0, Number(loadedBytes) || 0);
+          const total = Math.max(0, Number(totalBytes) || 0);
+          const elapsedSec = Math.max(0, (Number(elapsedMs) || 0) / 1000);
+          const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+          const loadedMB = this.formatMB(loaded);
+          const totalMB = this.formatMB(total);
+          const speedMBs = elapsedSec >= 0.15 && loaded > 0
+            ? (loaded / (1024 * 1024)) / elapsedSec
+            : 0;
+
+          let etaSec = null;
+          let etaLabel = 'Оценка времени...';
+          if (total > 0 && loaded >= total) {
+            etaSec = 0;
+            etaLabel = 'Готово';
+          } else if (speedMBs > 0.05 && total > loaded) {
+            const remMB = (total - loaded) / (1024 * 1024);
+            etaSec = Math.max(1, Math.ceil(remMB / speedMBs));
+            if (etaSec >= 60) {
+              const mins = Math.floor(etaSec / 60);
+              const secs = etaSec % 60;
+              etaLabel = 'Осталось ~' + mins + ' мин ' + (secs > 0 ? secs + ' сек' : '');
+            } else {
+              etaLabel = 'Осталось ~' + etaSec + ' сек';
+            }
+          }
+
+          const speedLabel = speedMBs > 0.05
+            ? speedMBs.toFixed(1) + ' МБ/с'
+            : 'Расчёт скорости...';
+
+          return {
+            pct,
+            loadedMB,
+            totalMB,
+            speedMBs: Number(speedMBs.toFixed(2)),
+            etaSec,
+            speedLabel,
+            etaLabel
+          };
         },
 
         normalizeGamePath(rawPath, stripPrefix) {
@@ -1826,8 +2308,8 @@
               canLaunch: true,
               canPreview: true,
               gemState: 'ready',
-              title: 'Кэш игры готов (режим предпросмотра без .wasm)',
-              subtitle: 'Файлы сохранены в IndexedDB (' + s.cachedFiles + ' шт.) · при деплое с thief-runner.wasm запуск пойдёт напрямую'
+              title: 'Кэш готов — для 3D-игры нужен thief-runner.wasm (GitHub Pages)',
+              subtitle: 'Сохранено ' + s.cachedFiles + ' файлов (' + this.formatMB(s.cachedBytes) + ' МБ) · здесь предпросмотр без C++ сборки'
             };
           }
           return {
@@ -1958,6 +2440,173 @@
           return entries;
         },
 
+        /**
+         * Streaming slice-based ZIP Central Directory parser.
+         * Reads ONLY the last 65 KB (EOCD) + Central Directory slice from a File/Blob
+         * without ever slurping a 1 GB archive into RAM at once.
+         */
+        async parseZipFromFile(file) {
+          const size = Number(file && file.size) || 0;
+          if (size < 22) {
+            throw new Error('Файл слишком мал для корректного .zip архива');
+          }
+
+          const tailLen = Math.min(size, 65557);
+          const tailStart = size - tailLen;
+          const tailBuf = await file.slice(tailStart, size).arrayBuffer();
+          const tailView = new DataView(tailBuf);
+
+          let eocdRel = -1;
+          for (let i = tailLen - 22; i >= 0; i--) {
+            if (tailView.getUint32(i, true) === 0x06054b50) {
+              eocdRel = i;
+              break;
+            }
+          }
+          if (eocdRel === -1) {
+            throw new Error('Не найдена структура ZIP (End of Central Directory)');
+          }
+
+          const totalEntries = tailView.getUint16(eocdRel + 10, true);
+          const cdSize = tailView.getUint32(eocdRel + 12, true);
+          const cdOffset = tailView.getUint32(eocdRel + 16, true);
+          if (cdOffset + cdSize > size) {
+            throw new Error('Повреждённый каталог ZIP архива');
+          }
+
+          const cdBuf = await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer();
+          const cdBytes = new Uint8Array(cdBuf);
+          const cdView = new DataView(cdBuf);
+          const decoder = new TextDecoder('utf-8');
+          const entries = [];
+          let pos = 0;
+
+          for (let i = 0; i < totalEntries && pos + 46 <= cdSize; i++) {
+            if (cdView.getUint32(pos, true) !== 0x02014b50) {
+              throw new Error('Некорректная запись в Central Directory ZIP');
+            }
+            const method = cdView.getUint16(pos + 10, true);
+            const compSize = cdView.getUint32(pos + 20, true);
+            const uncompSize = cdView.getUint32(pos + 24, true);
+            const nameLen = cdView.getUint16(pos + 28, true);
+            const extraLen = cdView.getUint16(pos + 30, true);
+            const commentLen = cdView.getUint16(pos + 32, true);
+            const localHeaderOffset = cdView.getUint32(pos + 42, true);
+
+            const name = decoder.decode(cdBytes.subarray(pos + 46, pos + 46 + nameLen));
+            pos += 46 + nameLen + extraLen + commentLen;
+            if (name.endsWith('/')) continue;
+
+            entries.push({
+              name,
+              method,
+              compSize,
+              uncompSize,
+              nameLen,
+              localHeaderOffset
+            });
+          }
+
+          return entries;
+        },
+
+        IDB_CHUNK_BYTES: 16 * 1024 * 1024, // 16 MB — safely below Chromium's ~127 MB IndexedDB IPC serialization limit
+
+        /**
+         * Splits large files (>16 MB, e.g. Thief res/snd.crf ~167 MB) into independent
+         * <=16 MB ArrayBuffer slices so IndexedDB structured-clone never hits Chromium's
+         * 133,169,152-byte serialization limit. Keys are zero-padded so openCursor()
+         * always streams chunks in exact sequential order.
+         */
+        splitFileForIndexedDB(relPath, bytes, maxChunkBytes) {
+          const chunkSize = Math.max(1024, Number(maxChunkBytes) || this.IDB_CHUNK_BYTES);
+          const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+          if (view.byteLength <= chunkSize) {
+            // Ensure backing ArrayBuffer is tightly trimmed (IndexedDB clones entire .buffer!)
+            const trimmed = view.buffer.byteLength === view.byteLength ? view : view.slice();
+            return [{ path: relPath, data: trimmed }];
+          }
+          const chunkCount = Math.ceil(view.byteLength / chunkSize);
+          const records = [];
+          for (let part = 0; part < chunkCount; part++) {
+            const start = part * chunkSize;
+            const end = Math.min(view.byteLength, start + chunkSize);
+            records.push({
+              path: relPath + '#__chunk__' + String(part).padStart(4, '0'),
+              basePath: relPath,
+              chunkIndex: part,
+              chunkCount,
+              totalSize: view.byteLength,
+              // .slice() guarantees an independent <=chunkSize ArrayBuffer for IndexedDB IPC
+              data: view.slice(start, end)
+            });
+          }
+          return records;
+        },
+
+        async readZipEntryFromFile(file, entry) {
+          // For large entries (>8 MB), read only the 30-byte local header first so we
+          // can stream-inflate directly from File.slice() without double-allocating RAM.
+          if (entry.compSize > 8 * 1024 * 1024) {
+            const hdrBuf = await file.slice(entry.localHeaderOffset, entry.localHeaderOffset + 30).arrayBuffer();
+            if (hdrBuf.byteLength < 30) {
+              throw new Error('Повреждён локальный заголовок файла: ' + entry.name);
+            }
+            const hdrView = new DataView(hdrBuf);
+            if (hdrView.getUint32(0, true) !== 0x04034b50) {
+              throw new Error('Неверная сигнатура локального заголовка: ' + entry.name);
+            }
+            const lNameLen = hdrView.getUint16(26, true);
+            const lExtraLen = hdrView.getUint16(28, true);
+            const absDataOffset = entry.localHeaderOffset + 30 + lNameLen + lExtraLen;
+            const payloadBlob = file.slice(absDataOffset, absDataOffset + entry.compSize);
+
+            if (entry.method === 0) {
+              return new Uint8Array(await payloadBlob.arrayBuffer());
+            }
+            if (entry.method === 8) {
+              if (typeof DecompressionStream !== 'function') {
+                throw new Error('Браузер не поддерживает DecompressionStream(deflate-raw). Обновите браузер или выберите папку.');
+              }
+              const ds = new DecompressionStream('deflate-raw');
+              const buf = await new Response(payloadBlob.stream().pipeThrough(ds)).arrayBuffer();
+              return new Uint8Array(buf);
+            }
+            throw new Error('Неподдерживаемый метод сжатия ZIP (' + entry.method + ') для ' + entry.name);
+          }
+
+          // Small/medium entries: single-slice prefetch covers header + payload in 1 disk read
+          const prefetchEnd = Math.min(file.size, entry.localHeaderOffset + 30 + (entry.nameLen || 256) + 512 + entry.compSize);
+          const chunkBuf = await file.slice(entry.localHeaderOffset, prefetchEnd).arrayBuffer();
+          if (chunkBuf.byteLength < 30) {
+            throw new Error('Повреждён локальный заголовок файла: ' + entry.name);
+          }
+          const hdrView = new DataView(chunkBuf);
+          if (hdrView.getUint32(0, true) !== 0x04034b50) {
+            throw new Error('Неверная сигнатура локального заголовка: ' + entry.name);
+          }
+          const lNameLen = hdrView.getUint16(26, true);
+          const lExtraLen = hdrView.getUint16(28, true);
+          const relDataOffset = 30 + lNameLen + lExtraLen;
+
+          let compressed;
+          if (relDataOffset + entry.compSize <= chunkBuf.byteLength) {
+            compressed = new Uint8Array(chunkBuf, relDataOffset, entry.compSize);
+          } else {
+            const absDataOffset = entry.localHeaderOffset + relDataOffset;
+            const exactBuf = await file.slice(absDataOffset, absDataOffset + entry.compSize).arrayBuffer();
+            compressed = new Uint8Array(exactBuf);
+          }
+
+          if (entry.method === 0) {
+            return new Uint8Array(compressed);
+          }
+          if (entry.method === 8) {
+            return this.inflateRawBytes(compressed);
+          }
+          throw new Error('Неподдерживаемый метод сжатия ZIP (' + entry.method + ') для ' + entry.name);
+        },
+
         async inflateRawBytes(compressedUint8) {
           if (typeof DecompressionStream !== 'function') {
             throw new Error('Браузер не поддерживает DecompressionStream(deflate-raw). Обновите браузер или выберите папку.');
@@ -1966,19 +2615,134 @@
           const stream = new Blob([compressedUint8]).stream().pipeThrough(ds);
           const buf = await new Response(stream).arrayBuffer();
           return new Uint8Array(buf);
+        },
+
+        /**
+         * Bounded in-memory diagnostic ring buffer for troubleshooting WASM, GPU,
+         * IndexedDB/MEMFS, ZIP, and input issues without unbounded RAM growth.
+         */
+        createLogBuffer(maxEntries) {
+          const cap = Math.max(10, Number(maxEntries) || 1500);
+          const startNow = Date.now();
+          let nextId = 1;
+          let entries = [];
+
+          const ENGINE_TAGS = new Set(['WASM', 'ENGINE', 'GPU', 'BOOT', 'INPUT', 'CRASH', 'SYS']);
+          const FS_TAGS = new Set(['ZIP', 'FS', 'IDB', 'CACHE']);
+
+          function formatRelTime(relMs) {
+            const clamped = Math.max(0, Math.floor(relMs));
+            const mins = Math.floor(clamped / 60000);
+            const secs = Math.floor((clamped % 60000) / 1000);
+            const ms = clamped % 1000;
+            return '+' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + '.' + String(ms).padStart(3, '0');
+          }
+
+          function normalizeDetails(details) {
+            if (details === undefined || details === null || details === '') return '';
+            if (typeof details === 'string') return details;
+            if (details instanceof Error) {
+              return details.stack || (details.name + ': ' + details.message);
+            }
+            try {
+              return JSON.stringify(details);
+            } catch (_) {
+              return String(details);
+            }
+          }
+
+          return {
+            push(level, tag, message, details) {
+              const lvl = ['error', 'warn', 'info', 'debug'].includes(level) ? level : 'info';
+              const cleanTag = String(tag || 'SYS').toUpperCase().slice(0, 10);
+              const now = Date.now();
+              const entry = {
+                id: nextId++,
+                tsIso: new Date(now).toISOString(),
+                relMs: now - startNow,
+                relText: formatRelTime(now - startNow),
+                level: lvl,
+                tag: cleanTag,
+                message: String(message || ''),
+                details: normalizeDetails(details)
+              };
+              entries.push(entry);
+              if (entries.length > cap) {
+                entries.splice(0, entries.length - cap);
+              }
+              return entry;
+            },
+
+            getEntries(filter) {
+              const f = filter || 'all';
+              if (f === 'errors') {
+                return entries.filter((e) => e.level === 'error' || e.level === 'warn');
+              }
+              if (f === 'engine') {
+                return entries.filter((e) => ENGINE_TAGS.has(e.tag));
+              }
+              if (f === 'fs') {
+                return entries.filter((e) => FS_TAGS.has(e.tag));
+              }
+              return entries.slice();
+            },
+
+            countByLevel() {
+              let errors = 0;
+              let warns = 0;
+              for (const e of entries) {
+                if (e.level === 'error') errors++;
+                else if (e.level === 'warn') warns++;
+              }
+              return { total: entries.length, errors, warns };
+            },
+
+            formatLine(entry) {
+              const lvlPad = String(entry.level || 'info').toUpperCase().padEnd(5, ' ');
+              const tagPad = String(entry.tag || 'SYS').padEnd(6, ' ');
+              const base = '[' + entry.relText + '] [' + lvlPad + '] [' + tagPad + '] ' + entry.message;
+              return entry.details ? base + ' | ' + entry.details : base;
+            },
+
+            exportReport(envSnapshot) {
+              const env = envSnapshot || {};
+              const stats = this.countByLevel();
+              const header = [
+                '=== DARK ENGINE WEB DIAGNOSTIC REPORT ===',
+                'Generated: ' + new Date().toISOString(),
+                'URL: ' + (env.url || 'n/a'),
+                'UserAgent: ' + (env.userAgent || 'n/a'),
+                'Viewport: ' + (env.viewport || 'n/a'),
+                'Hardware: ' + (env.hardware || 'n/a'),
+                'GPU: ' + (env.gpu || 'n/a'),
+                'Storage: ' + (env.storage || 'n/a'),
+                'WASM: ' + (env.wasmState || 'n/a') + ' | Cache: ' + (env.cache || 'n/a'),
+                'Settings: ' + (env.settings || 'n/a'),
+                'Entries: ' + stats.total + ' (errors=' + stats.errors + ', warns=' + stats.warns + ')',
+                '-----------------------------------------'
+              ];
+              const lines = entries.map((e) => this.formatLine(e));
+              return header.concat(lines.length ? lines : ['(no log entries)']).join('\n');
+            },
+
+            clear() {
+              entries = [];
+            }
+          };
         }
       };
 
       window.DarkWebCore = DarkWebCore;
 
       /* =======================================================================
-       * 2. PERSISTENT BROWSER CACHE (IndexedDB + Emscripten IDBFS Sync)
+       * 2. FAST PERSISTENT BROWSER CACHE (Single-Handle IndexedDB + Saves IDBFS)
        * ======================================================================= */
       const DB_NAME = 'DarkEngineThiefCache';
       const DB_VERSION = 1;
       const STORE_FILES = 'files';
       const STORE_META = 'meta';
       const GAMEDATA_DIR = '/gamedata';
+      const SAVES_DIR = '/gamedata/saves';
 
       function openCacheDB() {
         return new Promise((resolve, reject) => {
@@ -2001,22 +2765,21 @@
         });
       }
 
-      async function saveFilesToCacheDB(fileRecords, meta) {
-        const db = await openCacheDB();
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction([STORE_FILES, STORE_META], 'readwrite');
+      function writeBatchToOpenDB(db, fileRecords, meta) {
+        return new Promise((resolve, reject) => {
+          const stores = meta ? [STORE_FILES, STORE_META] : [STORE_FILES];
+          const tx = db.transaction(stores, 'readwrite');
           const fStore = tx.objectStore(STORE_FILES);
-          const mStore = tx.objectStore(STORE_META);
           for (const rec of fileRecords) {
             fStore.put(rec);
           }
           if (meta) {
-            mStore.put({ key: 'summary', ...meta });
+            tx.objectStore(STORE_META).put({ key: 'summary', ...meta });
           }
           tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
+          tx.onerror = () => reject(tx.error || new Error('Ошибка записи в IndexedDB'));
+          tx.onabort = () => reject(tx.error || new Error('Прервана запись в IndexedDB'));
         });
-        db.close();
       }
 
       async function readCacheSummaryFromDB() {
@@ -2035,16 +2798,124 @@
         }
       }
 
-      async function readAllFilesFromDB() {
+      /**
+       * Streams cached files from IndexedDB into Emscripten MEMFS via openCursor()
+       * in non-blocking bursts (NEVER calls getAll() on 1 GB of game data!).
+       * Transparently reassembles multi-chunk large files (>16 MB) directly into MEMFS
+       * using FS.open/FS.write/FS.close to avoid doubling RAM usage.
+       */
+      async function streamCacheToFS(FS, expectedCount, expectedBytes, onProgress) {
         const db = await openCacheDB();
-        const items = await new Promise((resolve, reject) => {
-          const tx = db.transaction([STORE_FILES], 'readonly');
-          const req = tx.objectStore(STORE_FILES).getAll();
-          req.onsuccess = () => resolve(req.result || []);
-          req.onerror = () => reject(req.error);
-        });
-        db.close();
-        return items;
+        ensureFsDir(FS, GAMEDATA_DIR);
+
+        let filesDone = 0;
+        let bytesDone = 0;
+        let lastKey = null;
+        let finished = false;
+        const startTs = performance.now();
+        const activeChunked = new Map();
+        const canStreamPosix = typeof FS.open === 'function' && typeof FS.write === 'function' && typeof FS.close === 'function';
+
+        try {
+          while (!finished) {
+            const chunk = await new Promise((resolve, reject) => {
+              const tx = db.transaction([STORE_FILES], 'readonly');
+              const store = tx.objectStore(STORE_FILES);
+              const range = lastKey !== null ? IDBKeyRange.lowerBound(lastKey, true) : null;
+              const req = store.openCursor(range);
+              const items = [];
+              let chunkBytes = 0;
+
+              req.onsuccess = (ev) => {
+                const cursor = ev.target.result;
+                if (!cursor) {
+                  finished = true;
+                  resolve(items);
+                  return;
+                }
+                const rec = cursor.value;
+                lastKey = cursor.key;
+                items.push(rec);
+                chunkBytes += rec && rec.data ? (rec.data.byteLength || 0) : 0;
+                // Cap each cursor burst at ~16 MB or 48 records so UI paints smoothly
+                if (items.length >= 48 || chunkBytes >= 16 * 1024 * 1024) {
+                  resolve(items);
+                  return;
+                }
+                cursor.continue();
+              };
+              req.onerror = () => reject(req.error || new Error('Ошибка чтения кэша IndexedDB'));
+            });
+
+            let lastDisplayPath = '';
+            for (const rec of chunk) {
+              if (!rec || !rec.path || !rec.data) continue;
+              const view = rec.data instanceof Uint8Array ? rec.data : new Uint8Array(rec.data);
+
+              if (rec.basePath && rec.chunkCount > 1) {
+                const fullPath = GAMEDATA_DIR + '/' + rec.basePath;
+                lastDisplayPath = rec.basePath;
+                let state = activeChunked.get(rec.basePath);
+                if (!state) {
+                  const slashIdx = fullPath.lastIndexOf('/');
+                  if (slashIdx > GAMEDATA_DIR.length) {
+                    ensureFsDir(FS, fullPath.slice(0, slashIdx));
+                  }
+                  if (canStreamPosix) {
+                    state = { stream: FS.open(fullPath, 'w+'), offset: 0, fullPath };
+                  } else {
+                    state = { buffer: new Uint8Array(rec.totalSize || view.byteLength), offset: 0, fullPath };
+                  }
+                  activeChunked.set(rec.basePath, state);
+                }
+
+                if (state.stream) {
+                  FS.write(state.stream, view, 0, view.byteLength, state.offset);
+                } else {
+                  state.buffer.set(view, state.offset);
+                }
+                state.offset += view.byteLength;
+                bytesDone += view.byteLength;
+
+                if (rec.chunkIndex === rec.chunkCount - 1) {
+                  if (state.stream) {
+                    FS.close(state.stream);
+                  } else {
+                    FS.writeFile(state.fullPath, state.buffer);
+                  }
+                  activeChunked.delete(rec.basePath);
+                  filesDone += 1;
+                }
+              } else {
+                const fullPath = GAMEDATA_DIR + '/' + rec.path;
+                lastDisplayPath = rec.path;
+                const slashIdx = fullPath.lastIndexOf('/');
+                if (slashIdx > GAMEDATA_DIR.length) {
+                  ensureFsDir(FS, fullPath.slice(0, slashIdx));
+                }
+                FS.writeFile(fullPath, view);
+                filesDone += 1;
+                bytesDone += view.byteLength;
+              }
+            }
+
+            if (onProgress) {
+              onProgress(filesDone, Math.max(expectedCount || 0, filesDone), bytesDone, Math.max(expectedBytes || 0, bytesDone), performance.now() - startTs, lastDisplayPath);
+            }
+
+            // Yield to browser paint so progress bar & ETA animate smoothly without freezing
+            await new Promise((r) => requestAnimationFrame(r));
+          }
+        } finally {
+          for (const state of activeChunked.values()) {
+            if (state.stream) {
+              try { FS.close(state.stream); } catch (_) {}
+            }
+          }
+          activeChunked.clear();
+          db.close();
+        }
+        return { count: filesDone, bytes: bytesDone };
       }
 
       async function clearCacheDB() {
@@ -2152,12 +3023,31 @@
         gamepadDeadzone: Number(savedPrefs.gamepadDeadzone) || 0.15,
         invertY: Boolean(savedPrefs.invertY),
         rawMouse: savedPrefs.rawMouse !== undefined ? Boolean(savedPrefs.rawMouse) : true,
+        loggingEnabled: Boolean(savedPrefs.loggingEnabled),
+        logFilter: 'all',
+        gpuInfo: 'Проверка GPU...',
+        storageInfo: 'Проверка хранилища...',
         connectedGamepadName: '',
         pointerLocked: false,
         isPreviewMode: false,
         gameRunning: false,
         previewCanvasAnimId: 0
       };
+
+      const diagLogger = DarkWebCore.createLogBuffer(1500);
+      let diagRenderHook = null;
+
+      function logDiag(level, tag, message, details) {
+        const entry = diagLogger.push(level, tag, message, details);
+        if (appState.loggingEnabled || level === 'error') {
+          const line = '[DarkEngine][' + entry.tag + '] ' + entry.message + (entry.details ? ' | ' + entry.details : '');
+          if (level === 'error') console.error(line);
+          else if (level === 'warn') console.warn(line);
+          else console.log(line);
+        }
+        if (diagRenderHook) diagRenderHook();
+        return entry;
+      }
 
       function persistPrefs() {
         try {
@@ -2169,7 +3059,8 @@
             sensitivity: appState.sensitivity,
             gamepadDeadzone: appState.gamepadDeadzone,
             invertY: appState.invertY,
-            rawMouse: appState.rawMouse
+            rawMouse: appState.rawMouse,
+            loggingEnabled: appState.loggingEnabled
           }));
         } catch (_) {
           // Ignore storage quota errors
@@ -2179,10 +3070,11 @@
       async function requestPersistentStorage() {
         try {
           if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persist === 'function') {
-            await navigator.storage.persist();
+            const granted = await navigator.storage.persist();
+            logDiag('debug', 'CACHE', 'Запрос persistent storage: ' + (granted ? 'разрешено' : 'отклонено браузером'));
           }
-        } catch (_) {
-          // Optional browser capability
+        } catch (err) {
+          logDiag('warn', 'CACHE', 'Ошибка запроса persistent storage', err && err.message ? err.message : err);
         }
       }
 
@@ -2192,26 +3084,39 @@
       // downloading without doubling RAM usage.
       let runtimeReadyHook = null;
       let wasmProgressHook = null;
+      let engineLogHook = null;
 
       window.Module = window.Module || {};
       Object.assign(window.Module, {
         noInitialRun: true,
         canvas: null,
         print(text) {
-          if (text) console.log('[DarkEngine]', text);
+          if (text) {
+            logDiag('info', 'ENGINE', String(text));
+            if (engineLogHook) engineLogHook(String(text), false);
+          }
         },
         printErr(text) {
-          if (text) console.warn('[DarkEngine]', text);
+          if (text) {
+            logDiag('warn', 'ENGINE', String(text));
+            if (engineLogHook) engineLogHook(String(text), true);
+          }
+        },
+        onAbort(what) {
+          logDiag('error', 'WASM', 'Emscripten abort()', what ? String(what) : 'unknown reason');
+          if (engineLogHook) engineLogHook('ABORT: ' + String(what || ''), true);
         },
         locateFile(path) {
           return path;
         },
         instantiateWasm(imports, receiveInstance) {
           (async () => {
+            const wasmStartTs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            logDiag('info', 'WASM', 'Запрос модуля thief-runner.wasm...');
             try {
               const resp = await fetch('thief-runner.wasm', { cache: 'default' });
               if (!resp.ok) {
-                throw new Error('HTTP ' + resp.status);
+                throw new Error('HTTP ' + resp.status + ' ' + (resp.statusText || ''));
               }
               const total = parseInt(resp.headers.get('Content-Length') || '0', 10) || 0;
               const contentType = (resp.headers.get('Content-Type') || '').toLowerCase();
@@ -2219,6 +3124,10 @@
                 && typeof ReadableStream === 'function'
                 && resp.body
                 && contentType.includes('application/wasm');
+              logDiag('debug', 'WASM', 'Ответ HTTP ' + resp.status + ', Content-Type="' + (contentType || 'none') + '"', {
+                contentLengthMB: total > 0 ? DarkWebCore.formatMB(total) : 'unknown',
+                streamingCompile: canStreamCompile
+              });
 
               if (canStreamCompile) {
                 try {
@@ -2247,10 +3156,14 @@
                     headers: { 'Content-Type': 'application/wasm' }
                   });
                   const streamed = await WebAssembly.instantiateStreaming(meteredResp, imports);
+                  const dtMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - wasmStartTs);
+                  logDiag('info', 'WASM', 'Потоковая компиляция WASM завершена за ' + dtMs + ' мс', {
+                    bytesMB: DarkWebCore.formatMB(received)
+                  });
                   receiveInstance(streamed.instance, streamed.module);
                   return;
                 } catch (streamErr) {
-                  console.warn('[DarkEngine] Streaming WASM fallback:', streamErr.message);
+                  logDiag('warn', 'WASM', 'Потоковая компиляция WASM не удалась — переход на буферный путь', streamErr && streamErr.message ? streamErr.message : streamErr);
                 }
               }
 
@@ -2290,9 +3203,13 @@
               }
 
               const result = await WebAssembly.instantiate(bytes, imports);
+              const dtMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - wasmStartTs);
+              logDiag('info', 'WASM', 'Буферная компиляция WASM завершена за ' + dtMs + ' мс', {
+                bytesMB: DarkWebCore.formatMB(bytes.byteLength)
+              });
               receiveInstance(result.instance, result.module);
             } catch (err) {
-              console.warn('[DarkEngine] WASM download/instantiate notice:', err.message);
+              logDiag('warn', 'WASM', 'thief-runner.wasm недоступен: ' + (err && err.message ? err.message : String(err)));
               appState.wasmState = 'unavailable';
               if (runtimeReadyHook) runtimeReadyHook();
             }
@@ -2301,6 +3218,7 @@
         },
         onRuntimeInitialized() {
           appState.wasmState = 'ready';
+          logDiag('info', 'WASM', 'Emscripten runtime инициализирован (FS=' + Boolean(window.Module && window.Module.FS) + ', IDBFS=' + Boolean(window.Module && window.Module.IDBFS) + ')');
           if (runtimeReadyHook) runtimeReadyHook();
         }
       });
@@ -2328,6 +3246,8 @@
         const extractStatusText = $('extractStatusText');
         const extractMetrics = $('extractMetrics');
         const extractProgressFill = $('extractProgressFill');
+        const extractSpeedText = $('extractSpeedText');
+        const extractEtaText = $('extractEtaText');
         const cacheStatusLine = $('cacheStatusLine');
         const cacheDetailLine = $('cacheDetailLine');
         const clearCacheBtn = $('clearCacheBtn');
@@ -2347,12 +3267,37 @@
         const invertYVal = $('invertYVal');
         const rawMouseBtn = $('rawMouseBtn');
         const rawMouseVal = $('rawMouseVal');
+        const loggingToggleBtn = $('loggingToggleBtn');
+        const loggingToggleVal = $('loggingToggleVal');
+        const diagPanel = $('diagPanel');
+        const diagCountBadge = $('diagCountBadge');
+        const diagEnvSummary = $('diagEnvSummary');
+        const diagLogViewport = $('diagLogViewport');
+        const copyLogsBtn = $('copyLogsBtn');
+        const downloadLogsBtn = $('downloadLogsBtn');
+        const clearLogsBtn = $('clearLogsBtn');
+        const bootCopyLogsBtn = $('bootCopyLogsBtn');
+        const hudLoggingBtn = $('hudLoggingBtn');
+        const hudLoggingVal = $('hudLoggingVal');
+        const hudCopyLogsBtn = $('hudCopyLogsBtn');
         const launchReadoutTitle = $('launchReadoutTitle');
         const launchReadoutSub = $('launchReadoutSub');
         const launchBtn = $('launchBtn');
         const previewHudTopBtn = $('previewHudTopBtn');
         const gameStage = $('game-stage');
         const canvas = $('canvas');
+        const previewCanvas = $('preview-canvas');
+        const bootOverlay = $('bootOverlay');
+        const bootTitle = $('bootTitle');
+        const bootStatusText = $('bootStatusText');
+        const bootMetrics = $('bootMetrics');
+        const bootProgressFill = $('bootProgressFill');
+        const bootSpeedText = $('bootSpeedText');
+        const bootEtaText = $('bootEtaText');
+        const bootLogLine = $('bootLogLine');
+        const bootHelpText = $('bootHelpText');
+        const bootTryControlsBtn = $('bootTryControlsBtn');
+        const bootCancelBtn = $('bootCancelBtn');
         const touchHud = $('touch-hud');
         const gestureHud = $('gesture-hud');
         const gestureGhostRing = $('gestureGhostRing');
@@ -2368,13 +3313,200 @@
         const hudRuntimeMeta = $('hudRuntimeMeta');
         const exitToLauncherBtn = $('exitToLauncherBtn');
 
-        // Enforce low-latency high-performance WebGL 2 context attributes before
-        // Emscripten initializes SDL2/OpenGL ES 3 on the canvas (eliminates
-        // expensive MSAA & alpha compositing overhead on mobile GPUs).
+        /* ----- Diagnostic Panel Rendering, Export & Crash Traps ----- */
+        function buildEnvSnapshot() {
+          const hwCores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' ядер' : 'n/a';
+          const hwMem = typeof navigator !== 'undefined' && navigator.deviceMemory ? navigator.deviceMemory + ' ГБ ОЗУ' : 'n/a';
+          return {
+            url: window.location ? window.location.href : 'n/a',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a',
+            viewport: window.innerWidth + 'x' + window.innerHeight + ' @' + (window.devicePixelRatio || 1).toFixed(2) + 'x',
+            hardware: hwCores + ' · ' + hwMem + (isCoarsePointer ? ' · Touch' : ' · Desktop'),
+            gpu: appState.gpuInfo,
+            storage: appState.storageInfo,
+            wasmState: appState.wasmState + (appState.wasmLoadedBytes ? ' (' + DarkWebCore.formatMB(appState.wasmLoadedBytes) + ' МБ)' : ''),
+            cache: appState.cachedFiles + ' файлов · ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ (' + appState.edition + ')',
+            settings: 'api=' + appState.requestedBackend + ' quality=' + appState.quality + ' fps=' + appState.targetFps + ' touch=' + appState.touchMode + ' sens=' + appState.sensitivity.toFixed(1)
+          };
+        }
+
+        function updateDiagEnvSummary() {
+          if (!diagEnvSummary) return;
+          const snap = buildEnvSnapshot();
+          diagEnvSummary.textContent = snap.viewport + ' · ' + snap.hardware + ' · ' + snap.gpu + ' · ' + snap.storage;
+        }
+
+        let diagRenderQueued = false;
+        function renderDiagLogsNow() {
+          diagRenderQueued = false;
+          if (!diagPanel || !diagLogViewport) return;
+          const counts = diagLogger.countByLevel();
+          if (diagCountBadge) {
+            const errSuffix = counts.errors > 0 ? ' · ' + counts.errors + ' ош.' : (counts.warns > 0 ? ' · ' + counts.warns + ' пред.' : '');
+            diagCountBadge.textContent = counts.total + ' зап.' + errSuffix;
+          }
+          if (!appState.loggingEnabled) return;
+
+          updateDiagEnvSummary();
+          const list = diagLogger.getEntries(appState.logFilter);
+          const nearBottom = (diagLogViewport.scrollHeight - diagLogViewport.scrollTop - diagLogViewport.clientHeight) < 36;
+          diagLogViewport.textContent = '';
+
+          if (list.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'diag-empty';
+            emptyEl.textContent = 'Нет записей для выбранного фильтра.';
+            diagLogViewport.appendChild(emptyEl);
+            return;
+          }
+
+          const frag = document.createDocumentFragment();
+          const startIdx = Math.max(0, list.length - 400);
+          for (let i = startIdx; i < list.length; i++) {
+            const item = list[i];
+            const row = document.createElement('div');
+            row.className = 'diag-entry';
+            row.dataset.level = item.level;
+
+            const tEl = document.createElement('span');
+            tEl.className = 'diag-time';
+            tEl.textContent = item.relText;
+
+            const tagEl = document.createElement('span');
+            tagEl.className = 'diag-tag';
+            tagEl.textContent = item.tag;
+
+            const msgEl = document.createElement('span');
+            msgEl.className = 'diag-msg';
+            msgEl.textContent = item.message;
+            if (item.details) {
+              const detEl = document.createElement('span');
+              detEl.className = 'diag-details';
+              detEl.textContent = item.details;
+              msgEl.appendChild(detEl);
+            }
+
+            row.appendChild(tEl);
+            row.appendChild(tagEl);
+            row.appendChild(msgEl);
+            frag.appendChild(row);
+          }
+          diagLogViewport.appendChild(frag);
+          if (nearBottom) {
+            diagLogViewport.scrollTop = diagLogViewport.scrollHeight;
+          }
+        }
+
+        diagRenderHook = () => {
+          if (diagRenderQueued) return;
+          diagRenderQueued = true;
+          requestAnimationFrame(renderDiagLogsNow);
+        };
+
+        function syncVerboseLoggingToEngine() {
+          if (window.Module && typeof window.Module.ccall === 'function') {
+            try {
+              window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [appState.loggingEnabled ? 1 : 0]);
+            } catch (_) {
+              // Optional exported hook
+            }
+          }
+        }
+
+        function updateLoggingUI() {
+          const enabled = Boolean(appState.loggingEnabled);
+          if (loggingToggleBtn) loggingToggleBtn.setAttribute('aria-pressed', String(enabled));
+          if (loggingToggleVal) loggingToggleVal.textContent = enabled ? 'ВКЛ' : 'ВЫКЛ';
+          if (hudLoggingBtn) hudLoggingBtn.setAttribute('aria-pressed', String(enabled));
+          if (hudLoggingVal) hudLoggingVal.textContent = enabled ? 'ВКЛ' : 'ВЫКЛ';
+          if (diagPanel) diagPanel.dataset.open = enabled ? 'true' : 'false';
+          document.querySelectorAll('[data-log-filter]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.logFilter === appState.logFilter));
+          });
+          syncVerboseLoggingToEngine();
+          renderDiagLogsNow();
+        }
+
+        async function copyDiagnosticReport(triggerBtn) {
+          const report = diagLogger.exportReport(buildEnvSnapshot());
+          let copied = false;
+          try {
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+              await navigator.clipboard.writeText(report);
+              copied = true;
+            }
+          } catch (_) {
+            copied = false;
+          }
+          if (!copied) {
+            try {
+              const ta = document.createElement('textarea');
+              ta.value = report;
+              ta.setAttribute('readonly', '');
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.select();
+              copied = document.execCommand('copy');
+              document.body.removeChild(ta);
+            } catch (_) {
+              copied = false;
+            }
+          }
+          if (triggerBtn) {
+            const orig = triggerBtn.dataset.origLabel || triggerBtn.textContent;
+            triggerBtn.dataset.origLabel = orig;
+            triggerBtn.textContent = copied ? 'Скопировано ✓' : 'Нет доступа к буферу';
+            setTimeout(() => { triggerBtn.textContent = orig; }, 1600);
+          }
+          if (appState.gameRunning) {
+            showInputToast(copied ? 'ЛОГИ СКОПИРОВАНЫ' : 'НЕ УДАЛОСЬ СКОПИРОВАТЬ');
+          }
+        }
+
+        function downloadDiagnosticReport() {
+          const report = diagLogger.exportReport(buildEnvSnapshot());
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'dark-engine-web-' + stamp + '.log';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          logDiag('info', 'SYS', 'Сохранён файл журнала dark-engine-web-' + stamp + '.log');
+        }
+
+        // Global error & WebGL context loss traps so crashes are always captured
+        window.addEventListener('error', (ev) => {
+          const loc = ev.filename ? (ev.filename + ':' + ev.lineno + ':' + ev.colno) : '';
+          logDiag('error', 'CRASH', ev.message || 'Uncaught error', (ev.error && ev.error.stack) ? ev.error.stack : loc);
+        });
+        window.addEventListener('unhandledrejection', (ev) => {
+          const reason = ev.reason;
+          const msg = reason && reason.message ? reason.message : String(reason || 'Unhandled rejection');
+          logDiag('error', 'CRASH', 'Unhandled Promise rejection: ' + msg, reason && reason.stack ? reason.stack : '');
+        });
+        canvas.addEventListener('webglcontextlost', (ev) => {
+          ev.preventDefault();
+          logDiag('error', 'GPU', 'WebGL 2.0 контекст потерян (webglcontextlost) — возможен сброс драйвера GPU или нехватка памяти');
+        });
+        canvas.addEventListener('webglcontextrestored', () => {
+          logDiag('warn', 'GPU', 'WebGL 2.0 контекст восстановлен (webglcontextrestored)');
+        });
+
+        // Enforce reliable, high-performance WebGL 2 context attributes before
+        // Emscripten initializes SDL2/OpenGL ES 3 on #canvas.
+        // IMPORTANT: #canvas is NEVER touched with getContext('2d')!
         const nativeGetContext = canvas.getContext.bind(canvas);
         canvas.getContext = function (type, attrs) {
           if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
-            return nativeGetContext(type, DarkWebCore.buildWebGLContextOptions(attrs));
+            const opts = DarkWebCore.buildWebGLContextOptions(attrs);
+            const ctx = nativeGetContext(type, opts);
+            logDiag(ctx ? 'info' : 'error', 'GPU', 'Запрос контекста ' + type + ' на #canvas: ' + (ctx ? 'OK' : 'FAILED'), opts);
+            return ctx;
           }
           return nativeGetContext(type, attrs);
         };
@@ -2585,47 +3717,57 @@
           launchReadoutTitle.textContent = readiness.title;
           launchReadoutSub.textContent = readiness.subtitle;
           launchBtn.disabled = !readiness.canLaunch;
+          const launchBarEl = document.getElementById('launchBar');
+          if (launchBarEl) launchBarEl.dataset.ready = readiness.canLaunch ? 'true' : 'false';
           launchBtn.textContent = appState.wasmState === 'unavailable' && appState.cachedFiles > 0
-            ? 'Открыть экран игры'
+            ? 'Запустить Thief (нет WASM)'
             : 'Запустить Thief';
         }
 
-        async function mountAndRestoreIdbfs() {
+        // Instant startup cache check: reads ONLY the tiny 100-byte summary from IndexedDB
+        // (<5ms, zero 1-minute freeze!). Emscripten IDBFS is mounted ONLY on /gamedata/saves.
+        async function mountSavesIdbfsIfAvailable() {
           if (window.Module && window.Module.FS && window.Module.IDBFS && !appState.idbfsMounted) {
             const FS = window.Module.FS;
             ensureFsDir(FS, GAMEDATA_DIR);
+            ensureFsDir(FS, SAVES_DIR);
             try {
-              FS.mount(window.Module.IDBFS, {}, GAMEDATA_DIR);
+              FS.mount(window.Module.IDBFS, {}, SAVES_DIR);
               appState.idbfsMounted = true;
               await new Promise((resolve) => {
                 FS.syncfs(true, (err) => {
-                  if (err) console.warn('[DarkEngine] IDBFS restore warning:', err);
+                  if (err) logDiag('warn', 'IDB', 'Предупреждение синхронизации /gamedata/saves', String(err));
+                  else logDiag('info', 'IDB', 'IDBFS сохранения смонтированы в ' + SAVES_DIR);
                   resolve();
                 });
               });
-              const names = [];
-              const stats = countFsTree(FS, GAMEDATA_DIR, names);
-              if (stats.count > 0) {
-                appState.cachedFiles = stats.count;
-                appState.cachedBytes = stats.bytes;
-                appState.edition = DarkWebCore.detectThiefEdition(names);
-              }
             } catch (err) {
-              console.warn('[DarkEngine] IDBFS mount fallback:', err);
+              logDiag('warn', 'IDB', 'Ошибка монтирования IDBFS сохранений', err && err.message ? err.message : String(err));
             }
           }
+        }
 
-          // Always reconcile with browser IndexedDB cache summary
-          if (appState.cachedFiles === 0) {
-            const summary = await readCacheSummaryFromDB();
-            if (summary && summary.count > 0) {
-              appState.cachedFiles = summary.count;
-              appState.cachedBytes = summary.bytes || 0;
-              appState.edition = summary.edition || 'Кэш Dark Engine';
-            }
+        async function mountAndRestoreIdbfs() {
+          // 1. Instant metadata check from IndexedDB (never loads 1 GB on page open)
+          const t0 = performance.now();
+          const summary = await readCacheSummaryFromDB();
+          const dt = Math.round(performance.now() - t0);
+          if (summary && summary.count > 0) {
+            appState.cachedFiles = summary.count;
+            appState.cachedBytes = summary.bytes || 0;
+            appState.edition = summary.edition || 'Кэш Dark Engine';
+            logDiag('info', 'CACHE', 'Обнаружен кэш IndexedDB за ' + dt + ' мс: ' + appState.edition, {
+              files: appState.cachedFiles,
+              sizeMB: DarkWebCore.formatMB(appState.cachedBytes)
+            });
+          } else {
+            logDiag('debug', 'CACHE', 'Локальный кэш IndexedDB пуст (' + dt + ' мс)');
           }
           updateCacheUI();
           reconcileLaunchState();
+
+          // 2. Mount tiny /gamedata/saves IDBFS in background if WASM FS is ready
+          await mountSavesIdbfsIfAvailable();
         }
 
         runtimeReadyHook = () => {
@@ -2633,164 +3775,333 @@
           reconcileLaunchState();
         };
 
-        /* ----- GPU Capability Probe (WebGPU + WebGL 2.0) ----- */
+        /* ----- GPU & Storage Capability Probe (WebGPU + WebGL 2.0) ----- */
         async function probeGraphicsCapabilities() {
           let webgl2Ok = false;
+          let glRenderer = 'n/a';
+          let maxTex = 0;
           try {
             const testCanvas = document.createElement('canvas');
             const gl = testCanvas.getContext('webgl2', { antialias: false, powerPreference: 'high-performance' });
             webgl2Ok = Boolean(gl);
-          } catch (_) {
+            if (gl) {
+              maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
+              const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+              if (dbg) {
+                const vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || '';
+                const renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '';
+                glRenderer = (vendor ? vendor + ' / ' : '') + renderer;
+              } else {
+                glRenderer = gl.getParameter(gl.RENDERER) || 'WebGL 2.0';
+              }
+              const loseExt = gl.getExtension('WEBGL_lose_context');
+              if (loseExt) loseExt.loseContext();
+            }
+          } catch (err) {
             webgl2Ok = false;
+            logDiag('warn', 'GPU', 'Ошибка проверки WebGL 2.0', err && err.message ? err.message : String(err));
           }
 
           let webgpuOk = false;
+          let webgpuLabel = 'unavailable';
           try {
             if (typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu) {
               const adapter = await navigator.gpu.requestAdapter();
               webgpuOk = Boolean(adapter);
+              if (adapter) {
+                const info = adapter.info || (typeof adapter.requestAdapterInfo === 'function' ? await adapter.requestAdapterInfo() : null);
+                webgpuLabel = info ? [info.vendor, info.architecture, info.description].filter(Boolean).join(' ') || 'adapter OK' : 'adapter OK';
+              }
             }
           } catch (_) {
             webgpuOk = false;
           }
 
           appState.capabilities = { webgpu: webgpuOk, webgl2: webgl2Ok };
+          appState.gpuInfo = (webgl2Ok ? glRenderer + ' (maxTex=' + maxTex + ')' : 'WebGL2 недоступен') + ' · WebGPU=' + (webgpuOk ? webgpuLabel : 'нет');
           gpuProbeText.textContent = (webgl2Ok ? 'WebGL2 ✓' : 'WebGL2 ×') + ' · ' + (webgpuOk ? 'WebGPU ✓' : 'WebGPU ×');
+          logDiag('info', 'GPU', 'Диагностика GPU завершена', {
+            webgl2: webgl2Ok,
+            renderer: glRenderer,
+            maxTextureSize: maxTex,
+            webgpu: webgpuOk ? webgpuLabel : false
+          });
+
+          if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.estimate === 'function') {
+            try {
+              const est = await navigator.storage.estimate();
+              const usedMB = DarkWebCore.formatMB(est.usage || 0);
+              const quotaMB = DarkWebCore.formatMB(est.quota || 0);
+              appState.storageInfo = 'Диск: ' + usedMB + ' / ' + quotaMB + ' МБ';
+              logDiag('debug', 'CACHE', 'Квота хранилища браузера: ' + usedMB + ' / ' + quotaMB + ' МБ');
+            } catch (_) {
+              appState.storageInfo = 'Диск: нет данных';
+            }
+          }
+          updateDiagEnvSummary();
           updateBackendUI();
         }
 
-        /* ----- File Import: Fast Pure-JS ZIP & Folder Upload -> IDBFS/IndexedDB ----- */
-        function setExtractProgress(active, text, pct) {
+        /* ----- File Import: Fast Slice-Streaming ZIP & Parallel Folder Cache ----- */
+        function setExtractProgress(active, text, pct, opts) {
+          const o = opts || {};
           extractProgressBox.classList.toggle('is-active', active);
-          if (text) extractStatusText.textContent = text;
+          if (text !== undefined && text !== null) extractStatusText.textContent = text;
           if (typeof pct === 'number') {
             const clamped = Math.max(0, Math.min(100, Math.round(pct)));
             extractProgressFill.style.width = clamped + '%';
-            extractMetrics.textContent = clamped + '%';
+            extractMetrics.textContent = o.metricsText || (clamped + '%');
+          }
+          extractProgressFill.classList.toggle('is-busy', Boolean(o.busy));
+          extractProgressFill.dataset.state = o.error ? 'error' : '';
+          if (extractSpeedText && o.speedText !== undefined) {
+            extractSpeedText.textContent = o.speedText;
+          }
+          if (extractEtaText && o.etaText !== undefined) {
+            extractEtaText.textContent = o.etaText;
           }
         }
 
-        async function writeEntriesToStorage(entriesList, onStep) {
+        function setBootOverlayState(visible, opts) {
+          const o = opts || {};
+          bootOverlay.classList.toggle('is-visible', visible);
+          if (o.title !== undefined) bootTitle.textContent = o.title;
+          if (o.status !== undefined) bootStatusText.textContent = o.status;
+          if (o.metrics !== undefined) bootMetrics.textContent = o.metrics;
+          if (typeof o.pct === 'number') {
+            bootProgressFill.style.width = Math.max(0, Math.min(100, Math.round(o.pct))) + '%';
+          }
+          if (o.busy !== undefined) bootProgressFill.classList.toggle('is-busy', Boolean(o.busy));
+          if (o.error !== undefined) bootProgressFill.dataset.state = o.error ? 'error' : '';
+          if (o.speed !== undefined) bootSpeedText.textContent = o.speed;
+          if (o.eta !== undefined) bootEtaText.textContent = o.eta;
+          if (o.log !== undefined) bootLogLine.textContent = o.log;
+          if (bootHelpText) {
+            if (o.helpHtml) {
+              bootHelpText.innerHTML = o.helpHtml;
+              bootHelpText.style.display = 'block';
+            } else {
+              bootHelpText.style.display = 'none';
+            }
+          }
+          if (bootTryControlsBtn) {
+            bootTryControlsBtn.style.display = o.showTryControls ? 'inline-flex' : 'none';
+          }
+        }
+
+        engineLogHook = (line, isErr) => {
+          if (bootOverlay.classList.contains('is-visible')) {
+            bootLogLine.textContent = (isErr ? '! ' : '') + line;
+          }
+        };
+
+        /**
+         * High-speed single-handle batched writer with 4x parallel deflate/read waves.
+         * Writes once to IndexedDB (and directly to MEMFS if WASM is already loaded),
+         * eliminating double-writes and 1-minute silent stalls.
+         */
+        async function writeEntriesToStorage(entriesList, expectedTotalBytes, onStep) {
           const FS = window.Module && window.Module.FS ? window.Module.FS : null;
           if (FS) {
             ensureFsDir(FS, GAMEDATA_DIR);
-            removeFsRecursive(FS, GAMEDATA_DIR);
-            ensureFsDir(FS, GAMEDATA_DIR);
+            // Keep /gamedata/saves intact while replacing static game assets
+            try {
+              for (const entry of FS.readdir(GAMEDATA_DIR)) {
+                if (entry === '.' || entry === '..' || entry === 'saves') continue;
+                removeFsRecursive(FS, GAMEDATA_DIR + '/' + entry);
+              }
+            } catch (_) {}
           }
 
           await clearCacheDB();
+          const db = await openCacheDB();
 
           const totalCount = entriesList.length;
           let totalBytes = 0;
+          let doneCount = 0;
           const storedNames = [];
           let batchRecords = [];
-          let lastYield = performance.now();
+          let batchBytes = 0;
+          const startTs = performance.now();
+          let lastUiPaint = 0;
 
-          for (let i = 0; i < totalCount; i++) {
-            const item = entriesList[i];
-            const relPath = item.relPath;
-            const data = await item.readBytes();
-            totalBytes += data.byteLength;
-            storedNames.push(relPath);
+          const BATCH_MAX_FILES = 64;
+          const BATCH_MAX_BYTES = 12 * 1024 * 1024; // 12 MB per IndexedDB transaction
 
-            if (FS) {
-              const fullPath = GAMEDATA_DIR + '/' + relPath;
-              const lastSlash = fullPath.lastIndexOf('/');
-              if (lastSlash > GAMEDATA_DIR.length) {
-                ensureFsDir(FS, fullPath.slice(0, lastSlash));
+          try {
+            let idx = 0;
+            while (idx < totalCount) {
+              // Parallel read/inflate up to 4 small/medium files at once (solo for >8 MB files to cap RAM)
+              const wave = [];
+              let waveEstBytes = 0;
+              while (idx < totalCount && wave.length < 4) {
+                const candidate = entriesList[idx];
+                const est = candidate.estSize || 0;
+                if (wave.length > 0 && (est > 8 * 1024 * 1024 || waveEstBytes + est > 16 * 1024 * 1024)) {
+                  break;
+                }
+                wave.push(candidate);
+                waveEstBytes += est;
+                idx++;
               }
-              FS.writeFile(fullPath, data);
-            } else {
-              // Persist directly into IndexedDB when WASM FS isn't mounted yet
-              batchRecords.push({ path: relPath, data });
-              if (batchRecords.length >= 40) {
-                await saveFilesToCacheDB(batchRecords, null);
-                batchRecords = [];
+
+              const loadedWave = await Promise.all(
+                wave.map(async (item) => ({
+                  relPath: item.relPath,
+                  data: await item.readBytes()
+                }))
+              );
+
+              let lastRelPath = '';
+              for (const rec of loadedWave) {
+                storedNames.push(rec.relPath);
+                lastRelPath = rec.relPath;
+
+                if (FS) {
+                  const fullPath = GAMEDATA_DIR + '/' + rec.relPath;
+                  const lastSlash = fullPath.lastIndexOf('/');
+                  if (lastSlash > GAMEDATA_DIR.length) {
+                    ensureFsDir(FS, fullPath.slice(0, lastSlash));
+                  }
+                  FS.writeFile(fullPath, rec.data);
+                }
+
+                // Split files >16 MB into independent IndexedDB chunks so Chromium's
+                // ~127 MB single-value serialization cap is never exceeded (e.g. 167 MB snd.crf).
+                const dbRecords = DarkWebCore.splitFileForIndexedDB(rec.relPath, rec.data);
+                const isChunked = dbRecords.length > 1;
+                if (isChunked) {
+                  logDiag('debug', 'IDB', 'Чанкинг крупного файла ' + rec.relPath + ' (' + DarkWebCore.formatMB(rec.data.byteLength) + ' МБ -> ' + dbRecords.length + ' частей)');
+                }
+                for (let c = 0; c < dbRecords.length; c++) {
+                  const dbRec = dbRecords[c];
+                  const recLen = dbRec.data.byteLength;
+                  if (batchRecords.length > 0 && (batchRecords.length >= BATCH_MAX_FILES || batchBytes + recLen > BATCH_MAX_BYTES)) {
+                    await writeBatchToOpenDB(db, batchRecords, null);
+                    batchRecords = [];
+                    batchBytes = 0;
+                  }
+                  batchRecords.push(dbRec);
+                  batchBytes += recLen;
+                  totalBytes += recLen;
+
+                  if (batchRecords.length >= BATCH_MAX_FILES || batchBytes >= BATCH_MAX_BYTES) {
+                    await writeBatchToOpenDB(db, batchRecords, null);
+                    batchRecords = [];
+                    batchBytes = 0;
+                    if (isChunked) {
+                      const denomBytes = Math.max(expectedTotalBytes || 0, totalBytes);
+                      const nowChunk = performance.now();
+                      onStep(doneCount, totalCount, totalBytes, denomBytes, nowChunk - startTs, rec.relPath + ' (' + (c + 1) + '/' + dbRecords.length + ')');
+                      lastUiPaint = nowChunk;
+                      await new Promise((r) => requestAnimationFrame(r));
+                    }
+                  }
+                }
+                doneCount += 1;
+                // Release reference to large source buffer immediately after chunking
+                rec.data = null;
+              }
+
+              const now = performance.now();
+              if (now - lastUiPaint > 40 || doneCount === totalCount) {
+                const denomBytes = Math.max(expectedTotalBytes || 0, totalBytes);
+                onStep(doneCount, totalCount, totalBytes, denomBytes, now - startTs, lastRelPath);
+                lastUiPaint = now;
+                await new Promise((r) => requestAnimationFrame(r));
               }
             }
 
-            const now = performance.now();
-            if (now - lastYield > 24 || i === totalCount - 1) {
-              onStep(i + 1, totalCount, totalBytes, relPath);
-              lastYield = now;
-              await new Promise((r) => requestAnimationFrame(r));
-            }
-          }
+            const edition = DarkWebCore.detectThiefEdition(storedNames);
+            const summary = {
+              count: totalCount,
+              bytes: totalBytes,
+              edition,
+              updatedAt: Date.now()
+            };
 
-          const edition = DarkWebCore.detectThiefEdition(storedNames);
-          const summary = {
-            count: totalCount,
-            bytes: totalBytes,
-            edition,
-            updatedAt: Date.now()
-          };
+            onStep(totalCount, totalCount, totalBytes, totalBytes, performance.now() - startTs, 'Финализация индекса кэша...');
+            await writeBatchToOpenDB(db, batchRecords, summary);
+            await requestPersistentStorage();
 
-          if (FS && appState.idbfsMounted) {
-            onStep(totalCount, totalCount, totalBytes, 'Синхронизация IDBFS...');
-            await new Promise((resolve) => {
-              FS.syncfs(false, (err) => {
-                if (err) console.warn('[DarkEngine] IDBFS persist warning:', err);
-                resolve();
-              });
+            const elapsedSec = Math.max(0.01, (performance.now() - startTs) / 1000);
+            logDiag('info', 'CACHE', 'Кэш успешно сохранён: ' + edition + ' (' + totalCount + ' файлов, ' + DarkWebCore.formatMB(totalBytes) + ' МБ)', {
+              elapsedSec: elapsedSec.toFixed(2),
+              speedMBs: (totalBytes / (1024 * 1024) / elapsedSec).toFixed(1)
             });
-            // Save lightweight metadata record too
-            await saveFilesToCacheDB([], summary);
-          } else {
-            await saveFilesToCacheDB(batchRecords, summary);
+
+            appState.cachedFiles = totalCount;
+            appState.cachedBytes = totalBytes;
+            appState.edition = edition;
+          } finally {
+            db.close();
           }
-
-          await requestPersistentStorage();
-
-          appState.cachedFiles = totalCount;
-          appState.cachedBytes = totalBytes;
-          appState.edition = edition;
         }
 
         async function handleZipFile(file) {
           if (!file) return;
+          logDiag('info', 'ZIP', 'Начат импорт ZIP: ' + file.name + ' (' + DarkWebCore.formatMB(file.size) + ' МБ)');
           appState.extracting = true;
           reconcileLaunchState();
-          setExtractProgress(true, 'Чтение заголовков ' + file.name + '...', 4);
+          setExtractProgress(true, 'Индексация каталога ' + file.name + '...', 3, {
+            busy: true,
+            metricsText: 'Чтение ZIP',
+            speedText: DarkWebCore.formatMB(file.size) + ' МБ архив',
+            etaText: 'Оценка времени...'
+          });
+          // Let browser paint the busy state immediately before reading EOCD
+          await new Promise((r) => requestAnimationFrame(r));
 
           try {
-            const buffer = await file.arrayBuffer();
-            const zipEntries = DarkWebCore.parseZipCentralDirectory(buffer);
+            // Slice-based reader: reads ONLY the ~65 KB footer + Central Directory (instant, zero RAM spike!)
+            const zipEntries = await DarkWebCore.parseZipFromFile(file);
             if (zipEntries.length === 0) {
               throw new Error('Архив не содержит файлов');
             }
             const prefix = DarkWebCore.detectCommonRootPrefix(zipEntries.map((e) => e.name));
-            const rawBytes = new Uint8Array(buffer);
+            let expectedUncompBytes = 0;
 
             const descriptors = zipEntries
               .map((entry) => {
                 const relPath = DarkWebCore.normalizeGamePath(entry.name, prefix);
                 if (!relPath) return null;
+                expectedUncompBytes += entry.uncompSize || entry.compSize || 0;
                 return {
                   relPath,
-                  async readBytes() {
-                    const slice = rawBytes.subarray(entry.dataOffset, entry.dataOffset + entry.compSize);
-                    if (entry.method === 0) {
-                      return new Uint8Array(slice);
-                    }
-                    if (entry.method === 8) {
-                      return DarkWebCore.inflateRawBytes(slice);
-                    }
-                    throw new Error('Неподдерживаемый метод сжатия ZIP (' + entry.method + ') для ' + relPath);
-                  }
+                  estSize: entry.uncompSize || entry.compSize || 0,
+                  readBytes: () => DarkWebCore.readZipEntryFromFile(file, entry)
                 };
               })
               .filter(Boolean);
 
-            await writeEntriesToStorage(descriptors, (done, total, bytes, name) => {
-              const pct = (done / total) * 100;
-              setExtractProgress(true, 'Распаковка (' + done + '/' + total + '): ' + name, pct);
-              cacheDetailLine.textContent = done + ' файлов · ' + DarkWebCore.formatMB(bytes) + ' МБ';
+            logDiag('info', 'ZIP', 'Индекс ZIP прочитан: ' + descriptors.length + ' файлов (' + DarkWebCore.formatMB(expectedUncompBytes) + ' МБ)', {
+              strippedRoot: prefix || '(корень)',
+              detected: DarkWebCore.detectThiefEdition(descriptors.map((d) => d.relPath))
             });
 
-            setExtractProgress(false, '', 100);
+            await writeEntriesToStorage(descriptors, expectedUncompBytes, (done, total, bytes, denomBytes, elapsedMs, name) => {
+              const m = DarkWebCore.computeProgressMetrics(bytes, denomBytes, elapsedMs);
+              const pct = denomBytes > 0 ? m.pct : Math.round((done / total) * 100);
+              const shortName = name.length > 36 ? '…' + name.slice(-34) : name;
+              setExtractProgress(true, 'Распаковка (' + done + '/' + total + '): ' + shortName, pct, {
+                busy: pct < 100,
+                metricsText: m.loadedMB + ' / ' + m.totalMB + ' МБ · ' + pct + '%',
+                speedText: m.speedLabel,
+                etaText: m.etaLabel
+              });
+              cacheDetailLine.textContent = done + '/' + total + ' файлов · ' + m.loadedMB + ' МБ · ' + m.etaLabel;
+            });
+
+            setExtractProgress(false, '', 100, { busy: false });
           } catch (err) {
-            console.error('[DarkEngine] ZIP import error:', err);
-            setExtractProgress(true, 'Ошибка распаковки: ' + (err.message || String(err)), 0);
+            logDiag('error', 'ZIP', 'Ошибка импорта ZIP: ' + (err && err.message ? err.message : String(err)), err && err.stack ? err.stack : '');
+            setExtractProgress(true, 'Ошибка распаковки: ' + (err.message || String(err)), 0, {
+              busy: false,
+              error: true,
+              metricsText: 'Ошибка',
+              speedText: 'Проверьте архив .zip',
+              etaText: '—'
+            });
             setLightGemVisual('error');
           } finally {
             appState.extracting = false;
@@ -2810,17 +4121,26 @@
 
           appState.extracting = true;
           reconcileLaunchState();
-          setExtractProgress(true, 'Подготовка списка файлов...', 2);
+          setExtractProgress(true, 'Подготовка ' + files.length + ' файлов...', 2, {
+            busy: true,
+            metricsText: 'Индексация',
+            speedText: files.length + ' файлов',
+            etaText: 'Оценка времени...'
+          });
+          await new Promise((r) => requestAnimationFrame(r));
 
           try {
             const rawPaths = files.map((f) => f.webkitRelativePath || f.name);
             const prefix = DarkWebCore.detectCommonRootPrefix(rawPaths);
+            let expectedBytes = 0;
             const descriptors = files
               .map((f) => {
                 const relPath = DarkWebCore.normalizeGamePath(f.webkitRelativePath || f.name, prefix);
                 if (!relPath) return null;
+                expectedBytes += f.size || 0;
                 return {
                   relPath,
+                  estSize: f.size || 0,
                   async readBytes() {
                     return new Uint8Array(await f.arrayBuffer());
                   }
@@ -2828,16 +4148,29 @@
               })
               .filter(Boolean);
 
-            await writeEntriesToStorage(descriptors, (done, total, bytes, name) => {
-              const pct = (done / total) * 100;
-              setExtractProgress(true, 'Кэширование (' + done + '/' + total + '): ' + name, pct);
-              cacheDetailLine.textContent = done + ' файлов · ' + DarkWebCore.formatMB(bytes) + ' МБ';
+            await writeEntriesToStorage(descriptors, expectedBytes, (done, total, bytes, denomBytes, elapsedMs, name) => {
+              const m = DarkWebCore.computeProgressMetrics(bytes, denomBytes, elapsedMs);
+              const pct = denomBytes > 0 ? m.pct : Math.round((done / total) * 100);
+              const shortName = name.length > 36 ? '…' + name.slice(-34) : name;
+              setExtractProgress(true, 'Кэширование (' + done + '/' + total + '): ' + shortName, pct, {
+                busy: pct < 100,
+                metricsText: m.loadedMB + ' / ' + m.totalMB + ' МБ · ' + pct + '%',
+                speedText: m.speedLabel,
+                etaText: m.etaLabel
+              });
+              cacheDetailLine.textContent = done + '/' + total + ' файлов · ' + m.loadedMB + ' МБ · ' + m.etaLabel;
             });
 
-            setExtractProgress(false, '', 100);
+            setExtractProgress(false, '', 100, { busy: false });
           } catch (err) {
-            console.error('[DarkEngine] Folder import error:', err);
-            setExtractProgress(true, 'Ошибка копирования: ' + (err.message || String(err)), 0);
+            logDiag('error', 'FS', 'Ошибка импорта папки: ' + (err && err.message ? err.message : String(err)), err && err.stack ? err.stack : '');
+            setExtractProgress(true, 'Ошибка копирования: ' + (err.message || String(err)), 0, {
+              busy: false,
+              error: true,
+              metricsText: 'Ошибка',
+              speedText: 'Проверьте права доступа',
+              etaText: '—'
+            });
             setLightGemVisual('error');
           } finally {
             appState.extracting = false;
@@ -2849,6 +4182,7 @@
         async function handleClearCache() {
           clearCacheBtn.disabled = true;
           cacheStatusLine.textContent = 'Очистка кэша...';
+          logDiag('info', 'CACHE', 'Пользователь инициировал очистку локального кэша');
           try {
             if (window.Module && window.Module.FS) {
               removeFsRecursive(window.Module.FS, GAMEDATA_DIR);
@@ -2862,6 +4196,7 @@
             appState.cachedFiles = 0;
             appState.cachedBytes = 0;
             appState.edition = 'Файлы не загружены';
+            logDiag('info', 'CACHE', 'Кэш IndexedDB и /gamedata очищен');
           } finally {
             updateCacheUI();
             reconcileLaunchState();
@@ -2869,32 +4204,38 @@
         }
 
         /* ----- Canvas Sizing & Gameplay Launch ----- */
+        function getActiveCanvas() {
+          return appState.isPreviewMode ? previewCanvas : canvas;
+        }
+
         function applyCanvasResolution() {
-          const rect = canvas.getBoundingClientRect();
+          const target = getActiveCanvas();
+          const rect = target.getBoundingClientRect();
           const dims = DarkWebCore.computeCanvasResolution(
             rect.width || window.innerWidth,
             rect.height || window.innerHeight,
             window.devicePixelRatio || 1,
             appState.quality
           );
-          canvas.width = dims.width;
-          canvas.height = dims.height;
+          target.width = dims.width;
+          target.height = dims.height;
         }
 
-        // Subtle atmospheric preview canvas rendered ONLY when thief-runner.wasm is
-        // not present on this preview server (lets users verify touch stick & swipe look!)
+        // Dedicated 2D preview canvas loop (strictly draws on #preview-canvas so
+        // #canvas NEVER receives a 2D context and stays 100% WebGL 2.0 compatible!).
         let previewYaw = 0;
         let previewPitch = 0;
         let previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
         let previewLastAction = 'Ожидание ввода';
+        let bootTimeoutId = 0;
 
         function startPreviewCanvasLoop() {
-          const ctx = canvas.getContext('2d');
+          const ctx = previewCanvas.getContext('2d');
           if (!ctx) return;
           const renderFrame = () => {
-            if (!appState.gameRunning || appState.wasmState === 'ready') return;
-            const w = canvas.width;
-            const h = canvas.height;
+            if (!appState.gameRunning || !appState.isPreviewMode) return;
+            const w = previewCanvas.width;
+            const h = previewCanvas.height;
             ctx.fillStyle = '#09080c';
             ctx.fillRect(0, 0, w, h);
 
@@ -2956,60 +4297,215 @@
         async function launchGame(isPreviewMode) {
           const resolved = DarkWebCore.resolveGraphicsBackend(appState.requestedBackend, appState.capabilities);
           const preset = DarkWebCore.QUALITY_PRESETS[appState.quality] || DarkWebCore.QUALITY_PRESETS.high;
+          const usePreview = Boolean(isPreviewMode);
 
-          appState.isPreviewMode = Boolean(isPreviewMode);
+          appState.isPreviewMode = usePreview;
           appState.gameRunning = true;
+          gameStage.dataset.preview = usePreview ? 'true' : 'false';
           document.body.dataset.mode = 'playing';
           updateTouchPrefsUI();
 
+          // Force layout reflow so getBoundingClientRect() returns real viewport dimensions
+          void gameStage.offsetWidth;
           applyCanvasResolution();
-          canvas.focus();
+          getActiveCanvas().focus();
 
-          if (!isPreviewMode && appState.wasmState === 'ready' && window.Module) {
-            try {
-              // Ensure cached IndexedDB files are materialized into /gamedata if uploaded prior to FS mount
-              if (window.Module.FS) {
-                const existing = countFsTree(window.Module.FS, GAMEDATA_DIR);
-                if (existing.count === 0 && appState.cachedFiles > 0) {
-                  const cachedRecords = await readAllFilesFromDB();
-                  ensureFsDir(window.Module.FS, GAMEDATA_DIR);
-                  for (const rec of cachedRecords) {
-                    const fullPath = GAMEDATA_DIR + '/' + rec.path;
-                    const idx = fullPath.lastIndexOf('/');
-                    if (idx > GAMEDATA_DIR.length) ensureFsDir(window.Module.FS, fullPath.slice(0, idx));
-                    window.Module.FS.writeFile(fullPath, new Uint8Array(rec.data));
-                  }
-                }
-              }
-
-              if (typeof window.Module.ccall === 'function') {
-                try {
-                  window.Module.ccall('dark_web_set_graphics_backend', null, ['string'], [resolved.active]);
-                  window.Module.ccall('dark_web_set_quality_preset', null, ['number'], [preset.scale]);
-                  window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
-                  applyInputProfileToEngine();
-                } catch (_) {
-                  // Optional exported hooks
-                }
-              }
-
-              if (typeof window.Module.callMain === 'function') {
-                window.Module.callMain([]);
-                return;
-              }
-            } catch (err) {
-              console.error('[DarkEngine] Launch error:', err);
-              previewLastAction = 'Ошибка запуска: ' + (err.message || err);
-            }
+          if (usePreview) {
+            logDiag('info', 'BOOT', 'Запущен режим «Тест управления» (2D #preview-canvas)', {
+              touchMode: appState.touchMode,
+              quality: appState.quality
+            });
+            setBootOverlayState(false);
+            startPreviewCanvasLoop();
+            return;
           }
 
-          startPreviewCanvasLoop();
+          // Honest diagnostic when thief-runner.wasm is absent (e.g., AI Studio UI preview host)
+          if (appState.wasmState !== 'ready' || !window.Module || typeof window.Module.callMain !== 'function') {
+            logDiag('error', 'BOOT', 'Невозможно запустить игру: thief-runner.wasm отсутствует или не инициализирован', {
+              wasmState: appState.wasmState,
+              cachedFiles: appState.cachedFiles,
+              cachedMB: DarkWebCore.formatMB(appState.cachedBytes)
+            });
+            setBootOverlayState(true, {
+              title: 'Нет собранного движка thief-runner.wasm',
+              status: 'Кэш игры готов (' + appState.cachedFiles + ' файлов · ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ)',
+              metrics: 'Нет WASM',
+              pct: 100,
+              busy: false,
+              error: true,
+              speed: 'Режим предпросмотра UI',
+              eta: 'Нужна сборка GitHub Actions',
+              log: 'Файл thief-runner.js / thief-runner.wasm отсутствует на этом сервере (404)',
+              helpHtml: '<strong>Почему не запустилась 3D-игра здесь?</strong><br />На сервере предпросмотра нет C++ компилятора Emscripten. Файл движка <code>thief-runner.wasm</code> собирается автоматически в <strong>GitHub Actions (build-web.yml)</strong> и работает на вашем сайте <strong>GitHub Pages</strong>.<br />Ваш архив и кэш уже полностью рабочие — откройте опубликованную страницу на GitHub Pages или проверьте здесь «Тест управления».',
+              showTryControls: true
+            });
+            return;
+          }
+
+          // Real Emscripten WASM + WebGL 2.0 Launch with live cache streaming & boot diagnostics
+          const bootStartTs = performance.now();
+          logDiag('info', 'BOOT', 'Запуск Dark Engine WASM', {
+            backend: resolved.active,
+            scale: preset.scale,
+            fps: appState.targetFps,
+            canvas: canvas.width + 'x' + canvas.height,
+            edition: appState.edition
+          });
+          if (bootTimeoutId) { clearTimeout(bootTimeoutId); bootTimeoutId = 0; }
+          window.__darkFirstFrameRendered = false;
+          window.__onDarkFirstFrame = () => {
+            if (bootTimeoutId) { clearTimeout(bootTimeoutId); bootTimeoutId = 0; }
+            logDiag('info', 'BOOT', 'Отрисован первый 3D-кадр Dark Engine за ' + Math.round(performance.now() - bootStartTs) + ' мс');
+            setBootOverlayState(false);
+          };
+
+          setBootOverlayState(true, {
+            title: 'Запуск Dark Engine',
+            status: 'Проверка файлов игры в памяти...',
+            metrics: '0%',
+            pct: 4,
+            busy: true,
+            error: false,
+            speed: 'Подготовка MEMFS...',
+            eta: 'Оценка времени...',
+            log: 'Инициализация виртуальной ФС /gamedata'
+          });
+          await new Promise((r) => requestAnimationFrame(r));
+
+          try {
+            if (window.Module.FS) {
+              const FS = window.Module.FS;
+              ensureFsDir(FS, GAMEDATA_DIR);
+              const existing = countFsTree(FS, GAMEDATA_DIR);
+
+              if (existing.count === 0 && appState.cachedFiles > 0) {
+                const streamT0 = performance.now();
+                logDiag('info', 'FS', 'Потоковая загрузка кэша из IndexedDB в MEMFS (' + appState.cachedFiles + ' файлов, ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ)...');
+                setBootOverlayState(true, {
+                  status: 'Загрузка кэша игры в оперативную память...',
+                  metrics: '0.0 / ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ · 0%',
+                  pct: 5,
+                  busy: true,
+                  speed: 'Чтение IndexedDB...',
+                  eta: 'Оценка времени...'
+                });
+                const streamed = await streamCacheToFS(FS, appState.cachedFiles, appState.cachedBytes, (done, total, bytes, denomBytes, elapsedMs, lastPath) => {
+                  const m = DarkWebCore.computeProgressMetrics(bytes, denomBytes, elapsedMs);
+                  const shortPath = lastPath && lastPath.length > 36 ? '…' + lastPath.slice(-34) : (lastPath || '');
+                  setBootOverlayState(true, {
+                    status: 'Загрузка кэша (' + done + '/' + total + '): ' + shortPath,
+                    metrics: m.loadedMB + ' / ' + m.totalMB + ' МБ · ' + m.pct + '%',
+                    pct: m.pct,
+                    busy: m.pct < 100,
+                    speed: m.speedLabel,
+                    eta: m.etaLabel,
+                    log: 'Потоковая запись в /gamedata'
+                  });
+                });
+                const streamSec = Math.max(0.01, (performance.now() - streamT0) / 1000);
+                logDiag('info', 'FS', 'MEMFS загружена за ' + streamSec.toFixed(2) + ' с (' + streamed.count + ' файлов, ' + DarkWebCore.formatMB(streamed.bytes) + ' МБ · ' + (streamed.bytes / (1024 * 1024) / streamSec).toFixed(1) + ' МБ/с)');
+              }
+
+              // Audit essential Thief root files inside /gamedata to diagnose black screens / missing configs immediately
+              try {
+                const rootEntries = FS.readdir(GAMEDATA_DIR).filter((n) => n !== '.' && n !== '..');
+                const lowerSet = new Set(rootEntries.map((n) => n.toLowerCase()));
+                const misCount = rootEntries.filter((n) => /\.mis$/i.test(n)).length;
+                const audit = {
+                  rootEntries: rootEntries.length,
+                  camCfg: lowerSet.has('cam.cfg'),
+                  darkCfg: lowerSet.has('dark.cfg'),
+                  darkGam: lowerSet.has('dark.gam'),
+                  misFiles: misCount,
+                  sample: rootEntries.slice(0, 12)
+                };
+                logDiag(audit.camCfg || audit.darkCfg ? 'info' : 'warn', 'FS', 'Аудит корня /gamedata перед запуском', audit);
+              } catch (auditErr) {
+                logDiag('warn', 'FS', 'Не удалось просканировать /gamedata', String(auditErr));
+              }
+
+              await mountSavesIdbfsIfAvailable();
+              try {
+                FS.chdir(GAMEDATA_DIR);
+                logDiag('debug', 'FS', 'FS.chdir("' + GAMEDATA_DIR + '") выполнен успешно');
+              } catch (chdirErr) {
+                logDiag('warn', 'FS', 'Предупреждение FS.chdir', String(chdirErr));
+              }
+            }
+
+            setBootOverlayState(true, {
+              title: 'Инициализация OpenGL ES 3 / WebGL 2.0',
+              status: 'Запуск движка Thief...',
+              metrics: '100%',
+              pct: 100,
+              busy: true,
+              speed: resolved.active === 'webgpu' ? 'WebGPU' : 'WebGL 2.0',
+              eta: 'Первый кадр...',
+              log: 'Вызов Dark Engine main() в /gamedata...'
+            });
+            await new Promise((r) => requestAnimationFrame(r));
+
+            if (typeof window.Module.ccall === 'function') {
+              try {
+                window.Module.ccall('dark_web_set_verbose_logging', null, ['number'], [appState.loggingEnabled ? 1 : 0]);
+                window.Module.ccall('dark_web_set_graphics_backend', null, ['string'], [resolved.active]);
+                window.Module.ccall('dark_web_set_quality_preset', null, ['number'], [preset.scale]);
+                window.Module.ccall('dark_web_set_target_fps', null, ['number'], [appState.targetFps]);
+                applyInputProfileToEngine();
+                logDiag('debug', 'BOOT', 'Конфигурация передана в C++ через Module.ccall');
+              } catch (ccallErr) {
+                logDiag('warn', 'BOOT', 'Часть C++ хуков ccall недоступна', String(ccallErr));
+              }
+            }
+
+            // Watchdog: if first frame doesn't arrive within 12s, show actionable hint instead of hanging forever
+            bootTimeoutId = setTimeout(() => {
+              if (!window.__darkFirstFrameRendered && appState.gameRunning) {
+                logDiag('warn', 'BOOT', 'Таймаут 12с: первый кадр Dark Engine не поступил (проверьте cam.cfg / dark.cfg / WebGL2)');
+                setBootOverlayState(true, {
+                  title: 'Ожидание кадра от Dark Engine',
+                  status: 'Движок ещё загружается или не нашёл cam.cfg / dark.cfg',
+                  busy: false,
+                  eta: 'Проверьте архив игры или скопируйте логи'
+                });
+              }
+            }, 12000);
+
+            if (typeof window.Module.callMain === 'function') {
+              logDiag('info', 'BOOT', 'Вызов Module.callMain([])...');
+              window.Module.callMain([]);
+              if (window.__darkFirstFrameRendered) {
+                setBootOverlayState(false);
+              }
+              return;
+            }
+          } catch (err) {
+            logDiag('error', 'BOOT', 'Исключение при запуске Dark Engine: ' + (err && err.message ? err.message : String(err)), err && err.stack ? err.stack : '');
+            setBootOverlayState(true, {
+              title: 'Ошибка запуска Dark Engine',
+              status: err.message || String(err),
+              metrics: 'Ошибка',
+              pct: 100,
+              busy: false,
+              error: true,
+              speed: 'Сбой инициализации',
+              eta: 'Скопируйте логи и выйдите в лаунчер',
+              log: String(err && err.stack ? err.stack.split('\n')[0] : err)
+            });
+          }
         }
 
         function exitToLauncher() {
           appState.gameRunning = false;
           appState.isPreviewMode = false;
-          if (document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
+          gameStage.dataset.preview = 'false';
+          if (bootTimeoutId) {
+            clearTimeout(bootTimeoutId);
+            bootTimeoutId = 0;
+          }
+          setBootOverlayState(false);
+          if ((document.pointerLockElement === canvas || document.pointerLockElement === previewCanvas) && typeof document.exitPointerLock === 'function') {
             try { document.exitPointerLock(); } catch (_) {}
           }
           if (appState.previewCanvasAnimId) {
@@ -3118,37 +4614,40 @@
 
         // --- 5A. PC Raw Pointer Lock & Browser Key-Hijack Protection ---
         async function requestPcPointerLock() {
-          if (!appState.gameRunning || !canvas.requestPointerLock) return;
-          if (document.pointerLockElement === canvas) return;
+          const target = getActiveCanvas();
+          if (!appState.gameRunning || !target || !target.requestPointerLock) return;
+          if (document.pointerLockElement === target) return;
           try {
             if (appState.rawMouse) {
-              const maybePromise = canvas.requestPointerLock({ unadjustedMovement: true });
+              const maybePromise = target.requestPointerLock({ unadjustedMovement: true });
               if (maybePromise && typeof maybePromise.catch === 'function') {
-                await maybePromise.catch(() => canvas.requestPointerLock());
+                await maybePromise.catch(() => target.requestPointerLock());
               }
             } else {
-              canvas.requestPointerLock();
+              target.requestPointerLock();
             }
           } catch (_) {
-            try { canvas.requestPointerLock(); } catch (__) {}
+            try { target.requestPointerLock(); } catch (__) {}
           }
         }
 
-        canvas.addEventListener('pointerdown', (e) => {
-          if (e.pointerType === 'mouse' && appState.gameRunning && !hudDrawer.classList.contains('is-open')) {
+        const onCanvasPointerDown = (e) => {
+          if (e.pointerType === 'mouse' && appState.gameRunning && !hudDrawer.classList.contains('is-open') && !bootOverlay.classList.contains('is-visible')) {
             requestPcPointerLock();
           }
-        });
+        };
+        canvas.addEventListener('pointerdown', onCanvasPointerDown);
+        previewCanvas.addEventListener('pointerdown', onCanvasPointerDown);
 
         document.addEventListener('pointerlockchange', () => {
-          appState.pointerLocked = document.pointerLockElement === canvas;
+          appState.pointerLocked = document.pointerLockElement === canvas || document.pointerLockElement === previewCanvas;
           if (appState.pointerLocked) {
             showInputToast(appState.rawMouse ? 'RAW-МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД' : 'МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД');
           }
         });
 
         document.addEventListener('mousemove', (e) => {
-          if (!appState.gameRunning || !appState.pointerLocked || appState.wasmState === 'ready') return;
+          if (!appState.gameRunning || !appState.pointerLocked || !appState.isPreviewMode) return;
           if (e.movementX || e.movementY) {
             previewYaw += e.movementX * appState.sensitivity * 0.25;
             previewPitch = Math.max(-75, Math.min(75, previewPitch + e.movementY * appState.sensitivity * (appState.invertY ? -0.22 : 0.22)));
@@ -3707,9 +5206,38 @@
           });
         }
 
-        launchBtn.addEventListener('click', () => launchGame(appState.wasmState !== 'ready'));
+        const toggleLogging = () => {
+          appState.loggingEnabled = !appState.loggingEnabled;
+          persistPrefs();
+          logDiag('info', 'SYS', 'Подробное логирование ' + (appState.loggingEnabled ? 'ВКЛЮЧЕНО' : 'ВЫКЛЮЧЕНО'));
+          updateLoggingUI();
+        };
+        if (loggingToggleBtn) loggingToggleBtn.addEventListener('click', toggleLogging);
+        if (hudLoggingBtn) hudLoggingBtn.addEventListener('click', toggleLogging);
+
+        document.querySelectorAll('[data-log-filter]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.logFilter = btn.dataset.logFilter || 'all';
+            updateLoggingUI();
+          });
+        });
+
+        if (copyLogsBtn) copyLogsBtn.addEventListener('click', () => copyDiagnosticReport(copyLogsBtn));
+        if (bootCopyLogsBtn) bootCopyLogsBtn.addEventListener('click', () => copyDiagnosticReport(bootCopyLogsBtn));
+        if (hudCopyLogsBtn) hudCopyLogsBtn.addEventListener('click', () => copyDiagnosticReport(hudCopyLogsBtn));
+        if (downloadLogsBtn) downloadLogsBtn.addEventListener('click', downloadDiagnosticReport);
+        if (clearLogsBtn) {
+          clearLogsBtn.addEventListener('click', () => {
+            diagLogger.clear();
+            renderDiagLogsNow();
+          });
+        }
+
+        launchBtn.addEventListener('click', () => launchGame(false));
         previewHudTopBtn.addEventListener('click', () => launchGame(true));
         exitToLauncherBtn.addEventListener('click', exitToLauncher);
+        if (bootCancelBtn) bootCancelBtn.addEventListener('click', exitToLauncher);
+        if (bootTryControlsBtn) bootTryControlsBtn.addEventListener('click', () => launchGame(true));
         const drawerExitBtn = $('drawerExitBtn');
         if (drawerExitBtn) drawerExitBtn.addEventListener('click', exitToLauncher);
 
@@ -3722,6 +5250,7 @@
 
         window.addEventListener('resize', () => {
           if (appState.gameRunning) applyCanvasResolution();
+          if (appState.loggingEnabled) updateDiagEnvSummary();
         });
 
         // PC Keyboard protection (prevents browser F5 reload / Space scroll / Tab focus jump during Thief gameplay)
@@ -3738,9 +5267,16 @@
           if (e.code === 'KeyS') previewMoveState.speed = 'НАЗАД';
         });
 
-        // Initial render + GPU probe + Gamepad check + IDBFS cache check
+        // Initial render + System diagnostics snapshot + GPU probe + Gamepad check + IDBFS cache check
+        logDiag('info', 'SYS', 'Инициализация лаунчера Dark Engine Web', {
+          viewport: window.innerWidth + 'x' + window.innerHeight + '@' + (window.devicePixelRatio || 1).toFixed(2) + 'x',
+          touchDevice: isCoarsePointer,
+          decompressionStream: typeof DecompressionStream === 'function',
+          indexedDB: typeof indexedDB !== 'undefined'
+        });
         updateQualityUI();
         updateTouchPrefsUI();
+        updateLoggingUI();
         refreshGamepadConnection();
         probeGraphicsCapabilities();
         mountAndRestoreIdbfs();
@@ -3754,6 +5290,7 @@
           }
           if (window.Module && (window.Module.calledRun || window.Module.FS)) {
             appState.wasmState = 'ready';
+            logDiag('info', 'WASM', 'Обнаружена поздняя готовность Module.FS/calledRun');
             mountAndRestoreIdbfs();
             reconcileLaunchState();
             clearInterval(readinessPoll);
@@ -3764,7 +5301,11 @@
         const loaderScript = document.createElement('script');
         loaderScript.src = 'thief-runner.js';
         loaderScript.async = true;
+        loaderScript.onload = () => {
+          logDiag('debug', 'WASM', 'Скрипт thief-runner.js загружен');
+        };
         loaderScript.onerror = () => {
+          logDiag('warn', 'WASM', 'Скрипт thief-runner.js не найден (404) — активен режим лаунчера/кэша');
           if (appState.wasmState === 'loading') {
             appState.wasmState = 'unavailable';
             reconcileLaunchState();

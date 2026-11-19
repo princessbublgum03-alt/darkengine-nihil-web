@@ -50,6 +50,7 @@ float g_webMouseSensitivity = 1.0f;
 float g_webGamepadDeadzone = 0.15f;
 int g_webInvertY = 0;
 int g_webTargetFps = 0;
+int g_webVerboseLogging = 0;
 
 bool DirectoryExists(const char *path)
 {
@@ -118,6 +119,25 @@ void ConfigureEmscriptenRuntime()
         {
             PlatformDebugOutput("[web] Warning: failed to chdir to game directory\n");
         }
+    }
+    else if (g_webVerboseLogging)
+    {
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+                      "[web][diag] Game directory not found: %s\n", candidateDir);
+        PlatformDebugOutput(msg);
+    }
+
+    if (g_webVerboseLogging)
+    {
+        char cwdBuf[256] = "";
+        const char *cwd = getcwd(cwdBuf, sizeof(cwdBuf)) ? cwdBuf : "<unknown>";
+        char diagBuf[512];
+        std::snprintf(diagBuf, sizeof(diagBuf),
+                      "[web][diag] Runtime ready: cwd=%s backend=%s scale=%.2f fps=%d input=%s sens=%.2f dz=%.2f invY=%d\n",
+                      cwd, g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps,
+                      g_webInputProfile, g_webMouseSensitivity, g_webGamepadDeadzone, g_webInvertY);
+        PlatformDebugOutput(diagBuf);
     }
 
     // Flush save games and modified cam.cfg back to IndexedDB on clean exit.
@@ -201,6 +221,21 @@ EMSCRIPTEN_KEEPALIVE
 void dark_web_sync_saves(void)
 {
     PersistIdbfsToBrowser();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void dark_web_set_verbose_logging(int enabled)
+{
+    g_webVerboseLogging = enabled ? 1 : 0;
+    setenv("DARK_WEB_VERBOSE_LOG", g_webVerboseLogging ? "1" : "0", 1);
+    if (g_webVerboseLogging)
+    {
+        char msg[256];
+        std::snprintf(msg, sizeof(msg),
+                      "[web][diag] Verbose engine logging enabled (backend=%s, scale=%.2f, fps=%d)\n",
+                      g_webGraphicsBackend, g_webResolutionScale, g_webTargetFps);
+        PlatformDebugOutput(msg);
+    }
 }
 
 } // extern "C"

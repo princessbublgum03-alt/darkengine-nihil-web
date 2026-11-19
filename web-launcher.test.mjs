@@ -192,22 +192,99 @@ test('computeCanvasResolution scales cleanly for mobile ultralow/low presets vs 
   assert.equal(highDesktop.height, 1440);
 });
 
-test('normalizeTargetFps and buildWebGLContextOptions enforce mobile-fast defaults', () => {
+test('normalizeTargetFps and buildWebGLContextOptions enforce black-screen-safe fast WebGL 2 defaults', () => {
   assert.equal(Core.normalizeTargetFps(30), 30);
   assert.equal(Core.normalizeTargetFps('60'), 60);
   assert.equal(Core.normalizeTargetFps(0), 0);
   assert.equal(Core.normalizeTargetFps(144), 0);
 
-  const glOpts = Core.buildWebGLContextOptions({ depth: true, antialias: true, alpha: true });
+  const glOpts = Core.buildWebGLContextOptions({ antialias: true, alpha: true });
   assert.equal(glOpts.depth, true);
+  assert.equal(glOpts.stencil, true);
   assert.equal(glOpts.antialias, false);
   assert.equal(glOpts.alpha, false);
-  assert.equal(glOpts.desynchronized, true);
+  assert.equal(glOpts.desynchronized, false);
   assert.equal(glOpts.preserveDrawingBuffer, false);
   assert.equal(glOpts.powerPreference, 'high-performance');
 });
 
-test('build-web.yml includes Clang Full LTO -O3, WASM 2.0, Binaryen wasm-opt, and IDBFS flags', () => {
+test('computeProgressMetrics calculates speed (MB/s), percentage, and Russian ETA cleanly', () => {
+  const half = Core.computeProgressMetrics(50 * 1024 * 1024, 100 * 1024 * 1024, 2000);
+  assert.equal(half.pct, 50);
+  assert.equal(half.loadedMB, '50.0');
+  assert.equal(half.totalMB, '100.0');
+  assert.equal(half.speedMBs, 25);
+  assert.equal(half.etaSec, 2);
+  assert.equal(half.speedLabel, '25.0 МБ/с');
+  assert.equal(half.etaLabel, 'Осталось ~2 сек');
+
+  const slowLong = Core.computeProgressMetrics(10 * 1024 * 1024, 200 * 1024 * 1024, 5000);
+  assert.equal(slowLong.etaSec, 95);
+  assert.equal(slowLong.etaLabel, 'Осталось ~1 мин 35 сек');
+
+  const done = Core.computeProgressMetrics(100 * 1024 * 1024, 100 * 1024 * 1024, 4000);
+  assert.equal(done.pct, 100);
+  assert.equal(done.etaLabel, 'Готово');
+});
+
+test('parseZipFromFile and readZipEntryFromFile stream ZIP slices without reading full archive at once', async () => {
+  const zipBuf = buildTestZip([
+    { name: 'ThiefGold/dark.cfg', content: 'cd_path .\n', deflate: false },
+    { name: 'ThiefGold/RES/snd.crf', content: 'Garrett stealth audio '.repeat(40), deflate: true }
+  ]);
+  const blob = new Blob([zipBuf]);
+  const entries = await Core.parseZipFromFile(blob);
+  assert.equal(entries.length, 2);
+  assert.equal(entries[0].name, 'ThiefGold/dark.cfg');
+  assert.equal(entries[1].name, 'ThiefGold/RES/snd.crf');
+
+  const stored = await Core.readZipEntryFromFile(blob, entries[0]);
+  assert.equal(Buffer.from(stored).toString('utf8'), 'cd_path .\n');
+
+  const inflated = await Core.readZipEntryFromFile(blob, entries[1]);
+  assert.equal(Buffer.from(inflated).toString('utf8'), 'Garrett stealth audio '.repeat(40));
+});
+
+test('splitFileForIndexedDB chunks large files into independent ArrayBuffers below Chromium 127 MB IPC limit', () => {
+  assert.equal(Core.IDB_CHUNK_BYTES, 16 * 1024 * 1024);
+
+  // Subarray view into a larger backing buffer must be trimmed so IndexedDB does not clone the parent buffer
+  const bigParent = new Uint8Array(10000);
+  const smallView = bigParent.subarray(100, 356);
+  const single = Core.splitFileForIndexedDB('cam.cfg', smallView, 4096);
+  assert.equal(single.length, 1);
+  assert.equal(single[0].path, 'cam.cfg');
+  assert.equal(single[0].data.byteLength, 256);
+  assert.equal(single[0].data.buffer.byteLength, 256);
+
+  // Oversized file splits into lexicographically sorted chunks with independent backing ArrayBuffers
+  const payload = new Uint8Array(1024 * 10 + 333);
+  for (let i = 0; i < payload.length; i++) payload[i] = i & 0xff;
+
+  const chunks = Core.splitFileForIndexedDB('res/snd.crf', payload, 4096);
+  assert.equal(chunks.length, 3);
+  assert.deepEqual(
+    Array.from(chunks, (c) => c.path),
+    ['res/snd.crf#__chunk__0000', 'res/snd.crf#__chunk__0001', 'res/snd.crf#__chunk__0002']
+  );
+
+  // Verify every chunk owns a trimmed ArrayBuffer <= chunkSize and reassembles bit-for-bit
+  const reassembled = new Uint8Array(payload.length);
+  let offset = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    assert.equal(chunks[i].basePath, 'res/snd.crf');
+    assert.equal(chunks[i].chunkIndex, i);
+    assert.equal(chunks[i].chunkCount, 3);
+    assert.equal(chunks[i].totalSize, payload.length);
+    assert.equal(chunks[i].data.buffer.byteLength, chunks[i].data.byteLength);
+    assert.ok(chunks[i].data.buffer.byteLength <= 4096);
+    reassembled.set(chunks[i].data, offset);
+    offset += chunks[i].data.byteLength;
+  }
+  assert.deepEqual(Buffer.from(reassembled), Buffer.from(payload));
+});
+
+test('build-web.yml includes Clang Full LTO -O3, WASM 2.0, ASYNCIFY-safe EVAL_CTORS=0, and removes deprecated WASM_BIGINT', () => {
   const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
   for (const flag of [
     '-O3',
@@ -221,29 +298,40 @@ test('build-web.yml includes Clang Full LTO -O3, WASM 2.0, Binaryen wasm-opt, an
     '-ffast-math',
     '-sASSERTIONS=0',
     '-sGL_TRACK_ERRORS=0',
-    '-sWASM_BIGINT=1',
-    '-sEVAL_CTORS=1',
+    '-sASYNCIFY',
+    '-sEVAL_CTORS=0',
     '-sINITIAL_MEMORY=134217728',
     '-sALLOW_MEMORY_GROWTH=1',
     '-lidbfs.js',
-    'IDBFS',
-    'wasm-opt'
+    'IDBFS'
   ]) {
     assert.ok(yml.includes(flag), `Expected build-web.yml to include ${flag}`);
   }
+  assert.ok(!yml.includes('-sEVAL_CTORS=1'), 'EVAL_CTORS=1 conflicts with ASYNCIFY and must not be present');
+  assert.ok(!yml.includes('WASM_BIGINT'), 'Deprecated WASM_BIGINT flag must be removed');
 });
 
-test('gameshell.cpp and main.cpp wire leak-free rAF pacing, target FPS cap, and PC/gamepad input hooks cleanly', () => {
+test('gameshell.cpp, main.cpp, and web/index.html prevent black screen and 1-minute cache freeze', () => {
   const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
   const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+
   assert.ok(gameshell.includes('dark_web_yield_animation_frame(g_darkWebTargetFps)'), 'EndFrame must pass g_darkWebTargetFps');
   assert.ok(gameshell.includes('clearTimeout(timerId)'), 'Fallback timer must be cleared to prevent timer leaks');
+  assert.ok(gameshell.includes('__darkFirstFrameRendered'), 'gameshell.cpp must notify JS on first rendered frame');
   assert.ok(gameshell.includes('void DarkGameShellSetTargetFps(int targetFps)'), 'gameshell.cpp must export DarkGameShellSetTargetFps');
   assert.ok(gameshell.includes('void DarkGameShellConfigureInput(float mouseSensitivity, int invertY)'), 'gameshell.cpp must export DarkGameShellConfigureInput');
   assert.ok(mainCpp.includes('dark_web_set_target_fps'), 'main.cpp must export dark_web_set_target_fps');
   assert.ok(mainCpp.includes('dark_web_set_input_profile'), 'main.cpp must export dark_web_set_input_profile');
   assert.ok(mainCpp.includes('SDL_HINT_MOUSE_RELATIVE_MODE_WARP'), 'main.cpp must configure raw relative mouse mode');
   assert.ok(mainCpp.includes('SDL_HINT_RENDER_BATCHING'), 'main.cpp must enable SDL render batching hint');
+
+  // Separate 2D preview canvas so #canvas is never locked out of WebGL 2.0
+  assert.ok(html.includes('id="preview-canvas"'), 'Dedicated #preview-canvas must exist');
+  assert.ok(!html.includes("canvas.getContext('2d')"), 'Main WebGL #canvas must NEVER be polluted with a 2D context');
+  assert.ok(html.includes('FS.chdir(GAMEDATA_DIR)'), 'launchGame must chdir into /gamedata before callMain');
+  assert.ok(html.includes('id="bootOverlay"'), 'In-stage boot overlay must exist');
+  assert.ok(!html.includes('.getAll()'), 'Blocking IndexedDB getAll() on 1 GB cache must not be used');
 });
 
 test('resolveTouchLayout switches cleanly between buttons, button-free gestures, and PC/gamepad off modes', () => {
@@ -309,4 +397,46 @@ test('mapGamepadState enforces radial deadzone, stealth left-stick bands, right-
   assert.ok(active.lookDy < 0, 'Invert Y should negate positive right-stick Y');
 });
 
+test('createLogBuffer maintains bounded ring buffer, filters by category/severity, and exports full diagnostic report', () => {
+  const buf = Core.createLogBuffer(10);
+  for (let i = 0; i < 12; i++) {
+    buf.push('debug', 'SYS', 'tick-' + i);
+  }
+  assert.equal(buf.getEntries('all').length, 10, 'Ring buffer must evict oldest entries beyond capacity');
+  assert.equal(buf.getEntries('all')[0].message, 'tick-2');
 
+  buf.clear();
+  assert.equal(buf.getEntries('all').length, 0);
+
+  buf.push('info', 'GPU', 'WebGL2 OK', { maxTextureSize: 8192 });
+  buf.push('warn', 'WASM', 'thief-runner.js 404');
+  buf.push('error', 'ZIP', 'Archive corrupt', new Error('Bad EOCD'));
+  buf.push('info', 'FS', 'MEMFS mounted', { files: 42 });
+
+  const counts = { ...buf.countByLevel() };
+  assert.deepEqual(counts, { total: 4, errors: 1, warns: 1 });
+
+  assert.deepEqual(Array.from(buf.getEntries('errors'), (e) => e.tag), ['WASM', 'ZIP']);
+  assert.deepEqual(Array.from(buf.getEntries('engine'), (e) => e.tag), ['GPU', 'WASM']);
+  assert.deepEqual(Array.from(buf.getEntries('fs'), (e) => e.tag), ['ZIP', 'FS']);
+
+  const formatted = buf.formatLine(buf.getEntries('all')[0]);
+  assert.match(formatted, /^\[\+\d{2}:\d{2}\.\d{3}\] \[INFO \] \[GPU   \] WebGL2 OK \| \{"maxTextureSize":8192\}$/);
+
+  const report = buf.exportReport({
+    url: 'https://example.org/dark/',
+    gpu: 'ANGLE / WebGL2',
+    cache: '42 файлов · 512.0 МБ'
+  });
+  assert.ok(report.includes('=== DARK ENGINE WEB DIAGNOSTIC REPORT ==='));
+  assert.ok(report.includes('GPU: ANGLE / WebGL2'));
+  assert.ok(report.includes('Entries: 4 (errors=1, warns=1)'));
+  assert.ok(report.includes('Archive corrupt'));
+
+  const mainCpp = fs.readFileSync(new URL('./unixsrc/entry/main.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(mainCpp.includes('dark_web_set_verbose_logging'), 'main.cpp must export dark_web_set_verbose_logging');
+  assert.ok(html.includes('id="loggingToggleBtn"'), 'web/index.html must include logging ON/OFF toggle');
+  assert.ok(html.includes('id="diagPanel"'), 'web/index.html must include collapsible diagnostic panel');
+  assert.ok(html.includes('id="bootCopyLogsBtn"'), 'web/index.html must include copy logs button in boot overlay');
+});
