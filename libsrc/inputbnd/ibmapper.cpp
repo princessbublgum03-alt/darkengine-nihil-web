@@ -48,6 +48,9 @@ typedef struct _input_code
 
 EXTERN int kbd_modifier_state;
 extern cIBVariableManager* g_IB_variable_manager;
+#if defined(__EMSCRIPTEN__)
+extern "C" int DarkInputRelativeMouseActive(void);
+#endif
 cIBInputMapper* g_IB_input_mapper = nullptr;
 
 static uint8 bindingMouseMask = 255;
@@ -1354,6 +1357,14 @@ int cIBInputMapper::ProcessMouseMove(uiMouseEvent* event)
 	const bool relative = mouse_consume_relative_motion(&rel_x, &rel_y);
 	if (!relative)
 	{
+#if defined(__EMSCRIPTEN__)
+		// On web mobile browsers where Pointer Lock never engages, 3D gameplay
+		// delivers signed camera deltas exclusively through DarkInputMouseRelative().
+		// Never fall back to absolute cursor offsets (x - res_x/2), which turn any
+		// touch on the right half of the screen into a perpetual rightward spin.
+		if (DarkInputRelativeMouseActive())
+			return 1;
+#endif
 		auto old_mouse_mask = bindingMouseMask;
 		bindingMouseMask &= 254;
 		mouse_put_xy(res_x >> 1, res_y >> 1);

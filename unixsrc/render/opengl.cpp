@@ -660,6 +660,15 @@ bool DarkRenderOpen(int width, int height, const char *title)
       if (!SDL_GetHint("SDL_MOUSE_RELATIVE_SPEED_SCALE"))
          SDL_SetHint("SDL_MOUSE_RELATIVE_SPEED_SCALE", "2.0");
    }
+#if defined(__EMSCRIPTEN__)
+   // On web mobile browsers, the launcher translates touch events directly
+   // into normalized menu clicks (RenderBackendInjectPointer) or signed 3D
+   // relative look deltas (RenderBackendInjectRelativeLook). Disable SDL2's
+   // automatic touch->mouse synthesis so swipes on the right half of a phone
+   // screen never emit absolute SDL_MOUSEMOTION events into Dark Engine.
+   SDL_SetHint("SDL_TOUCH_MOUSE_EVENTS", "0");
+   SDL_SetHint("SDL_MOUSE_TOUCH_EVENTS", "0");
+#endif
    if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
       fprintf(stderr, "SDL video initialization failed: %s\n", SDL_GetError());
       return false;
@@ -833,11 +842,20 @@ bool DarkRenderPumpEvents(void)
          if (g_relativeActive) {
             relativeX += event.motion.xrel;
             relativeY += event.motion.yrel;
-         } else {
+         }
+#if defined(__EMSCRIPTEN__)
+         else if (!g_relativeMouse) {
             haveMotion = true;
             motionX = event.motion.x;
             motionY = event.motion.y;
          }
+#else
+         else {
+            haveMotion = true;
+            motionX = event.motion.x;
+            motionY = event.motion.y;
+         }
+#endif
          continue;
       }
       flushMotion();
@@ -867,14 +885,23 @@ bool DarkRenderPumpEvents(void)
             const uchar bit = static_cast<uchar>(1 << logical);
             if (down) g_buttons |= bit; else g_buttons &= ~bit;
             const uchar type = static_cast<uchar>(1 << (1 + 2 * logical + !down));
-            int x = g_relativeActive ? g_width / 2 : event.button.x;
-            int y = g_relativeActive ? g_height / 2 : event.button.y;
-            if (!g_relativeActive) logical_point(x, y);
+#if defined(__EMSCRIPTEN__)
+            const bool centerPointer = g_relativeActive || g_relativeMouse;
+#else
+            const bool centerPointer = g_relativeActive;
+#endif
+            int x = centerPointer ? g_width / 2 : event.button.x;
+            int y = centerPointer ? g_height / 2 : event.button.y;
+            if (!centerPointer) logical_point(x, y);
             DarkInputMouse(static_cast<short>(x), static_cast<short>(y), type, g_buttons, 0);
          }
       } else if (event.type == SDL_MOUSEWHEEL) {
          int x = g_width / 2, y = g_height / 2;
+#if defined(__EMSCRIPTEN__)
+         if (!g_relativeActive && !g_relativeMouse) {
+#else
          if (!g_relativeActive) {
+#endif
             SDL_GetMouseState(&x, &y); logical_point(x, y);
          }
          int direction = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1 : 1;
@@ -950,6 +977,9 @@ bool DarkRenderPumpMovieEvents(void)
          stop = true;
       } else if (event.type == SDL_KEYDOWN ||
                  event.type == SDL_MOUSEBUTTONDOWN ||
+#if defined(__EMSCRIPTEN__)
+                 event.type == SDL_FINGERDOWN ||
+#endif
                  event.type == SDL_CONTROLLERBUTTONDOWN) {
          stop = true;
       } else if (event.type == SDL_WINDOWEVENT) {
@@ -1022,7 +1052,11 @@ void DarkRenderShowCursor(bool) { SDL_ShowCursor(SDL_DISABLE); }
 
 void DarkRenderSetMousePosition(int x, int y)
 {
-   if (!g_window || g_width <= 0 || g_height <= 0 || g_relativeActive) return;
+   if (!g_window || g_width <= 0 || g_height <= 0 || g_relativeActive
+#if defined(__EMSCRIPTEN__)
+       || g_relativeMouse
+#endif
+   ) return;
    int vx, vy, vw, vh; viewport(vx, vy, vw, vh);
    const int targetX = vx + x * vw / g_width;
    const int targetY = vy + y * vh / g_height;
@@ -1280,6 +1314,10 @@ void RenderBackendInjectMouseButton(int button, int down)
 }
 void RenderBackendInjectPointer(float normX, float normY, int action, int button)
 {
+#if defined(__EMSCRIPTEN__)
+   if (g_relativeMouse)
+      return;
+#endif
    if (!g_window || g_clientWidth <= 0 || g_clientHeight <= 0 || g_width <= 0 || g_height <= 0)
       return;
    const float cx = std::clamp(normX, 0.0f, 1.0f);

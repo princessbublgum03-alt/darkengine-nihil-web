@@ -530,7 +530,14 @@ const char* cIBVariableManager::ProcessCommand(
 	if (!chan_ret)
 		strcpy(final_val, var->var.val);
 
+#if defined(__EMSCRIPTEN__)
+	const bool repeat_relative_axis =
+		(!strcmp(var->var.name, "mturn") || !strcmp(var->var.name, "mlook")) &&
+		atof(final_val) != 0.0;
+	if (repeat_relative_axis || strcmp(var->var.last_val, final_val))
+#else
 	if (strcmp(var->var.last_val, final_val))
+#endif
 	{
 		if (var->var.cb)
 			ret_val = var->var.cb(var->var.name, final_val, already_down);

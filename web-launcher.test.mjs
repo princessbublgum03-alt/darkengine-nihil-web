@@ -732,6 +732,43 @@ test('Asyncify-safe JS->C++ input queue maps scancodes, coalesces high-rate even
   assert.ok(html.includes('if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall'), 'Config ccall hooks must be gated on !appState.wasmLaunched');
 });
 
+test('3D mobile camera look turns cleanly both left and right without absolute-cursor right-half leakage or repeated-delta drops', () => {
+  // 1. Touch look delta math must be strictly symmetric with opposite signs for left vs right drags
+  const leftSlow = Core.computeTouchLookDelta(-10, 0, 1.2, false);
+  const rightSlow = Core.computeTouchLookDelta(10, 0, 1.2, false);
+  assert.ok(leftSlow.dx < -30, 'Dragging left on right lookZone must produce strongly negative dx');
+  assert.ok(rightSlow.dx > 30, 'Dragging right on right lookZone must produce strongly positive dx');
+  assert.equal(leftSlow.dx, -rightSlow.dx, 'Left and right turn speeds must be exact mirror opposites');
+
+  const leftFast = Core.computeTouchLookDelta(-40, 12, 1.2, false);
+  const rightFast = Core.computeTouchLookDelta(40, -12, 1.2, false);
+  assert.equal(leftFast.dx, -rightFast.dx, 'Fast left and right flicks must accelerate symmetrically');
+  assert.equal(leftFast.dy, -rightFast.dy, 'Vertical look deltas must preserve opposite signs');
+
+  // 2. Coalescing left swipes in __darkWebInputQueue preserves exact negative sum
+  const q = [];
+  Core.enqueueWebInputEvent(q, [4, 0, 0, leftSlow.dx, 0]);
+  Core.enqueueWebInputEvent(q, [4, 0, 0, leftSlow.dx, 0]);
+  assert.equal(q.length, 1);
+  assert.ok(q[0][3] < -60, 'Coalesced left swipes must stay negative');
+  assert.equal(q[0][3], leftSlow.dx * 2);
+
+  // 3. C++ + HTML regression guards preventing right-half absolute mouse fallback
+  const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
+  const ibmapperCpp = fs.readFileSync(new URL('./libsrc/inputbnd/ibmapper.cpp', import.meta.url), 'utf8');
+  const ibvarmanCpp = fs.readFileSync(new URL('./libsrc/inputbnd/ibvarman.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+
+  assert.ok(openglCpp.includes('SDL_SetHint("SDL_TOUCH_MOUSE_EVENTS", "0");'), 'opengl.cpp must disable SDL2 touch->mouse synthesis under Emscripten');
+  assert.ok(openglCpp.includes('else if (!g_relativeMouse)'), 'opengl.cpp must ignore absolute SDL_MOUSEMOTION while g_relativeMouse is active under Emscripten');
+  assert.ok(/RenderBackendInjectPointer[\s\S]*?#if defined\(__EMSCRIPTEN__\)[\s\S]*?if \(g_relativeMouse\)[\s\S]*?return;/.test(openglCpp), 'RenderBackendInjectPointer must refuse absolute pointer events during 3D gameplay');
+  assert.ok(/DarkRenderSetMousePosition[\s\S]*?\|\| g_relativeMouse/.test(openglCpp), 'DarkRenderSetMousePosition must skip SDL_WarpMouseInWindow during 3D gameplay on Emscripten');
+  assert.ok(ibmapperCpp.includes('if (DarkInputRelativeMouseActive())\n\t\t\treturn 1;'), 'ibmapper.cpp must never fall back to absolute (x - res_x/2) offset during Emscripten 3D gameplay');
+  assert.ok(ibvarmanCpp.includes('const bool repeat_relative_axis ='), 'ibvarman.cpp must not deduplicate repeated non-zero mturn/mlook deltas under Emscripten');
+  assert.ok(html.includes("if (effectiveMode !== 'menu')"), 'onCanvasPointerDown must gate injectDirectCanvasPointer strictly to 2D menu mode');
+  assert.ok(html.includes("lookZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false })"), 'lookZone must block native touch leakage to Emscripten SDL2');
+});
+
 
 
 

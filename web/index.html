@@ -5447,7 +5447,12 @@
           unlockDarkAudio();
           const effectiveMode = appState.inputModeOverride || appState.inputMode || 'menu';
           if (e.pointerType === 'touch' && appState.gameRunning && !appState.isPreviewMode) {
-            // Direct normalized CSS touch injection fixes HiDPI click offset on phones
+            // Direct normalized CSS touch injection is strictly for 2D menus.
+            // Never inject absolute pointer events in 3D gameplay mode.
+            if (effectiveMode !== 'menu') {
+              activeCanvasTouchId = null;
+              return;
+            }
             if (activeCanvasTouchId !== null) return;
             e.preventDefault();
             activeCanvasTouchId = e.pointerId;
@@ -5463,14 +5468,19 @@
         canvas.addEventListener('pointerdown', onCanvasPointerDown);
         canvas.addEventListener('pointermove', (e) => {
           if (e.pointerType === 'touch' && e.pointerId === activeCanvasTouchId && appState.gameRunning && !appState.isPreviewMode) {
+            if (gameStage.dataset.inputMode !== 'menu') {
+              activeCanvasTouchId = null;
+              return;
+            }
             e.preventDefault();
             injectDirectCanvasPointer(e.clientX, e.clientY, 0, 0);
           }
         });
         const onCanvasTouchEnd = (e) => {
           if (e.pointerType === 'touch' && e.pointerId === activeCanvasTouchId) {
-            e.preventDefault();
             activeCanvasTouchId = null;
+            if (gameStage.dataset.inputMode !== 'menu') return;
+            e.preventDefault();
             injectDirectCanvasPointer(e.clientX, e.clientY, 2, 0);
           }
         };
@@ -5646,9 +5656,17 @@
           showInputToast(result.label);
         }
 
+        const blockNativeTouchLeak = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        };
+
+        gestureHud.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
+        gestureHud.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
         gestureHud.addEventListener('pointerdown', (e) => {
           e.preventDefault();
-          gestureHud.setPointerCapture(e.pointerId);
+          e.stopPropagation();
+          try { gestureHud.setPointerCapture(e.pointerId); } catch (_) {}
           const halfW = window.innerWidth * 0.5;
           const zone = e.clientX < halfW ? 'left' : 'right';
           activeGesturePointers.set(e.pointerId, {
@@ -5704,6 +5722,7 @@
           const pt = activeGesturePointers.get(e.pointerId);
           if (!pt) return;
           e.preventDefault();
+          e.stopPropagation();
           pt.currX = e.clientX;
           pt.currY = e.clientY;
           if (Math.hypot(pt.currX - pt.startX, pt.currY - pt.startY) > 14) {
@@ -5737,6 +5756,7 @@
         });
 
         const endGesturePointer = (e) => {
+          e.stopPropagation();
           const pt = activeGesturePointers.get(e.pointerId);
           if (!pt) return;
           const now = performance.now();
@@ -5818,11 +5838,13 @@
           ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ControlLeft'].forEach((k) => dispatchKey(k, false));
         }
 
+        stickZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
+        stickZone.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
         stickZone.addEventListener('pointerdown', (e) => {
           if (stickPointerId !== null) return;
           e.preventDefault();
+          e.stopPropagation();
           stickPointerId = e.pointerId;
-          stickZone.setPointerCapture(e.pointerId);
           const zoneRect = stickZone.getBoundingClientRect();
           const origin = DarkWebCore.computeJoystickOrigin(
             e.clientX,
@@ -5835,11 +5857,13 @@
           stickBase.classList.add('is-active');
           stickOriginX = origin.originX;
           stickOriginY = origin.originY;
+          try { stickZone.setPointerCapture(e.pointerId); } catch (_) {}
         });
 
         stickZone.addEventListener('pointermove', (e) => {
           if (e.pointerId !== stickPointerId) return;
           e.preventDefault();
+          e.stopPropagation();
           const mapped = DarkWebCore.mapJoystickToInput(
             e.clientX - stickOriginX,
             e.clientY - stickOriginY,
@@ -5854,9 +5878,11 @@
         });
 
         stickZone.addEventListener('pointerup', (e) => {
+          e.stopPropagation();
           if (e.pointerId === stickPointerId) resetStick();
         });
         stickZone.addEventListener('pointercancel', (e) => {
+          e.stopPropagation();
           if (e.pointerId === stickPointerId) resetStick();
         });
 
@@ -5881,18 +5907,22 @@
           }
         }
 
+        lookZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
+        lookZone.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
         lookZone.addEventListener('pointerdown', (e) => {
           if (lookPointerId !== null) return;
           e.preventDefault();
+          e.stopPropagation();
           lookPointerId = e.pointerId;
-          lookZone.setPointerCapture(e.pointerId);
           lastLookX = e.clientX;
           lastLookY = e.clientY;
+          try { lookZone.setPointerCapture(e.pointerId); } catch (_) {}
         });
 
         lookZone.addEventListener('pointermove', (e) => {
           if (e.pointerId !== lookPointerId) return;
           e.preventDefault();
+          e.stopPropagation();
           const dx = e.clientX - lastLookX;
           const dy = e.clientY - lastLookY;
           lastLookX = e.clientX;
@@ -5907,6 +5937,7 @@
         });
 
         const endLook = (e) => {
+          e.stopPropagation();
           if (e.pointerId === lookPointerId) {
             lookPointerId = null;
             if (lookFlushRaf) {
@@ -5925,8 +5956,12 @@
           const mouseBtn = btn.dataset.mouse !== undefined ? Number(btn.dataset.mouse) : null;
 
           if (isToggle && keyCode) {
+            btn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+            btn.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+            btn.addEventListener('pointerdown', (e) => e.stopPropagation());
             btn.addEventListener('click', (e) => {
               e.preventDefault();
+              e.stopPropagation();
               const next = btn.getAttribute('aria-pressed') !== 'true';
               btn.setAttribute('aria-pressed', String(next));
               btn.classList.toggle('is-toggled', next);
@@ -5936,14 +5971,18 @@
             return;
           }
 
+          btn.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
+          btn.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
           btn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             btn.classList.add('is-pressed');
             if (keyCode) dispatchKey(keyCode, true);
             if (mouseBtn !== null) dispatchMouseButton(mouseBtn, true);
           });
 
-          const release = () => {
+          const release = (e) => {
+            if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
             btn.classList.remove('is-pressed');
             if (keyCode) dispatchKey(keyCode, false);
             if (mouseBtn !== null) dispatchMouseButton(mouseBtn, false);
