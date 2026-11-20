@@ -189,7 +189,8 @@ bool g_glUniAlphaTest = false;
 bool g_glUniTransparentBlack = false;
 GLint g_overlayFilter = 0;
 
-std::vector<sRenderBackendVertex> g_batchVertices;
+sRenderBackendVertex g_batchVertices[kMaxBatchVertices];
+int g_batchCount = 0;
 GLenum g_batchPrimitive = GL_TRIANGLES;
 Texture *g_batchTex0 = nullptr;
 Texture *g_batchTex1 = nullptr;
@@ -442,15 +443,14 @@ bool create_scene_pipeline()
    g_glProgram = g_sceneProgram;
    g_glVao = g_sceneVertexArray;
    g_glArrayBuffer = g_sceneBuffer;
-   g_batchVertices.clear();
-   g_batchVertices.reserve(4096);
+   g_batchCount = 0;
    return g_sceneProgram && g_sceneBuffer && g_sceneVertexArray &&
       glGetError() == GL_NO_ERROR;
 }
 
 void destroy_scene_pipeline()
 {
-   g_batchVertices.clear();
+   g_batchCount = 0;
    if (g_sceneBuffer) glDeleteBuffers(1, &g_sceneBuffer);
    if (g_sceneVertexArray) glDeleteVertexArrays(1, &g_sceneVertexArray);
    if (g_sceneProgram) glDeleteProgram(g_sceneProgram);
@@ -781,15 +781,15 @@ bool draw_vertices(GLenum primitive, const sRenderBackendVertex *vertices,
 
 void flush_batch()
 {
-   if (g_batchVertices.empty())
+   if (g_batchCount <= 0)
       return;
-   const int count = static_cast<int>(g_batchVertices.size());
+   const int count = g_batchCount;
    bind_texture(0, g_batchTex0);
    bind_texture(1, g_batchSecond ? g_batchTex1 : nullptr);
-   draw_vertices(g_batchPrimitive, g_batchVertices.data(), count,
+   draw_vertices(g_batchPrimitive, g_batchVertices, count,
       g_batchSecond, g_batchWidth, g_batchHeight, g_batchFog,
       g_batchFogColor, g_batchAlphaTest, false);
-   g_batchVertices.clear();
+   g_batchCount = 0;
 }
 
 void clear_depth()
@@ -1718,7 +1718,7 @@ int RenderBackendUpdateTexture(void *handle,int width,int height,const void *rgb
        rowBytes < width * 4)
       return 0;
 
-   if (!g_batchVertices.empty() && (g_batchTex0 == texture || g_batchTex1 == texture))
+   if (g_batchCount > 0 && (g_batchTex0 == texture || g_batchTex1 == texture))
       flush_batch();
 
    std::vector<uint8_t> storage;
@@ -1732,6 +1732,7 @@ int RenderBackendUpdateTexture(void *handle,int width,int height,const void *rgb
    const bool hadPrevTex0 = g_glBoundTexValid[0];
    const GLuint prevTex0 = g_glBoundTex2D[0];
    gl_bind_tex2d(0, texture->name);
+   gl_set_active_unit(0);
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
    if (texture->width == width && texture->height == height)
       glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA,
@@ -1802,7 +1803,7 @@ void RenderBackendDestroyTexture(void *handle)
 {
    Texture *t = static_cast<Texture *>(handle);
    if (!t) return;
-   if (!g_batchVertices.empty() && (g_batchTex0 == t || g_batchTex1 == t))
+   if (g_batchCount > 0 && (g_batchTex0 == t || g_batchTex1 == t))
       flush_batch();
    for (void *&bound : g_textures)
       if (bound == t) bound = nullptr;
@@ -1838,18 +1839,18 @@ int RenderBackendDraw(int primitive,const sRenderBackendVertex *vertices,int cou
          g_fog, g_fogColor, g_alphaTest);
    }
 
-   if (!g_batchVertices.empty()) {
+   if (g_batchCount > 0) {
       if (g_batchPrimitive != p || g_batchSecond != useSecond ||
           g_batchTex0 != tex0 || g_batchTex1 != tex1 ||
           g_batchWidth != g_width || g_batchHeight != g_height ||
           g_batchFog != g_fog || (g_fog && g_batchFogColor != g_fogColor) ||
           g_batchAlphaTest != g_alphaTest ||
-          g_batchVertices.size() + static_cast<size_t>(count) > kMaxBatchVertices) {
+          static_cast<size_t>(g_batchCount) + static_cast<size_t>(count) > kMaxBatchVertices) {
          flush_batch();
       }
    }
 
-   if (g_batchVertices.empty()) {
+   if (g_batchCount == 0) {
       g_batchPrimitive = p;
       g_batchTex0 = tex0;
       g_batchTex1 = tex1;
@@ -1860,7 +1861,9 @@ int RenderBackendDraw(int primitive,const sRenderBackendVertex *vertices,int cou
       g_batchFogColor = g_fogColor;
       g_batchAlphaTest = g_alphaTest;
    }
-   g_batchVertices.insert(g_batchVertices.end(), vertices, vertices + count);
+   std::memcpy(g_batchVertices + g_batchCount, vertices,
+      static_cast<size_t>(count) * sizeof(sRenderBackendVertex));
+   g_batchCount += count;
    return 1;
 }
 void RenderBackendTraceReset(void) { if(g_trace){fclose(g_trace);g_trace=nullptr;} const char*p=getenv("DARK_RENDER_TRACE");if(p&&*p)g_trace=fopen(p,"w"); }

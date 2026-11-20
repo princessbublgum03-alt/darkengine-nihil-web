@@ -327,12 +327,52 @@ jobs:
               print('[movie-audit] unixsrc/movie/movie.cpp checked (no sleep_for patch needed)')
           PY
 
+      - name: Патчим несовпадения C-сигнатур для WebAssembly (wasm-ld signature mismatch)
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import pathlib
+
+          # In WebAssembly, calling an extern "C" function through a declaration with
+          # a mismatched return type causes wasm-ld to replace the call with an
+          # `unreachable` trap (e.g. src/render/pgrpprop.cpp declares
+          # `EXTERN void FindVhotLocation(...)` while src/render/litprop.cpp defines
+          # `EXTERN BOOL FindVhotLocation(...)`, crashing Mission 1 on kPAT_vhot).
+          RE_FIND_VHOT_VOID = re.compile(
+              r'(\b(?:EXTERN|extern\s+"C"|extern)\s+)void(\s+FindVhotLocation\s*\()'
+          )
+          patched_files = 0
+          patched_hits = 0
+          for root_dir in ('src', 'libsrc'):
+              if not os.path.isdir(root_dir):
+                  continue
+              for dirpath, _, filenames in os.walk(root_dir):
+                  for fn in sorted(filenames):
+                      if not fn.endswith(('.c', '.cpp', '.h', '.hpp')):
+                          continue
+                      path = pathlib.Path(dirpath) / fn
+                      try:
+                          text = path.read_text(encoding='utf-8', errors='surrogateescape')
+                      except Exception:
+                          continue
+                      if 'FindVhotLocation' not in text:
+                          continue
+                      new_text, count = RE_FIND_VHOT_VOID.subn(r'\1BOOL\2', text)
+                      if count:
+                          path.write_text(new_text, encoding='utf-8', errors='surrogateescape')
+                          patched_files += 1
+                          patched_hits += count
+                          print(f'[wasm-sig-fix] {path}: fixed {count} void FindVhotLocation declaration(s) -> BOOL')
+          print(f'[wasm-sig-fix] Patched {patched_hits} declaration(s) across {patched_files} file(s).')
+          PY
+
       - name: Настраиваем проект (CMake + Ninja + Clang -O3 WASM 2.0 + FFmpeg)
         run: |
           FFMPEG_PREFIX="${{ runner.temp }}/ffmpeg-wasm-install"
           FFMPEG_LIBS="-L${FFMPEG_PREFIX}/lib -lavformat -lavcodec -lswscale -lswresample -lavutil"
-          COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -ffunction-sections -fdata-sections -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -DDARK_HAVE_FFMPEG=1 -I${FFMPEG_PREFIX}/include -sUSE_SDL=2 -sUSE_LIBPNG=1"
-          LINK_OPT_FLAGS="-O3 -Wl,--gc-sections -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -sUSE_SDL=2 -sUSE_LIBPNG=1 -lopenal -sUSE_WEBGL2=1 -sFULL_ES3=1 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sASSERTIONS=0 -sGL_ASSERTIONS=0 -sGL_TRACK_ERRORS=0 -sDISABLE_EXCEPTION_CATCHING=1 -sTEXTDECODER=2 -sEVAL_CTORS=0 -sINITIAL_MEMORY=134217728 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=1073741824 -sSTACK_SIZE=2097152 -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576 -sFORCE_FILESYSTEM=1 -lidbfs.js -sINVOKE_RUN=0 -sENVIRONMENT=web -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain,ccall,cwrap,UTF8ToString,stringToUTF8"
+          COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -DDARK_HAVE_FFMPEG=1 -I${FFMPEG_PREFIX}/include -sUSE_SDL=2 -sUSE_LIBPNG=1"
+          LINK_OPT_FLAGS="-O3 -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -sUSE_SDL=2 -sUSE_LIBPNG=1 -lopenal -sUSE_WEBGL2=1 -sFULL_ES3=1 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sASSERTIONS=0 -sGL_ASSERTIONS=0 -sGL_TRACK_ERRORS=0 -sDISABLE_EXCEPTION_CATCHING=1 -sTEXTDECODER=2 -sEVAL_CTORS=0 -sINITIAL_MEMORY=134217728 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=1073741824 -sSTACK_SIZE=2097152 -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576 -sFORCE_FILESYSTEM=1 -lidbfs.js -sINVOKE_RUN=0 -sENVIRONMENT=web -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain,ccall,cwrap,UTF8ToString,stringToUTF8"
           emcmake cmake -S . -B build-web -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_AR="$(command -v emar)" \
@@ -346,7 +386,15 @@ jobs:
             -DCMAKE_C_STANDARD_LIBRARIES="${FFMPEG_LIBS}"
 
       - name: Собираем веб-версию
-        run: cmake --build build-web -j$(nproc)
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build build-web -j$(nproc) 2>&1 | tee build-web/build.log
+          if grep -i "function signature mismatch" build-web/build.log; then
+            echo "::warning::wasm-ld reported function signature mismatch(es) — inspect build.log!"
+          else
+            echo "[wasm-sig-audit] Zero wasm-ld function signature mismatches."
+          fi
 
       - name: Сохраняем артефакт для отладки
         uses: actions/upload-artifact@v4

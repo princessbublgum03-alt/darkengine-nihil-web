@@ -1044,14 +1044,19 @@ test('lossless performance optimizations preserve 100% graphics/physics fidelity
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
   const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
 
-  // 1. opengl.cpp: persistent ring-buffer VBO, dirty-checked GL state/uniform cache, FIFO draw-call batching, no Emscripten double-yield SDL_Delay or glGetError roundtrip
+  // 1. opengl.cpp: persistent ring-buffer VBO, dirty-checked GL state/uniform cache, fixed-array FIFO draw-call batching, no Emscripten double-yield SDL_Delay or glGetError roundtrip
   assert.ok(opengl.includes('glBufferSubData(GL_ARRAY_BUFFER,'), 'opengl.cpp must stream vertices into a persistent ring-buffer VBO via glBufferSubData');
   assert.ok(opengl.includes('void flush_batch()'), 'opengl.cpp must batch consecutive compatible RenderBackendDraw calls');
-  assert.ok(opengl.includes('g_batchVertices.insert(g_batchVertices.end(), vertices, vertices + count);'), 'RenderBackendDraw must accumulate consecutive compatible vertices before flushing');
+  assert.ok(opengl.includes('sRenderBackendVertex g_batchVertices[kMaxBatchVertices];'), 'opengl.cpp must use a fixed static vertex batch array instead of std::vector under -fpack-struct=1');
+  assert.ok(opengl.includes('std::memcpy(g_batchVertices + g_batchCount, vertices,'), 'RenderBackendDraw must copy consecutive compatible vertices via memcpy before flushing');
   assert.ok(opengl.includes('bool g_glUniformsValid = false;'), 'opengl.cpp must dirty-check scene shader uniforms');
   assert.ok(opengl.includes('inline void gl_bind_tex2d(int unit, GLuint texName)'), 'opengl.cpp must cache active texture units and 2D texture bindings');
   assert.ok(opengl.includes('#if !defined(__EMSCRIPTEN__)\n   if (g_swapInterval != 1 || !g_swapIntervalApplied)'), 'swap_presented_frame must not run a second Asyncify SDL_Delay under Emscripten');
   assert.ok(opengl.includes('avoid 4x glGetIntegerv and synchronous glGetError()'), 'RenderBackendUpdateTexture must avoid synchronous WebGL2 glGetError stalls on animated lightmap updates');
+  assert.ok(
+    /gl_bind_tex2d\(0, texture->name\);\s*gl_set_active_unit\(0\);/.test(opengl),
+    'RenderBackendUpdateTexture Emscripten fast path must call gl_set_active_unit(0) even when texture->name is already cached on unit 0'
+  );
 
   // 2. gameshell.cpp: ResizeObserver revision fast-path (zero per-frame DOM reflow) + O(1) queue head cursor
   assert.ok(gameshell.includes('EM_JS(int, dark_web_canvas_size_rev'), 'gameshell.cpp must read cached __darkCanvasCssSize revision instead of forcing DOM layout every frame');
@@ -1062,19 +1067,32 @@ test('lossless performance optimizations preserve 100% graphics/physics fidelity
   assert.ok(html.includes('new ResizeObserver('), 'web/index.html must observe #canvas size changes via ResizeObserver');
   assert.ok(html.includes("if (document.body.dataset.mode === 'playing') {\n            inputLogDomDirty = true;"), 'web/index.html must defer hidden input log DOM rebuilds while playing');
 
-  // 4. build-web.yml: section-level dead code stripping paired with --gc-sections (without forbidden -flto / -ffast-math / EMULATE_FUNCTION_POINTER_CASTS)
-  assert.ok(yml.includes('-ffunction-sections -fdata-sections'), 'build-web.yml must pass -ffunction-sections -fdata-sections to pair with -Wl,--gc-sections');
+  // 4. build-web.yml: clean WASM 2.0 optimization flags (without section-GC risk or forbidden -flto / -ffast-math / EMULATE_FUNCTION_POINTER_CASTS)
+  assert.ok(!yml.includes('-ffunction-sections'), 'build-web.yml must not pass -ffunction-sections with Asyncify');
+  assert.ok(!yml.includes('-Wl,--gc-sections'), 'build-web.yml must not pass -Wl,--gc-sections with Asyncify');
   assert.ok(!yml.includes('-flto'), 'build-web.yml must NEVER enable -flto');
   assert.ok(!yml.includes('-ffast-math'), 'build-web.yml must NEVER enable -ffast-math');
   assert.ok(!yml.includes('EMULATE_FUNCTION_POINTER_CASTS=1'), 'build-web.yml must NEVER enable EMULATE_FUNCTION_POINTER_CASTS=1');
 });
 
+test('WASM signature-mismatch patch eliminates Mission 1 FindVhotLocation unreachable trap in pgrpprop.cpp', () => {
+  const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
+  assert.ok(yml.includes('RE_FIND_VHOT_VOID'), 'build-web.yml must patch void FindVhotLocation declarations to BOOL');
+  assert.ok(yml.includes('function signature mismatch'), 'build-web.yml must audit wasm-ld output for signature mismatches');
 
-
-
-
-
-
-
-
-
+  // Verify the exact regex behavior against the real src/render/pgrpprop.cpp line 940 declaration
+  const re = /(\b(?:EXTERN|extern\s+"C"|extern)\s+)void(\s+FindVhotLocation\s*\()/g;
+  const buggyPgrppropLine = 'EXTERN void FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);';
+  assert.equal(
+    buggyPgrppropLine.replace(re, '$1BOOL$2'),
+    'EXTERN BOOL FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);'
+  );
+  const buggyExternCLine = 'extern "C" void FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);';
+  assert.equal(
+    buggyExternCLine.replace(re, '$1BOOL$2'),
+    'extern "C" BOOL FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);'
+  );
+  // Already-correct declaration must remain untouched
+  const okCoronaLine = 'extern "C" BOOL FindVhotLocation(mxs_vector *offset, ObjID obj, int vhot);';
+  assert.equal(okCoronaLine.replace(re, '$1BOOL$2'), okCoronaLine);
+});
