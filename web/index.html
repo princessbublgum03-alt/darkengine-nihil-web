@@ -905,6 +905,36 @@
       color: #ebb760;
     }
 
+    .diag-entry[data-source="TOUCH"] .diag-tag {
+      color: var(--gold-bright);
+    }
+
+    .diag-entry[data-source="GESTURE"] .diag-tag {
+      color: #e4a95a;
+    }
+
+    .diag-entry[data-source="HUD"] .diag-tag {
+      color: #c8a27a;
+    }
+
+    .diag-entry[data-source="PC"] .diag-tag {
+      color: #8ab4d8;
+    }
+
+    .diag-entry[data-source="GAMEPAD"] .diag-tag {
+      color: #7cc49b;
+    }
+
+    .diag-entry[data-source="ENGINE"] .diag-tag {
+      color: #b7a999;
+    }
+
+    .hud-drawer-actions-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+
     .diag-msg {
       min-width: 0;
       overflow-wrap: anywhere;
@@ -1859,9 +1889,13 @@
               <span>ПК Raw Input</span>
               <small id="rawMouseVal">ВКЛ</small>
             </button>
-            <button type="button" class="mini-toggle-btn is-full-span" id="loggingToggleBtn" aria-pressed="false" aria-controls="diagPanel">
-              <span>Подробное логирование и диагностика</span>
+            <button type="button" class="mini-toggle-btn" id="loggingToggleBtn" aria-pressed="false" aria-controls="diagPanel">
+              <span>Логи системы</span>
               <small id="loggingToggleVal">ВЫКЛ</small>
+            </button>
+            <button type="button" class="mini-toggle-btn" id="inputLoggingToggleBtn" aria-pressed="false" aria-controls="inputLogPanel">
+              <span>Логи управления</span>
+              <small id="inputLoggingToggleVal">ВЫКЛ</small>
             </button>
           </div>
         </div>
@@ -1890,6 +1924,32 @@
       </div>
       <div class="diag-log-viewport" id="diagLogViewport" role="log" aria-live="off" aria-label="Подробный лог событий Dark Engine">
         <div class="diag-empty">Записей пока нет.</div>
+      </div>
+    </section>
+
+    <!-- Dedicated Input Controls Log Panel (Touch / PC / Gamepad / HUD / Engine, OFF by default) -->
+    <section class="panel diag-panel" id="inputLogPanel" data-open="false" data-testid="input-log-panel" aria-labelledby="inputLogHeading">
+      <div class="panel-head">
+        <h2 class="panel-title" id="inputLogHeading">Журнал управления</h2>
+        <span class="panel-note mono" id="inputLogCountBadge">0 зап.</span>
+      </div>
+      <div class="diag-meta-line mono" id="inputLogSummary">Отдельный лог ввода: сенсор, жесты, HUD, ПК (клавиатура/мышь) и геймпад</div>
+      <div class="diag-toolbar">
+        <div class="diag-filters" role="group" aria-label="Фильтр журнала управления">
+          <button type="button" class="diag-filter-btn" data-input-log-filter="all" aria-pressed="true">Все</button>
+          <button type="button" class="diag-filter-btn" data-input-log-filter="touch" aria-pressed="false">Сенсор</button>
+          <button type="button" class="diag-filter-btn" data-input-log-filter="pc" aria-pressed="false">ПК</button>
+          <button type="button" class="diag-filter-btn" data-input-log-filter="gamepad" aria-pressed="false">Геймпад</button>
+          <button type="button" class="diag-filter-btn" data-input-log-filter="engine" aria-pressed="false">Движок</button>
+        </div>
+        <div class="diag-actions">
+          <button type="button" class="diag-action-btn" id="copyInputLogsBtn">Копировать</button>
+          <button type="button" class="diag-action-btn" id="downloadInputLogsBtn">Скачать .log</button>
+          <button type="button" class="diag-action-btn is-danger" id="clearInputLogsBtn">Очистить</button>
+        </div>
+      </div>
+      <div class="diag-log-viewport" id="inputLogViewport" role="log" aria-live="off" aria-label="Журнал событий управления">
+        <div class="diag-empty">Событий управления пока нет. Включите запись и протестируйте сенсор, ПК или геймпад.</div>
       </div>
     </section>
 
@@ -2011,10 +2071,20 @@
       </div>
       <div class="setting-group">
         <button type="button" class="mini-toggle-btn" id="hudLoggingBtn" aria-pressed="false">
-          <span>Логирование</span>
+          <span>Логи системы</span>
           <small id="hudLoggingVal">ВЫКЛ</small>
         </button>
-        <button type="button" class="diag-action-btn" id="hudCopyLogsBtn">Скопировать логи</button>
+        <button type="button" class="diag-action-btn" id="hudCopyLogsBtn">Скопировать логи системы</button>
+      </div>
+      <div class="setting-group">
+        <button type="button" class="mini-toggle-btn" id="hudInputLoggingBtn" aria-pressed="false">
+          <span>Логи управления</span>
+          <small id="hudInputLoggingVal">ВЫКЛ</small>
+        </button>
+        <div class="hud-drawer-actions-row">
+          <button type="button" class="diag-action-btn" id="hudCopyInputLogsBtn">Копир. упр.</button>
+          <button type="button" class="diag-action-btn" id="hudDownloadInputLogsBtn">Скачать .log</button>
+        </div>
       </div>
       <div class="setting-group">
         <button type="button" class="btn-danger-ghost" id="drawerExitBtn">Выход в лаунчер</button>
@@ -3059,6 +3129,123 @@
               entries = [];
             }
           };
+        },
+
+        /**
+         * Dedicated bounded ring buffer for Input / Controls diagnostics,
+         * kept strictly separate from general system/GPU/WASM logs.
+         * Sources: TOUCH, GESTURE, HUD, PC, GAMEPAD, ENGINE.
+         */
+        createInputLogBuffer(maxEntries) {
+          const cap = Math.max(10, Number(maxEntries) || 1500);
+          const startNow = Date.now();
+          let nextId = 1;
+          let entries = [];
+
+          const VALID_SOURCES = new Set(['TOUCH', 'GESTURE', 'HUD', 'PC', 'GAMEPAD', 'ENGINE']);
+          const TOUCH_SOURCES = new Set(['TOUCH', 'GESTURE', 'HUD']);
+
+          function formatRelTime(relMs) {
+            const clamped = Math.max(0, Math.floor(relMs));
+            const mins = Math.floor(clamped / 60000);
+            const secs = Math.floor((clamped % 60000) / 1000);
+            const ms = clamped % 1000;
+            return '+' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0') + '.' + String(ms).padStart(3, '0');
+          }
+
+          function normalizeDetails(details) {
+            if (details === undefined || details === null || details === '') return '';
+            if (typeof details === 'string') return details;
+            try {
+              return JSON.stringify(details);
+            } catch (_) {
+              return String(details);
+            }
+          }
+
+          return {
+            push(source, message, details, level) {
+              const rawSrc = String(source || 'TOUCH').toUpperCase();
+              const cleanSource = VALID_SOURCES.has(rawSrc) ? rawSrc : 'TOUCH';
+              const lvl = ['error', 'warn', 'info', 'debug'].includes(level) ? level : 'info';
+              const now = Date.now();
+              const entry = {
+                id: nextId++,
+                tsIso: new Date(now).toISOString(),
+                relMs: now - startNow,
+                relText: formatRelTime(now - startNow),
+                source: cleanSource,
+                level: lvl,
+                message: String(message || ''),
+                details: normalizeDetails(details)
+              };
+              entries.push(entry);
+              if (entries.length > cap) {
+                entries.splice(0, entries.length - cap);
+              }
+              return entry;
+            },
+
+            getEntries(filter) {
+              const f = filter || 'all';
+              if (f === 'touch') {
+                return entries.filter((e) => TOUCH_SOURCES.has(e.source));
+              }
+              if (f === 'pc') {
+                return entries.filter((e) => e.source === 'PC');
+              }
+              if (f === 'gamepad') {
+                return entries.filter((e) => e.source === 'GAMEPAD');
+              }
+              if (f === 'engine') {
+                return entries.filter((e) => e.source === 'ENGINE');
+              }
+              return entries.slice();
+            },
+
+            countBySource() {
+              let touch = 0;
+              let pc = 0;
+              let gamepad = 0;
+              let engine = 0;
+              for (const e of entries) {
+                if (TOUCH_SOURCES.has(e.source)) touch++;
+                else if (e.source === 'PC') pc++;
+                else if (e.source === 'GAMEPAD') gamepad++;
+                else if (e.source === 'ENGINE') engine++;
+              }
+              return { total: entries.length, touch, pc, gamepad, engine };
+            },
+
+            formatLine(entry) {
+              const srcPad = String(entry.source || 'TOUCH').padEnd(7, ' ');
+              const base = '[' + entry.relText + '] [' + srcPad + '] ' + entry.message;
+              return entry.details ? base + ' | ' + entry.details : base;
+            },
+
+            exportReport(envSnapshot) {
+              const env = envSnapshot || {};
+              const stats = this.countBySource();
+              const header = [
+                '=== DARK ENGINE WEB INPUT LOG REPORT ===',
+                'Generated: ' + new Date().toISOString(),
+                'URL: ' + (env.url || 'n/a'),
+                'UserAgent: ' + (env.userAgent || 'n/a'),
+                'Viewport: ' + (env.viewport || 'n/a'),
+                'InputMode: ' + (env.inputMode || 'n/a') + ' | TouchLayout: ' + (env.touchLayout || 'n/a'),
+                'Controls: sens=' + (env.sensitivity || 'n/a') + ' deadzone=' + (env.deadzone || 'n/a') + ' invertY=' + (env.invertY || 'n/a') + ' rawMouse=' + (env.rawMouse || 'n/a') + ' pointerLock=' + (env.pointerLocked || 'n/a'),
+                'Gamepad: ' + (env.gamepad || 'none'),
+                'Entries: ' + stats.total + ' (touch=' + stats.touch + ', pc=' + stats.pc + ', gamepad=' + stats.gamepad + ', engine=' + stats.engine + ')',
+                '-----------------------------------------'
+              ];
+              const lines = entries.map((e) => this.formatLine(e));
+              return header.concat(lines.length ? lines : ['(no input log entries)']).join('\n');
+            },
+
+            clear() {
+              entries = [];
+            }
+          };
         }
       };
 
@@ -3358,6 +3545,8 @@
         rawMouse: savedPrefs.rawMouse !== undefined ? Boolean(savedPrefs.rawMouse) : true,
         loggingEnabled: Boolean(savedPrefs.loggingEnabled),
         logFilter: 'all',
+        inputLoggingEnabled: Boolean(savedPrefs.inputLoggingEnabled),
+        inputLogFilter: 'all',
         gpuInfo: 'Проверка GPU...',
         storageInfo: 'Проверка хранилища...',
         connectedGamepadName: '',
@@ -3427,6 +3616,16 @@
         return entry;
       }
 
+      const inputLogger = DarkWebCore.createInputLogBuffer(1500);
+      let inputLogRenderHook = null;
+
+      function logInput(source, message, details, level) {
+        if (!appState.inputLoggingEnabled) return null;
+        const entry = inputLogger.push(source, message, details, level || 'info');
+        if (inputLogRenderHook) inputLogRenderHook();
+        return entry;
+      }
+
       function persistPrefs() {
         try {
           localStorage.setItem('darkEngineWebPrefs', JSON.stringify({
@@ -3440,7 +3639,8 @@
             gamepadDeadzone: appState.gamepadDeadzone,
             invertY: appState.invertY,
             rawMouse: appState.rawMouse,
-            loggingEnabled: appState.loggingEnabled
+            loggingEnabled: appState.loggingEnabled,
+            inputLoggingEnabled: appState.inputLoggingEnabled
           }));
         } catch (_) {
           // Ignore storage quota errors
@@ -3472,14 +3672,24 @@
         canvas: null,
         print(text) {
           if (text) {
-            logDiag('info', 'ENGINE', String(text));
-            if (engineLogHook) engineLogHook(String(text), false);
+            const str = String(text);
+            if (/^\[web\]\[(look|input)\]/i.test(str)) {
+              logInput('ENGINE', str);
+              return;
+            }
+            logDiag('info', 'ENGINE', str);
+            if (engineLogHook) engineLogHook(str, false);
           }
         },
         printErr(text) {
           if (text) {
-            logDiag('warn', 'ENGINE', String(text));
-            if (engineLogHook) engineLogHook(String(text), true);
+            const str = String(text);
+            if (/^\[web\]\[(look|input)\]/i.test(str)) {
+              logInput('ENGINE', str, null, 'warn');
+              return;
+            }
+            logDiag('warn', 'ENGINE', str);
+            if (engineLogHook) engineLogHook(str, true);
           }
         },
         onAbort(what) {
@@ -3664,6 +3874,19 @@
         const hudLoggingBtn = $('hudLoggingBtn');
         const hudLoggingVal = $('hudLoggingVal');
         const hudCopyLogsBtn = $('hudCopyLogsBtn');
+        const inputLoggingToggleBtn = $('inputLoggingToggleBtn');
+        const inputLoggingToggleVal = $('inputLoggingToggleVal');
+        const inputLogPanel = $('inputLogPanel');
+        const inputLogCountBadge = $('inputLogCountBadge');
+        const inputLogSummary = $('inputLogSummary');
+        const inputLogViewport = $('inputLogViewport');
+        const copyInputLogsBtn = $('copyInputLogsBtn');
+        const downloadInputLogsBtn = $('downloadInputLogsBtn');
+        const clearInputLogsBtn = $('clearInputLogsBtn');
+        const hudInputLoggingBtn = $('hudInputLoggingBtn');
+        const hudInputLoggingVal = $('hudInputLoggingVal');
+        const hudCopyInputLogsBtn = $('hudCopyInputLogsBtn');
+        const hudDownloadInputLogsBtn = $('hudDownloadInputLogsBtn');
         const launchReadoutTitle = $('launchReadoutTitle');
         const launchReadoutSub = $('launchReadoutSub');
         const launchBtn = $('launchBtn');
@@ -3839,7 +4062,7 @@
 
         let lastSyncedVerboseState = null;
         function syncVerboseLoggingToEngine(force) {
-          const desired = appState.loggingEnabled ? 1 : 0;
+          const desired = (appState.loggingEnabled || appState.inputLoggingEnabled) ? 1 : 0;
           if (!force && lastSyncedVerboseState === desired) return;
           // Only invoke ccall before Module.callMain() starts (Asyncify-safe)
           if (!appState.wasmLaunched && window.Module && typeof window.Module.ccall === 'function' && appState.wasmState === 'ready') {
@@ -3851,6 +4074,107 @@
             }
           }
         }
+
+        function buildInputEnvSnapshot() {
+          const resolved = DarkWebCore.resolveTouchLayout(appState.touchMode, isCoarsePointer, appState.isPreviewMode);
+          const effectiveMode = appState.isPreviewMode
+            ? (appState.inputModeOverride || 'gameplay')
+            : (appState.inputModeOverride || appState.inputMode || 'menu');
+          return {
+            url: window.location ? window.location.href : 'n/a',
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'n/a',
+            viewport: window.innerWidth + 'x' + window.innerHeight + ' @' + (window.devicePixelRatio || 1).toFixed(2) + 'x',
+            inputMode: effectiveMode,
+            touchLayout: resolved.layout + ' (pref=' + appState.touchMode + ')',
+            sensitivity: appState.sensitivity.toFixed(1) + 'x',
+            deadzone: Math.round(appState.gamepadDeadzone * 100) + '%',
+            invertY: appState.invertY ? 'on' : 'off',
+            rawMouse: appState.rawMouse ? 'on' : 'off',
+            pointerLocked: appState.pointerLocked ? 'yes' : 'no',
+            gamepad: appState.connectedGamepadName || 'none'
+          };
+        }
+
+        function updateInputLogSummary() {
+          if (!inputLogSummary) return;
+          const snap = buildInputEnvSnapshot();
+          inputLogSummary.textContent =
+            'Режим: ' + snap.inputMode + ' · Тач: ' + snap.touchLayout +
+            ' · Обзор: ' + snap.sensitivity + ' · Raw: ' + snap.rawMouse +
+            ' · Инв.Y: ' + snap.invertY + ' · Пад: ' + snap.gamepad;
+        }
+
+        let inputLogRenderQueued = false;
+        function renderInputLogsNow() {
+          inputLogRenderQueued = false;
+          if (!inputLogPanel || !inputLogViewport) return;
+          const counts = inputLogger.countBySource();
+          if (inputLogCountBadge) {
+            const parts = [counts.total + ' зап.'];
+            if (counts.touch > 0) parts.push('тач ' + counts.touch);
+            if (counts.pc > 0) parts.push('пк ' + counts.pc);
+            if (counts.gamepad > 0) parts.push('пад ' + counts.gamepad);
+            if (counts.engine > 0) parts.push('движ ' + counts.engine);
+            inputLogCountBadge.textContent = parts.join(' · ');
+          }
+          if (!appState.inputLoggingEnabled) return;
+
+          updateInputLogSummary();
+          const list = inputLogger.getEntries(appState.inputLogFilter);
+          const nearBottom = (inputLogViewport.scrollHeight - inputLogViewport.scrollTop - inputLogViewport.clientHeight) < 36;
+          inputLogViewport.textContent = '';
+
+          if (list.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'diag-empty';
+            emptyEl.textContent = 'Событий управления для выбранного фильтра пока нет.';
+            inputLogViewport.appendChild(emptyEl);
+            return;
+          }
+
+          const frag = document.createDocumentFragment();
+          const startIdx = Math.max(0, list.length - 400);
+          for (let i = startIdx; i < list.length; i++) {
+            const item = list[i];
+            const row = document.createElement('div');
+            row.className = 'diag-entry';
+            row.dataset.level = item.level;
+            row.dataset.source = item.source;
+
+            const tEl = document.createElement('span');
+            tEl.className = 'diag-time';
+            tEl.textContent = item.relText;
+
+            const tagEl = document.createElement('span');
+            tagEl.className = 'diag-tag';
+            tagEl.textContent = item.source;
+
+            const msgEl = document.createElement('span');
+            msgEl.className = 'diag-msg';
+            msgEl.textContent = item.message;
+            if (item.details) {
+              const detEl = document.createElement('span');
+              detEl.className = 'diag-details';
+              detEl.textContent = item.details;
+              msgEl.appendChild(detEl);
+            }
+
+            row.appendChild(tEl);
+            row.appendChild(tagEl);
+            row.appendChild(msgEl);
+            frag.appendChild(row);
+          }
+          inputLogViewport.appendChild(frag);
+          if (nearBottom) {
+            inputLogViewport.scrollTop = inputLogViewport.scrollHeight;
+          }
+        }
+
+        inputLogRenderHook = () => {
+          if (inputLogRenderQueued) return;
+          inputLogRenderQueued = true;
+          requestAnimationFrame(renderInputLogsNow);
+        };
 
         function updateLoggingUI(syncEngine) {
           const enabled = Boolean(appState.loggingEnabled);
@@ -3866,12 +4190,25 @@
           renderDiagLogsNow();
         }
 
-        async function copyDiagnosticReport(triggerBtn) {
-          const report = diagLogger.exportReport(buildEnvSnapshot());
+        function updateInputLoggingUI(syncEngine) {
+          const enabled = Boolean(appState.inputLoggingEnabled);
+          if (inputLoggingToggleBtn) inputLoggingToggleBtn.setAttribute('aria-pressed', String(enabled));
+          if (inputLoggingToggleVal) inputLoggingToggleVal.textContent = enabled ? 'ВКЛ' : 'ВЫКЛ';
+          if (hudInputLoggingBtn) hudInputLoggingBtn.setAttribute('aria-pressed', String(enabled));
+          if (hudInputLoggingVal) hudInputLoggingVal.textContent = enabled ? 'ВКЛ' : 'ВЫКЛ';
+          if (inputLogPanel) inputLogPanel.dataset.open = enabled ? 'true' : 'false';
+          document.querySelectorAll('[data-input-log-filter]').forEach((btn) => {
+            btn.setAttribute('aria-pressed', String(btn.dataset.inputLogFilter === appState.inputLogFilter));
+          });
+          if (syncEngine) syncVerboseLoggingToEngine(false);
+          renderInputLogsNow();
+        }
+
+        async function copyTextToClipboard(text, triggerBtn, toastOk) {
           let copied = false;
           try {
             if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-              await navigator.clipboard.writeText(report);
+              await navigator.clipboard.writeText(text);
               copied = true;
             }
           } catch (_) {
@@ -3880,7 +4217,7 @@
           if (!copied) {
             try {
               const ta = document.createElement('textarea');
-              ta.value = report;
+              ta.value = text;
               ta.setAttribute('readonly', '');
               ta.style.position = 'fixed';
               ta.style.opacity = '0';
@@ -3899,23 +4236,48 @@
             setTimeout(() => { triggerBtn.textContent = orig; }, 1600);
           }
           if (appState.gameRunning) {
-            showInputToast(copied ? 'ЛОГИ СКОПИРОВАНЫ' : 'НЕ УДАЛОСЬ СКОПИРОВАТЬ');
+            showInputToast(copied ? (toastOk || 'ЛОГИ СКОПИРОВАНЫ') : 'НЕ УДАЛОСЬ СКОПИРОВАТЬ');
           }
+        }
+
+        async function copyDiagnosticReport(triggerBtn) {
+          const report = diagLogger.exportReport(buildEnvSnapshot());
+          await copyTextToClipboard(report, triggerBtn, 'ЛОГИ СИСТЕМЫ СКОПИРОВАНЫ');
+        }
+
+        async function copyInputLogReport(triggerBtn) {
+          const report = inputLogger.exportReport(buildInputEnvSnapshot());
+          await copyTextToClipboard(report, triggerBtn, 'ЛОГИ УПРАВЛЕНИЯ СКОПИРОВАНЫ');
+        }
+
+        function downloadTextReport(text, filename) {
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
         function downloadDiagnosticReport() {
           const report = diagLogger.exportReport(buildEnvSnapshot());
           const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-          const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'dark-engine-web-' + stamp + '.log';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-          logDiag('info', 'SYS', 'Сохранён файл журнала dark-engine-web-' + stamp + '.log');
+          const filename = 'dark-engine-web-' + stamp + '.log';
+          downloadTextReport(report, filename);
+          logDiag('info', 'SYS', 'Сохранён файл журнала ' + filename);
+        }
+
+        function downloadInputLogReport() {
+          const report = inputLogger.exportReport(buildInputEnvSnapshot());
+          const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          const filename = 'dark-engine-input-' + stamp + '.log';
+          downloadTextReport(report, filename);
+          if (appState.gameRunning) {
+            showInputToast('СОХРАНЁН ' + filename);
+          }
         }
 
         // Global error & WebGL context loss traps so crashes are always captured
@@ -4236,7 +4598,9 @@
           if (!relativeActive && document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
             try { document.exitPointerLock(); } catch (_) {}
           }
-          logDiag('debug', 'SYS', 'Режим ввода Dark Engine: ' + (relativeActive ? '3D-игра (relative mouse)' : 'Меню (прямой курсор)'));
+          const desc = relativeActive ? '3D-игра (relative mouse)' : 'Меню (прямой курсор)';
+          logDiag('debug', 'SYS', 'Режим ввода Dark Engine: ' + desc);
+          logInput('ENGINE', 'Режим ввода движка: ' + desc);
         };
 
         function updateCacheUI() {
@@ -5348,6 +5712,7 @@
               bubbles: true,
               cancelable: true
             });
+            ev.__darkSynthetic = true;
             canvas.dispatchEvent(ev);
           }
         }
@@ -5385,9 +5750,60 @@
           setTimeout(() => dispatchMouseButton(button, false), holdMs || 110);
         }
 
-        const lookDiagStats = { count: 0, sumX: 0, sumY: 0, posX: 0, negX: 0, posY: 0, negY: 0, lastTs: 0 };
+        const lookBatches = Object.create(null);
 
-        function dispatchMouseLook(dx, dy, skipScaling) {
+        function getLookBatch(source) {
+          const key = String(source || 'TOUCH').toUpperCase();
+          if (!lookBatches[key]) {
+            lookBatches[key] = { count: 0, sumX: 0, sumY: 0, posX: 0, negX: 0, posY: 0, negY: 0, lastTs: 0 };
+          }
+          return lookBatches[key];
+        }
+
+        function flushInputLookBatch(source, reason) {
+          if (!appState.inputLoggingEnabled) return;
+          const key = String(source || 'TOUCH').toUpperCase();
+          const b = lookBatches[key];
+          if (!b || b.count === 0) return;
+          const label = reason ? ('Обзор (' + reason + ')') : 'Обзор (дельты)';
+          logInput(key, label, {
+            events: b.count,
+            sumX: Math.round(b.sumX),
+            sumY: Math.round(b.sumY),
+            '+x': b.posX,
+            '-x': b.negX,
+            '+y': b.posY,
+            '-y': b.negY
+          });
+          b.count = 0;
+          b.sumX = 0;
+          b.sumY = 0;
+          b.posX = 0;
+          b.negX = 0;
+          b.posY = 0;
+          b.negY = 0;
+          b.lastTs = performance.now();
+        }
+
+        function recordInputLookDelta(source, dx, dy) {
+          if (!appState.inputLoggingEnabled) return;
+          const key = String(source || 'TOUCH').toUpperCase();
+          const b = getLookBatch(key);
+          b.count += 1;
+          b.sumX += dx;
+          b.sumY += dy;
+          if (dx > 0) b.posX += 1;
+          else if (dx < 0) b.negX += 1;
+          if (dy > 0) b.posY += 1;
+          else if (dy < 0) b.negY += 1;
+          const nowTs = performance.now();
+          if (b.lastTs === 0) b.lastTs = nowTs;
+          if (nowTs - b.lastTs >= 350) {
+            flushInputLookBatch(key, 'движение');
+          }
+        }
+
+        function dispatchMouseLook(dx, dy, skipScaling, source) {
           let scaledX;
           let scaledY;
           if (skipScaling) {
@@ -5400,35 +5816,7 @@
           }
           if (scaledX === 0 && scaledY === 0) return;
 
-          if (appState.loggingEnabled) {
-            lookDiagStats.count += 1;
-            lookDiagStats.sumX += scaledX;
-            lookDiagStats.sumY += scaledY;
-            if (scaledX > 0) lookDiagStats.posX += 1;
-            else if (scaledX < 0) lookDiagStats.negX += 1;
-            if (scaledY > 0) lookDiagStats.posY += 1;
-            else if (scaledY < 0) lookDiagStats.negY += 1;
-            const nowTs = performance.now();
-            if (nowTs - lookDiagStats.lastTs >= 2000) {
-              lookDiagStats.lastTs = nowTs;
-              logEvent('DEBUG', 'INPUT', 'Камера look-дельты (JS -> WASM)', {
-                count: lookDiagStats.count,
-                sumX: Math.round(lookDiagStats.sumX),
-                sumY: Math.round(lookDiagStats.sumY),
-                posX: lookDiagStats.posX,
-                negX: lookDiagStats.negX,
-                posY: lookDiagStats.posY,
-                negY: lookDiagStats.negY
-              });
-              lookDiagStats.count = 0;
-              lookDiagStats.sumX = 0;
-              lookDiagStats.sumY = 0;
-              lookDiagStats.posX = 0;
-              lookDiagStats.negX = 0;
-              lookDiagStats.posY = 0;
-              lookDiagStats.negY = 0;
-            }
-          }
+          recordInputLookDelta(source || 'TOUCH', scaledX, scaledY);
 
           previewYaw += scaledX * 0.14;
           previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.12));
@@ -5501,8 +5889,22 @@
             e.preventDefault();
             activeCanvasTouchId = e.pointerId;
             try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+            const pt = DarkWebCore.computeNormalizedCanvasPoint(e.clientX, e.clientY, canvas.getBoundingClientRect());
+            logInput('TOUCH', 'Касание 2D-меню (down)', {
+              x: Math.round(e.clientX),
+              y: Math.round(e.clientY),
+              normX: Number(pt.normX.toFixed(3)),
+              normY: Number(pt.normY.toFixed(3))
+            });
             injectDirectCanvasPointer(e.clientX, e.clientY, 1, 0);
             return;
+          }
+          if (e.pointerType === 'mouse' && appState.gameRunning) {
+            logInput('PC', 'Клик мышью (кнопка ' + e.button + ')', {
+              mode: effectiveMode,
+              x: Math.round(e.clientX),
+              y: Math.round(e.clientY)
+            });
           }
           if (e.pointerType === 'mouse' && appState.gameRunning && (appState.isPreviewMode || effectiveMode === 'gameplay') && !hudDrawer.classList.contains('is-open') && !bootOverlay.classList.contains('is-visible')) {
             requestPcPointerLock();
@@ -5525,6 +5927,7 @@
             activeCanvasTouchId = null;
             if (gameStage.dataset.inputMode !== 'menu') return;
             e.preventDefault();
+            logInput('TOUCH', 'Касание 2D-меню (' + e.type + ')', { x: Math.round(e.clientX), y: Math.round(e.clientY) });
             injectDirectCanvasPointer(e.clientX, e.clientY, 2, 0);
           }
         };
@@ -5532,16 +5935,30 @@
         canvas.addEventListener('pointercancel', onCanvasTouchEnd);
         canvas.addEventListener('touchstart', () => { unlockDarkAudio(); }, { passive: true });
         previewCanvas.addEventListener('pointerdown', onCanvasPointerDown);
+        const onCanvasWheel = (e) => {
+          if (!appState.gameRunning) return;
+          logInput('PC', 'Колесо мыши', { dx: Math.round(e.deltaX), dy: Math.round(e.deltaY) });
+        };
+        canvas.addEventListener('wheel', onCanvasWheel, { passive: true });
+        previewCanvas.addEventListener('wheel', onCanvasWheel, { passive: true });
 
         document.addEventListener('pointerlockchange', () => {
           appState.pointerLocked = document.pointerLockElement === canvas || document.pointerLockElement === previewCanvas;
+          logInput('PC', 'Pointer Lock: ' + (appState.pointerLocked ? 'ЗАХВАЧЕН' : 'ОСВОБОЖДЁН'), { rawMouse: appState.rawMouse });
+          if (!appState.pointerLocked) {
+            flushInputLookBatch('PC', 'unlock');
+          }
           if (appState.pointerLocked) {
             showInputToast(appState.rawMouse ? 'RAW-МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД' : 'МЫШЬ ЗАХВАЧЕНА · ESC ВЫХОД');
           }
         });
 
         document.addEventListener('mousemove', (e) => {
-          if (!appState.gameRunning || !appState.pointerLocked || !appState.isPreviewMode) return;
+          if (!appState.gameRunning) return;
+          if (appState.pointerLocked && (e.movementX || e.movementY)) {
+            recordInputLookDelta('PC', e.movementX, e.movementY);
+          }
+          if (!appState.pointerLocked || !appState.isPreviewMode) return;
           if (e.movementX || e.movementY) {
             previewYaw += e.movementX * appState.sensitivity * 0.25;
             previewPitch = Math.max(-75, Math.min(75, previewPitch + e.movementY * appState.sensitivity * (appState.invertY ? -0.22 : 0.22)));
@@ -5576,6 +5993,9 @@
           } catch (_) {}
         }
 
+        let prevPadMoveMode = 'idle';
+        let prevPadLookActive = false;
+
         function pollGamepadFrame(ts) {
           const pad = getPrimaryGamepad();
           if (!pad) {
@@ -5597,6 +6017,9 @@
               if (Boolean(prevPadKeys[code]) !== isDown) {
                 prevPadKeys[code] = isDown;
                 dispatchKey(code, isDown);
+                if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ControlLeft'].includes(code)) {
+                  logInput('GAMEPAD', 'Кнопка ' + code + ' ' + (isDown ? 'нажата' : 'отпущена'));
+                }
                 if (isDown && (code === 'F5' || code === 'F9')) {
                   showInputToast(code === 'F5' ? 'БЫСТРОЕ СОХРАНЕНИЕ (F5)' : 'БЫСТРАЯ ЗАГРУЗКА (F9)');
                   triggerGamepadRumble(pad, 0.2, 0.25, 45);
@@ -5604,17 +6027,28 @@
               }
             }
 
+            if (mapped.moveMode !== prevPadMoveMode) {
+              prevPadMoveMode = mapped.moveMode;
+              logInput('GAMEPAD', 'Левый стик: ' + (mapped.moveLabel || mapped.moveMode));
+            }
+
             if (mapped.mouseLeft !== prevPadLmb) {
               prevPadLmb = mapped.mouseLeft;
               dispatchMouseButton(0, mapped.mouseLeft);
+              logInput('GAMEPAD', 'Триггер ЛКМ (Удар) ' + (mapped.mouseLeft ? 'нажат' : 'отпущен'));
               if (mapped.mouseLeft) triggerGamepadRumble(pad, 0.18, 0.42, 60);
             }
             if (mapped.mouseRight !== prevPadRmb) {
               prevPadRmb = mapped.mouseRight;
               dispatchMouseButton(2, mapped.mouseRight);
+              logInput('GAMEPAD', 'Триггер ПКМ (Блок) ' + (mapped.mouseRight ? 'нажат' : 'отпущен'));
             }
             if (mapped.lookDx !== 0 || mapped.lookDy !== 0) {
-              dispatchMouseLook(mapped.lookDx, mapped.lookDy, true);
+              prevPadLookActive = true;
+              dispatchMouseLook(mapped.lookDx, mapped.lookDy, true, 'GAMEPAD');
+            } else if (prevPadLookActive) {
+              prevPadLookActive = false;
+              flushInputLookBatch('GAMEPAD', 'правый стик отпущен');
             }
             if (mapped.moveMode !== 'idle') {
               previewMoveState.speed = mapped.moveLabel;
@@ -5629,6 +6063,7 @@
             ? String(pad.id || 'Геймпад').replace(/\s*\(.*?\)\s*/g, '').slice(0, 26)
             : '';
           updateTouchPrefsUI();
+          if (appState.inputLoggingEnabled) updateInputLogSummary();
           if (pad && !gamepadPollRaf) {
             gamepadLastTs = 0;
             gamepadPollRaf = requestAnimationFrame(pollGamepadFrame);
@@ -5637,11 +6072,14 @@
 
         window.addEventListener('gamepadconnected', (e) => {
           refreshGamepadConnection();
+          const padInfo = e && e.gamepad ? { id: e.gamepad.id, axes: (e.gamepad.axes || []).length, buttons: (e.gamepad.buttons || []).length } : null;
+          logInput('GAMEPAD', 'Геймпад подключён: ' + (appState.connectedGamepadName || (e && e.gamepad && e.gamepad.id) || 'OK'), padInfo);
           if (appState.gameRunning) {
             showInputToast('ГЕЙМПАД ПОДКЛЮЧЁН: ' + (appState.connectedGamepadName || 'OK'));
           }
         });
-        window.addEventListener('gamepaddisconnected', () => {
+        window.addEventListener('gamepaddisconnected', (e) => {
+          const oldName = (e && e.gamepad && e.gamepad.id) || appState.connectedGamepadName || 'Геймпад';
           for (const k of Object.keys(prevPadKeys)) {
             if (prevPadKeys[k]) {
               prevPadKeys[k] = false;
@@ -5650,7 +6088,10 @@
           }
           if (prevPadLmb) { prevPadLmb = false; dispatchMouseButton(0, false); }
           if (prevPadRmb) { prevPadRmb = false; dispatchMouseButton(2, false); }
+          prevPadMoveMode = 'idle';
+          if (prevPadLookActive) { prevPadLookActive = false; flushInputLookBatch('GAMEPAD', 'отключён'); }
           refreshGamepadConnection();
+          logInput('GAMEPAD', 'Геймпад отключён: ' + oldName, null, 'warn');
         });
 
         // --- 5C. Button-Free Smartphone Gesture Controller ---
@@ -5680,12 +6121,14 @@
             const dy = gPendingLookDy;
             gPendingLookDx = 0;
             gPendingLookDy = 0;
-            dispatchMouseLook(dx, dy);
+            dispatchMouseLook(dx, dy, false, 'GESTURE');
           }
         }
 
+        let lastGestureMoveBand = 'ПОКОЙ';
         function resetGestureMove() {
           gMovePointerId = null;
+          lastGestureMoveBand = 'ПОКОЙ';
           gestureGhostRing.classList.remove('is-visible');
           gestureGhostDot.style.transform = 'translate3d(0px, 0px, 0px)';
           previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
@@ -5694,6 +6137,11 @@
 
         function executeGestureAction(result) {
           if (!result) return;
+          logInput('GESTURE', 'Жест: ' + (result.label || result.action), {
+            action: result.action,
+            key: result.key || null,
+            mouseButton: result.mouseButton !== undefined ? result.mouseButton : null
+          });
           if (result.key) pulseKey(result.key, result.holdMs);
           if (result.mouseButton !== undefined) pulseMouseButton(result.mouseButton, result.holdMs);
           triggerHaptic(14);
@@ -5760,6 +6208,7 @@
               if (pt && !pt.moved && !gTwoFingerActive) {
                 gRightHoldActive = true;
                 dispatchMouseButton(2, true);
+                logInput('GESTURE', 'Удержание справа: Блок / Предмет (ПКМ)');
                 triggerHaptic(18);
                 showInputToast('БЛОК / ПРЕДМЕТ (УДЕРЖ.)');
               }
@@ -5788,6 +6237,10 @@
             const mapped = DarkWebCore.mapJoystickToInput(e.clientX - gMoveOriginX, e.clientY - gMoveOriginY, 54);
             gestureGhostDot.style.transform = 'translate3d(' + (mapped.clampedX * 0.65).toFixed(1) + 'px, ' + (mapped.clampedY * 0.65).toFixed(1) + 'px, 0px)';
             previewMoveState = { x: mapped.clampedX, y: mapped.clampedY, speed: mapped.speedLabel };
+            if (mapped.speedLabel !== lastGestureMoveBand) {
+              lastGestureMoveBand = mapped.speedLabel;
+              logInput('GESTURE', 'Движение (жесты): ' + mapped.speedLabel);
+            }
             for (const [k, isDown] of Object.entries(mapped.keys)) {
               dispatchKey(k, isDown);
             }
@@ -5832,14 +6285,20 @@
 
           if (e.pointerId === gMovePointerId) {
             resetGestureMove();
+            logInput('GESTURE', 'Движение (жесты) завершено (' + e.type + ')', null, e.type === 'lostpointercapture' ? 'warn' : 'info');
           }
           if (e.pointerId === gLookPointerId) {
             gLookPointerId = null;
             if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
             if (gLookRaf) { cancelAnimationFrame(gLookRaf); flushGestureLook(); }
+            flushInputLookBatch('GESTURE', e.type);
+            if (e.type === 'lostpointercapture' || e.type === 'pointercancel') {
+              logInput('GESTURE', 'Обзор (жесты) прерван (' + e.type + ')', { id: e.pointerId }, 'warn');
+            }
             if (gRightHoldActive) {
               gRightHoldActive = false;
               dispatchMouseButton(2, false);
+              logInput('GESTURE', 'Удержание справа отпущено (ПКМ)');
               return;
             }
           }
@@ -5879,8 +6338,12 @@
         let stickOriginY = 0;
         const STICK_RADIUS = 54;
 
-        function resetStick() {
+        let lastStickBand = 'ПОКОЙ';
+
+        function resetStick(reason) {
+          const wasActive = stickPointerId !== null;
           stickPointerId = null;
+          lastStickBand = 'ПОКОЙ';
           stickBase.classList.remove('is-active');
           stickBase.style.left = '';
           stickBase.style.bottom = '';
@@ -5888,6 +6351,9 @@
           stickSpeedTag.textContent = 'ШАГ';
           previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
           ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ShiftLeft', 'ControlLeft'].forEach((k) => dispatchKey(k, false));
+          if (wasActive) {
+            logInput('TOUCH', 'Стик завершён (' + (reason || 'up') + ')', null, reason === 'lostpointercapture' ? 'warn' : 'info');
+          }
         }
 
         stickZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
@@ -5899,6 +6365,7 @@
           e.preventDefault();
           e.stopPropagation();
           stickPointerId = e.pointerId;
+          lastStickBand = 'ПОКОЙ';
           const zoneRect = stickZone.getBoundingClientRect();
           const origin = DarkWebCore.computeJoystickOrigin(
             e.clientX,
@@ -5912,6 +6379,7 @@
           stickOriginX = origin.originX;
           stickOriginY = origin.originY;
           try { stickZone.setPointerCapture(e.pointerId); } catch (_) {}
+          logInput('TOUCH', 'Стик старт', { id: e.pointerId, x: Math.round(e.clientX), y: Math.round(e.clientY) });
         });
 
         stickZone.addEventListener('pointermove', (e) => {
@@ -5926,6 +6394,11 @@
           stickKnob.style.transform = 'translate3d(' + mapped.clampedX.toFixed(1) + 'px, ' + mapped.clampedY.toFixed(1) + 'px, 0px)';
           stickSpeedTag.textContent = mapped.speedLabel;
           previewMoveState = { x: mapped.clampedX, y: mapped.clampedY, speed: mapped.speedLabel };
+          if (mapped.speedLabel !== lastStickBand) {
+            lastStickBand = mapped.speedLabel;
+            const activeDirs = Object.entries(mapped.keys).filter(([, v]) => v).map(([k]) => k).join('+');
+            logInput('TOUCH', 'Стик режим: ' + mapped.speedLabel, { keys: activeDirs || 'none' });
+          }
           for (const [key, isDown] of Object.entries(mapped.keys)) {
             dispatchKey(key, isDown);
           }
@@ -5933,14 +6406,14 @@
 
         stickZone.addEventListener('pointerup', (e) => {
           e.stopPropagation();
-          if (e.pointerId === stickPointerId) resetStick();
+          if (e.pointerId === stickPointerId) resetStick('pointerup');
         });
         stickZone.addEventListener('pointercancel', (e) => {
           e.stopPropagation();
-          if (e.pointerId === stickPointerId) resetStick();
+          if (e.pointerId === stickPointerId) resetStick('pointercancel');
         });
         stickZone.addEventListener('lostpointercapture', (e) => {
-          if (e.pointerId === stickPointerId) resetStick();
+          if (e.pointerId === stickPointerId) resetStick('lostpointercapture');
         });
 
         // Swipe Camera Look Zone (Right) — rAF-coalesced so 120–240Hz mobile
@@ -5960,7 +6433,7 @@
             const dy = pendingLookDy;
             pendingLookDx = 0;
             pendingLookDy = 0;
-            dispatchMouseLook(dx, dy);
+            dispatchMouseLook(dx, dy, false, 'TOUCH');
           }
         }
 
@@ -5976,6 +6449,7 @@
           lastLookX = e.clientX;
           lastLookY = e.clientY;
           try { lookZone.setPointerCapture(e.pointerId); } catch (_) {}
+          logInput('TOUCH', 'Обзор старт', { id: e.pointerId, x: Math.round(e.clientX), y: Math.round(e.clientY), type: e.pointerType });
         });
 
         lookZone.addEventListener('pointermove', (e) => {
@@ -6003,6 +6477,10 @@
               cancelAnimationFrame(lookFlushRaf);
               flushPendingLook();
             }
+            flushInputLookBatch('TOUCH', e.type);
+            if (e.type === 'lostpointercapture' || e.type === 'pointercancel') {
+              logInput('TOUCH', 'Обзор прерван (' + e.type + ')', { id: e.pointerId }, 'warn');
+            }
           }
         };
         lookZone.addEventListener('pointerup', endLook);
@@ -6014,6 +6492,7 @@
           const isToggle = btn.dataset.toggle === 'true';
           const keyCode = btn.dataset.key;
           const mouseBtn = btn.dataset.mouse !== undefined ? Number(btn.dataset.mouse) : null;
+          const btnLabel = (btn.textContent || btn.getAttribute('aria-label') || keyCode || ('mouse' + mouseBtn)).trim();
 
           if (isToggle && keyCode) {
             btn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
@@ -6025,6 +6504,7 @@
               const next = btn.getAttribute('aria-pressed') !== 'true';
               btn.setAttribute('aria-pressed', String(next));
               btn.classList.toggle('is-toggled', next);
+              logInput('HUD', 'Тумблер «' + btnLabel + '»: ' + (next ? 'ВКЛ' : 'ВЫКЛ'), { key: keyCode });
               dispatchKey(keyCode, true);
               setTimeout(() => dispatchKey(keyCode, false), 90);
             });
@@ -6039,13 +6519,18 @@
             e.preventDefault();
             e.stopPropagation();
             btn.classList.add('is-pressed');
+            logInput('HUD', 'Кнопка «' + btnLabel + '» нажата', keyCode ? { key: keyCode } : { mouse: mouseBtn });
             if (keyCode) dispatchKey(keyCode, true);
             if (mouseBtn !== null) dispatchMouseButton(mouseBtn, true);
           });
 
           const release = (e) => {
             if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+            const wasPressed = btn.classList.contains('is-pressed');
             btn.classList.remove('is-pressed');
+            if (wasPressed) {
+              logInput('HUD', 'Кнопка «' + btnLabel + '» отпущена', keyCode ? { key: keyCode } : { mouse: mouseBtn });
+            }
             if (keyCode) dispatchKey(keyCode, false);
             if (mouseBtn !== null) dispatchMouseButton(mouseBtn, false);
           };
@@ -6177,10 +6662,33 @@
         if (loggingToggleBtn) loggingToggleBtn.addEventListener('click', toggleLogging);
         if (hudLoggingBtn) hudLoggingBtn.addEventListener('click', toggleLogging);
 
+        const toggleInputLogging = () => {
+          appState.inputLoggingEnabled = !appState.inputLoggingEnabled;
+          persistPrefs();
+          if (appState.inputLoggingEnabled) {
+            logInput('ENGINE', 'Запись логов управления ВКЛЮЧЕНА', {
+              touchMode: appState.touchMode,
+              sens: appState.sensitivity,
+              rawMouse: appState.rawMouse,
+              gamepad: appState.connectedGamepadName || 'none'
+            });
+          }
+          updateInputLoggingUI(true);
+        };
+        if (inputLoggingToggleBtn) inputLoggingToggleBtn.addEventListener('click', toggleInputLogging);
+        if (hudInputLoggingBtn) hudInputLoggingBtn.addEventListener('click', toggleInputLogging);
+
         document.querySelectorAll('[data-log-filter]').forEach((btn) => {
           btn.addEventListener('click', () => {
             appState.logFilter = btn.dataset.logFilter || 'all';
             updateLoggingUI(false);
+          });
+        });
+
+        document.querySelectorAll('[data-input-log-filter]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            appState.inputLogFilter = btn.dataset.inputLogFilter || 'all';
+            updateInputLoggingUI(false);
           });
         });
 
@@ -6192,6 +6700,17 @@
           clearLogsBtn.addEventListener('click', () => {
             diagLogger.clear();
             renderDiagLogsNow();
+          });
+        }
+
+        if (copyInputLogsBtn) copyInputLogsBtn.addEventListener('click', () => copyInputLogReport(copyInputLogsBtn));
+        if (hudCopyInputLogsBtn) hudCopyInputLogsBtn.addEventListener('click', () => copyInputLogReport(hudCopyInputLogsBtn));
+        if (downloadInputLogsBtn) downloadInputLogsBtn.addEventListener('click', downloadInputLogReport);
+        if (hudDownloadInputLogsBtn) hudDownloadInputLogsBtn.addEventListener('click', downloadInputLogReport);
+        if (clearInputLogsBtn) {
+          clearInputLogsBtn.addEventListener('click', () => {
+            inputLogger.clear();
+            renderInputLogsNow();
           });
         }
 
@@ -6211,6 +6730,7 @@
             const next = curr === 'menu' ? 'gameplay' : 'menu';
             appState.inputModeOverride = next;
             syncInputModeUI();
+            logInput('HUD', 'Ручной переключатель режима: ' + (next === 'menu' ? 'Курсор (меню)' : 'Игра (3D)'));
             if (next === 'menu' && document.pointerLockElement === canvas && typeof document.exitPointerLock === 'function') {
               try { document.exitPointerLock(); } catch (_) {}
             }
@@ -6251,6 +6771,7 @@
             });
           }
           if (appState.loggingEnabled) updateDiagEnvSummary();
+          if (appState.inputLoggingEnabled) updateInputLogSummary();
         };
         window.addEventListener('resize', onViewportGeometryChange);
         window.addEventListener('orientationchange', onViewportGeometryChange);
@@ -6266,12 +6787,20 @@
           if (['Space', 'Tab', 'F5', 'F9', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
             e.preventDefault();
           }
+          if (!e.repeat && !e.__darkSynthetic) {
+            logInput('PC', 'Клавиша ' + (e.code || e.key) + ' нажата', { key: e.key });
+          }
           if (e.code === 'ArrowLeft') previewYaw -= 4;
           if (e.code === 'ArrowRight') previewYaw += 4;
           if (e.code === 'ArrowUp') previewPitch = Math.max(-75, previewPitch - 3);
           if (e.code === 'ArrowDown') previewPitch = Math.min(75, previewPitch + 3);
           if (e.code === 'KeyW') previewMoveState.speed = 'ВПЕРЁД';
           if (e.code === 'KeyS') previewMoveState.speed = 'НАЗАД';
+        });
+
+        window.addEventListener('keyup', (e) => {
+          if (!appState.gameRunning || e.__darkSynthetic) return;
+          logInput('PC', 'Клавиша ' + (e.code || e.key) + ' отпущена');
         });
 
         // Initial render + System diagnostics snapshot + GPU probe + Gamepad check + IDBFS cache check
@@ -6284,6 +6813,7 @@
         updateQualityUI();
         updateTouchPrefsUI();
         updateLoggingUI(false);
+        updateInputLoggingUI(false);
         refreshGamepadConnection();
         probeGraphicsCapabilities();
         mountAndRestoreIdbfs();

@@ -774,6 +774,64 @@ test('3D mobile camera look turns cleanly both left and right without absolute-c
   assert.ok(/\.touch-zone-right\s*\{[\s\S]*?width:\s*auto;[\s\S]*?z-index:\s*60;[\s\S]*?overscroll-behavior:\s*none;/.test(html), 'lookZone must span full non-joystick width with overscroll-behavior: none for unobstructed right/left swipes');
 });
 
+test('separate Input Controls Log buffer tracks Touch, Gestures, HUD, PC, Gamepad, and Engine independently from system logs, and README describes DarkEngine Nihil Web', () => {
+  const inputBuf = Core.createInputLogBuffer(12);
+  inputBuf.push('TOUCH', 'Обзор старт', { x: 220, y: 310 });
+  inputBuf.push('GESTURE', 'Жест: ПРЫЖОК', { key: 'Space' });
+  inputBuf.push('HUD', 'Кнопка «Удар» нажата', { mouse: 0 });
+  inputBuf.push('PC', 'Клавиша KeyW нажата', { key: 'w' });
+  inputBuf.push('GAMEPAD', 'Геймпад подключён', { id: 'Xbox Wireless' });
+  inputBuf.push('ENGINE', '[web][look] rel count=4 sum=(+40,0)');
+
+  const counts = inputBuf.countBySource();
+  assert.deepEqual({ ...counts }, { total: 6, touch: 3, pc: 1, gamepad: 1, engine: 1 });
+  assert.equal(inputBuf.getEntries('all').length, 6);
+  assert.equal(inputBuf.getEntries('touch').length, 3);
+  assert.equal(inputBuf.getEntries('pc').length, 1);
+  assert.equal(inputBuf.getEntries('gamepad').length, 1);
+  assert.equal(inputBuf.getEntries('engine').length, 1);
+
+  const report = inputBuf.exportReport({
+    viewport: '432x872 @2.50x',
+    inputMode: 'gameplay',
+    touchLayout: 'buttons',
+    sensitivity: '1.2x',
+    deadzone: '15%',
+    invertY: 'off',
+    rawMouse: 'on',
+    pointerLocked: 'no',
+    gamepad: 'Xbox Wireless'
+  });
+  assert.ok(report.includes('=== DARK ENGINE WEB INPUT LOG REPORT ==='));
+  assert.ok(report.includes('Entries: 6 (touch=3, pc=1, gamepad=1, engine=1)'));
+  assert.ok(report.includes('[TOUCH  ] Обзор старт'));
+  assert.ok(report.includes('[PC     ] Клавиша KeyW нажата'));
+  assert.ok(report.includes('[GAMEPAD] Геймпад подключён'));
+
+  // Ring-buffer cap enforcement
+  for (let i = 0; i < 20; i++) inputBuf.push('PC', 'evt-' + i);
+  assert.equal(inputBuf.getEntries('all').length, 12);
+  inputBuf.clear();
+  assert.equal(inputBuf.getEntries('all').length, 0);
+
+  // Strict UI & runtime separation in web/index.html
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('id="inputLoggingToggleBtn"'), 'Launcher must have separate Input Logs toggle');
+  assert.ok(html.includes('id="inputLogPanel"'), 'Launcher must have separate Input Logs panel');
+  assert.ok(html.includes('id="hudInputLoggingBtn"'), 'In-game HUD drawer must have separate Input Logs toggle');
+  assert.ok(html.includes('id="hudCopyInputLogsBtn"'), 'In-game HUD drawer must allow copying Input Logs directly');
+  assert.ok(html.includes('id="hudDownloadInputLogsBtn"'), 'In-game HUD drawer must allow downloading Input Logs directly');
+  assert.ok(html.includes("dark-engine-input-"), 'Input Logs download must use distinct filename prefix');
+  assert.ok(!html.includes('logEvent('), 'Must not contain undefined logEvent() calls');
+
+  // Minimalist centered README.md check
+  const readme = fs.readFileSync(new URL('./README.md', import.meta.url), 'utf8');
+  assert.ok(readme.includes('<div align="center">'), 'README must be centered');
+  assert.ok(readme.includes('# DarkEngine Nihil Web'), 'README must name DarkEngine Nihil Web');
+  assert.ok(readme.includes('Логи управления'), 'README must mention separate input logs');
+});
+
+
 
 
 
