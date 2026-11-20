@@ -1,0 +1,671 @@
+=== DARK ENGINE WEB INPUT LOG REPORT ===
+Generated: 2026-11-20T13:51:51.801Z
+URL: https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+UserAgent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Mobile Safari/537.36
+Viewport: 432x872 @2.50x
+InputMode: gameplay | TouchLayout: buttons (pref=buttons)
+Controls: sens=1.2x deadzone=15% invertY=off rawMouse=off pointerLock=no
+Gamepad: none
+Entries: 661 (touch=572, pc=0, gamepad=0, engine=89)
+-----------------------------------------
+[+00:33.833] [ENGINE ] Режим ввода движка: Меню (прямой курсор)
+[+00:37.656] [TOUCH  ] Касание 2D-меню (down) | {"x":505,"y":179,"normX":0.544,"normY":0.507}
+[+00:37.735] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":505,"y":179}
+[+00:38.590] [TOUCH  ] Касание 2D-меню (down) | {"x":544,"y":209,"normX":0.586,"normY":0.594}
+[+00:38.686] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":544,"y":209}
+[+00:39.836] [TOUCH  ] Касание 2D-меню (down) | {"x":531,"y":311,"normX":0.572,"normY":0.883}
+[+00:39.918] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":531,"y":311}
+[+00:40.265] [TOUCH  ] Касание 2D-меню (down) | {"x":543,"y":328,"normX":0.585,"normY":0.931}
+[+00:40.350] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":543,"y":328}
+[+00:44.543] [TOUCH  ] Касание 2D-меню (down) | {"x":645,"y":302,"normX":0.695,"normY":0.858}
+[+00:45.325] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":782,"y":273}
+[+00:45.613] [TOUCH  ] Касание 2D-меню (down) | {"x":673,"y":333,"normX":0.725,"normY":0.946}
+[+00:45.719] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":673,"y":333}
+[+00:46.270] [ENGINE ] Режим ввода движка: 3D-игра (relative mouse)
+[+00:46.296] [ENGINE ] [web][mturn] count=1 sum=0.0 +x=0 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+00:47.919] [TOUCH  ] Обзор старт | {"id":16,"x":788,"y":245,"type":"touch"}
+[+00:47.981] [ENGINE ] [web][look] rel count=1 sum=(34,-12) +x=1 -x=0 +y=0 -y=1 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:48.332] [TOUCH  ] Обзор (движение) | {"events":29,"sumX":473,"sumY":-42,"+x":26,"-x":2,"+y":10,"-y":11}
+[+00:48.336] [ENGINE ] [web][mturn] count=19 sum=473.0 +x=15 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+00:48.615] [TOUCH  ] Обзор (pointerup) | {"events":38,"sumX":-67,"sumY":146,"+x":0,"-x":29,"+y":34,"-y":0}
+[+00:50.294] [TOUCH  ] Стик старт | {"id":17,"x":96,"y":351}
+[+00:50.374] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyD+ControlLeft"}
+[+00:50.397] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+00:50.539] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+00:50.827] [TOUCH  ] Обзор старт | {"id":18,"x":760,"y":260,"type":"touch"}
+[+00:50.870] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":4,"sumY":-8,"+x":1,"-x":0,"+y":0,"-y":1}
+[+00:50.876] [ENGINE ] [web][look] rel count=52 sum=(376,107) +x=15 -x=29 +y=37 -y=7 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:50.876] [ENGINE ] [web][mturn] count=36 sum=-63.0 +x=1 -x=28 sens=1.00 freelook=1 g_freelookon=0
+[+00:51.221] [TOUCH  ] Обзор (движение) | {"events":44,"sumX":205,"sumY":-156,"+x":33,"-x":0,"+y":20,"-y":20}
+[+00:51.379] [TOUCH  ] Обзор (pointerup) | {"events":23,"sumX":91,"sumY":47,"+x":23,"-x":0,"+y":19,"-y":0}
+[+00:51.505] [TOUCH  ] Обзор старт | {"id":19,"x":877,"y":232,"type":"touch"}
+[+00:51.732] [TOUCH  ] Обзор (движение) | {"events":26,"sumX":-655,"sumY":54,"+x":0,"-x":26,"+y":15,"-y":0}
+[+00:51.782] [TOUCH  ] Обзор (pointerup) | {"events":7,"sumX":6,"sumY":-6,"+x":4,"-x":2,"+y":0,"-y":4}
+[+00:51.949] [TOUCH  ] Обзор старт | {"id":20,"x":873,"y":244,"type":"touch"}
+[+00:52.137] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":-639,"sumY":34,"+x":0,"-x":18,"+y":10,"-y":1}
+[+00:52.218] [TOUCH  ] Обзор (pointerup) | {"events":13,"sumX":-32,"sumY":0,"+x":2,"-x":11,"+y":0,"-y":0}
+[+00:52.379] [TOUCH  ] Обзор старт | {"id":21,"x":891,"y":247,"type":"touch"}
+[+00:52.575] [TOUCH  ] Обзор (движение) | {"events":23,"sumX":-652,"sumY":-19,"+x":0,"-x":23,"+y":0,"-y":7}
+[+00:52.876] [ENGINE ] [web][look] rel count=167 sum=(-1877,-18) +x=62 -x=92 +y=75 -y=34 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:52.876] [ENGINE ] [web][mturn] count=163 sum=-1877.0 +x=62 -x=92 sens=1.00 freelook=1 g_freelookon=0
+[+00:52.928] [TOUCH  ] Обзор (движение) | {"events":37,"sumX":-146,"sumY":-1,"+x":10,"-x":24,"+y":18,"-y":13}
+[+00:53.206] [TOUCH  ] Обзор (pointerup) | {"events":36,"sumX":999,"sumY":-5,"+x":34,"-x":2,"+y":14,"-y":10}
+[+00:53.418] [TOUCH  ] Обзор старт | {"id":22,"x":774,"y":255,"type":"touch"}
+[+00:53.562] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":268,"sumY":-47,"+x":12,"-x":0,"+y":0,"-y":12}
+[+00:53.860] [TOUCH  ] Обзор (pointerup) | {"events":41,"sumX":-738,"sumY":0,"+x":5,"-x":34,"+y":17,"-y":15}
+[+00:54.034] [TOUCH  ] Обзор старт | {"id":23,"x":857,"y":232,"type":"touch"}
+[+00:54.034] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyD"}
+[+00:54.126] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyD+ControlLeft"}
+[+00:54.166] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+00:54.213] [TOUCH  ] Обзор (движение) | {"events":19,"sumX":-664,"sumY":28,"+x":0,"-x":19,"+y":12,"-y":4}
+[+00:54.230] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyA+ControlLeft"}
+[+00:54.279] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+00:54.298] [TOUCH  ] Обзор (pointerup) | {"events":12,"sumX":-11,"sumY":-5,"+x":4,"-x":8,"+y":2,"-y":2}
+[+00:54.383] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+00:54.480] [TOUCH  ] Обзор старт | {"id":24,"x":873,"y":242,"type":"touch"}
+[+00:54.652] [TOUCH  ] Обзор (движение) | {"events":15,"sumX":-373,"sumY":-3,"+x":0,"-x":15,"+y":1,"-y":3}
+[+00:54.723] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+00:54.750] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+00:54.764] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+00:54.779] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+00:54.799] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS"}
+[+00:54.878] [ENGINE ] [web][look] rel count=158 sum=(-134,-49) +x=72 -x=84 +y=50 -y=54 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:54.878] [ENGINE ] [web][mturn] count=165 sum=-134.0 +x=72 -x=84 sens=1.00 freelook=1 g_freelookon=0
+[+00:55.005] [TOUCH  ] Обзор (движение) | {"events":48,"sumX":503,"sumY":34,"+x":34,"-x":14,"+y":24,"-y":5}
+[+00:55.049] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyS+KeyA+ShiftLeft"}
+[+00:55.359] [TOUCH  ] Обзор (движение) | {"events":37,"sumX":-823,"sumY":-32,"+x":2,"-x":35,"+y":10,"-y":15}
+[+00:55.375] [TOUCH  ] Обзор (pointerup) | {"events":3,"sumX":-10,"sumY":8,"+x":0,"-x":2,"+y":3,"-y":0}
+[+00:55.541] [TOUCH  ] Обзор старт | {"id":25,"x":844,"y":240,"type":"touch"}
+[+00:55.727] [TOUCH  ] Обзор (движение) | {"events":21,"sumX":-502,"sumY":9,"+x":0,"-x":21,"+y":9,"-y":2}
+[+00:56.082] [TOUCH  ] Обзор (движение) | {"events":44,"sumX":1060,"sumY":-35,"+x":28,"-x":14,"+y":11,"-y":20}
+[+00:56.243] [TOUCH  ] Обзор старт | {"id":26,"x":722,"y":240,"type":"touch"}
+[+00:56.436] [TOUCH  ] Обзор (движение) | {"events":23,"sumX":974,"sumY":51,"+x":23,"-x":0,"+y":15,"-y":4}
+[+00:56.450] [TOUCH  ] Обзор (pointerup) | {"events":2,"sumX":0,"sumY":-6,"+x":1,"-x":1,"+y":0,"-y":2}
+[+00:56.625] [TOUCH  ] Обзор старт | {"id":27,"x":737,"y":242,"type":"touch"}
+[+00:56.804] [TOUCH  ] Обзор (движение) | {"events":22,"sumX":495,"sumY":-8,"+x":22,"-x":0,"+y":7,"-y":8}
+[+00:56.907] [ENGINE ] [web][look] rel count=165 sum=(1368,11) +x=93 -x=70 +y=66 -y=47 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:56.907] [ENGINE ] [web][mturn] count=172 sum=1368.0 +x=93 -x=70 sens=1.00 freelook=1 g_freelookon=0
+[+00:57.160] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":25,"sumY":-7,"+x":13,"-x":2,"+y":0,"-y":6}
+[+00:57.510] [TOUCH  ] Обзор (движение) | {"events":44,"sumX":-434,"sumY":-24,"+x":19,"-x":21,"+y":4,"-y":32}
+[+00:57.613] [TOUCH  ] Обзор (pointerup) | {"events":15,"sumX":-301,"sumY":68,"+x":0,"-x":14,"+y":15,"-y":0}
+[+00:57.759] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyD"}
+[+00:57.786] [TOUCH  ] Обзор старт | {"id":28,"x":875,"y":243,"type":"touch"}
+[+00:57.829] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+00:57.899] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+00:57.965] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":-589,"sumY":-49,"+x":0,"-x":18,"+y":7,"-y":10}
+[+00:57.975] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+00:58.224] [TOUCH  ] Обзор (pointerup) | {"events":36,"sumX":22,"sumY":-24,"+x":8,"-x":19,"+y":1,"-y":15}
+[+00:58.398] [TOUCH  ] Обзор старт | {"id":29,"x":740,"y":251,"type":"touch"}
+[+00:58.578] [TOUCH  ] Обзор (движение) | {"events":13,"sumX":364,"sumY":-17,"+x":13,"-x":0,"+y":0,"-y":5}
+[+00:58.767] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS"}
+[+00:58.909] [ENGINE ] [web][look] rel count=169 sum=(-705,-64) +x=87 -x=68 +y=25 -y=73 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:58.909] [ENGINE ] [web][mturn] count=174 sum=-705.0 +x=87 -x=68 sens=1.00 freelook=1 g_freelookon=0
+[+00:58.931] [TOUCH  ] Обзор (движение) | {"events":42,"sumX":263,"sumY":-13,"+x":41,"-x":0,"+y":0,"-y":11}
+[+00:58.989] [TOUCH  ] Обзор (pointerup) | {"events":7,"sumX":43,"sumY":0,"+x":7,"-x":0,"+y":0,"-y":0}
+[+00:59.127] [TOUCH  ] Обзор старт | {"id":30,"x":738,"y":239,"type":"touch"}
+[+00:59.178] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+00:59.240] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyD"}
+[+00:59.302] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyD+ShiftLeft"}
+[+00:59.341] [TOUCH  ] Обзор (движение) | {"events":26,"sumX":598,"sumY":105,"+x":26,"-x":0,"+y":24,"-y":1}
+[+00:59.419] [TOUCH  ] Обзор (pointerup) | {"events":11,"sumX":61,"sumY":23,"+x":11,"-x":0,"+y":11,"-y":0}
+[+00:59.655] [TOUCH  ] Обзор старт | {"id":31,"x":802,"y":255,"type":"touch"}
+[+00:59.772] [TOUCH  ] Обзор (движение) | {"events":10,"sumX":272,"sumY":-59,"+x":10,"-x":0,"+y":0,"-y":10}
+[+01:00.172] [TOUCH  ] Обзор (движение) | {"events":32,"sumX":164,"sumY":-10,"+x":31,"-x":0,"+y":4,"-y":9}
+[+01:00.526] [TOUCH  ] Обзор (движение) | {"events":42,"sumX":-529,"sumY":-28,"+x":0,"-x":39,"+y":0,"-y":20}
+[+01:00.692] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyD"}
+[+01:00.700] [TOUCH  ] Обзор (pointerup) | {"events":22,"sumX":-70,"sumY":-12,"+x":4,"-x":16,"+y":1,"-y":10}
+[+01:00.811] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyD+ControlLeft"}
+[+01:00.837] [TOUCH  ] Обзор старт | {"id":32,"x":883,"y":240,"type":"touch"}
+[+01:00.893] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyD"}
+[+01:00.913] [ENGINE ] [web][look] rel count=145 sum=(526,-14) +x=91 -x=50 +y=38 -y=51 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:00.913] [ENGINE ] [web][mturn] count=155 sum=526.0 +x=91 -x=50 sens=1.00 freelook=1 g_freelookon=0
+[+01:00.935] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyD+ShiftLeft"}
+[+01:01.051] [TOUCH  ] Обзор (движение) | {"events":23,"sumX":-746,"sumY":3,"+x":0,"-x":23,"+y":14,"-y":8}
+[+01:01.073] [TOUCH  ] Обзор (pointerup) | {"events":3,"sumX":0,"sumY":6,"+x":1,"-x":2,"+y":3,"-y":0}
+[+01:01.294] [TOUCH  ] Обзор старт | {"id":33,"x":855,"y":228,"type":"touch"}
+[+01:01.426] [TOUCH  ] Обзор (движение) | {"events":5,"sumX":-82,"sumY":-2,"+x":0,"-x":5,"+y":0,"-y":2}
+[+01:01.780] [TOUCH  ] Обзор (движение) | {"events":46,"sumX":306,"sumY":15,"+x":28,"-x":15,"+y":14,"-y":12}
+[+01:02.135] [TOUCH  ] Обзор (движение) | {"events":45,"sumX":-409,"sumY":-48,"+x":6,"-x":35,"+y":0,"-y":30}
+[+01:02.449] [TOUCH  ] Обзор (pointerup) | {"events":37,"sumX":339,"sumY":10,"+x":34,"-x":0,"+y":16,"-y":6}
+[+01:02.894] [TOUCH  ] Обзор старт | {"id":34,"x":790,"y":215,"type":"touch"}
+[+01:02.996] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":24,"sumY":1,"+x":1,"-x":0,"+y":1,"-y":0}
+[+01:03.003] [ENGINE ] [web][look] rel count=145 sum=(-500,16) +x=68 -x=68 +y=46 -y=48 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:03.003] [ENGINE ] [web][mturn] count=148 sum=-500.0 +x=68 -x=68 sens=1.00 freelook=1 g_freelookon=0
+[+01:03.303] [TOUCH  ] Обзор (pointerup) | {"events":43,"sumX":400,"sumY":89,"+x":42,"-x":0,"+y":43,"-y":0}
+[+01:03.533] [TOUCH  ] Обзор старт | {"id":35,"x":758,"y":230,"type":"touch"}
+[+01:03.656] [TOUCH  ] Обзор (движение) | {"events":10,"sumX":88,"sumY":-7,"+x":10,"-x":0,"+y":0,"-y":6}
+[+01:04.012] [TOUCH  ] Обзор (движение) | {"events":29,"sumX":-30,"sumY":-42,"+x":13,"-x":15,"+y":0,"-y":15}
+[+01:04.379] [TOUCH  ] Обзор (движение) | {"events":43,"sumX":-29,"sumY":-27,"+x":26,"-x":11,"+y":5,"-y":17}
+[+01:04.734] [TOUCH  ] Обзор (движение) | {"events":31,"sumX":329,"sumY":84,"+x":31,"-x":0,"+y":24,"-y":0}
+[+01:04.919] [TOUCH  ] Обзор (pointerup) | {"events":17,"sumX":46,"sumY":3,"+x":17,"-x":0,"+y":5,"-y":1}
+[+01:05.104] [TOUCH  ] Обзор старт | {"id":36,"x":739,"y":237,"type":"touch"}
+[+01:05.176] [ENGINE ] [web][look] rel count=168 sum=(832,97) +x=136 -x=23 +y=75 -y=37 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:05.176] [ENGINE ] [web][mturn] count=182 sum=832.0 +x=136 -x=23 sens=1.00 freelook=1 g_freelookon=0
+[+01:05.269] [TOUCH  ] Обзор (движение) | {"events":15,"sumX":209,"sumY":-29,"+x":15,"-x":0,"+y":0,"-y":13}
+[+01:05.620] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":275,"sumY":-6,"+x":50,"-x":0,"+y":2,"-y":7}
+[+01:05.971] [TOUCH  ] Обзор (движение) | {"events":26,"sumX":91,"sumY":7,"+x":26,"-x":0,"+y":6,"-y":0}
+[+01:06.260] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:06.326] [TOUCH  ] Обзор (движение) | {"events":27,"sumX":-613,"sumY":-11,"+x":5,"-x":22,"+y":7,"-y":10}
+[+01:06.413] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:06.639] [TOUCH  ] Обзор (pointerup) | {"events":43,"sumX":718,"sumY":22,"+x":37,"-x":5,"+y":14,"-y":14}
+[+01:06.834] [TOUCH  ] Обзор старт | {"id":37,"x":746,"y":229,"type":"touch"}
+[+01:06.992] [TOUCH  ] Обзор (движение) | {"events":19,"sumX":543,"sumY":28,"+x":19,"-x":0,"+y":13,"-y":4}
+[+01:07.105] [TOUCH  ] Обзор (pointerup) | {"events":17,"sumX":72,"sumY":10,"+x":15,"-x":0,"+y":8,"-y":0}
+[+01:07.473] [TOUCH  ] Обзор старт | {"id":38,"x":711,"y":251,"type":"touch"}
+[+01:07.502] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyA"}
+[+01:07.541] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":28,"sumY":-5,"+x":1,"-x":0,"+y":0,"-y":1}
+[+01:07.547] [ENGINE ] [web][look] rel count=190 sum=(1296,22) +x=163 -x=25 +y=48 -y=43 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:07.547] [ENGINE ] [web][mturn] count=203 sum=1296.0 +x=163 -x=25 sens=1.00 freelook=1 g_freelookon=0
+[+01:07.896] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":410,"sumY":-35,"+x":50,"-x":0,"+y":0,"-y":15}
+[+01:08.251] [TOUCH  ] Обзор (движение) | {"events":46,"sumX":322,"sumY":15,"+x":46,"-x":0,"+y":10,"-y":0}
+[+01:08.321] [TOUCH  ] Обзор (pointerup) | {"events":11,"sumX":54,"sumY":-9,"+x":10,"-x":0,"+y":0,"-y":5}
+[+01:08.489] [TOUCH  ] Обзор старт | {"id":39,"x":726,"y":242,"type":"touch"}
+[+01:08.674] [TOUCH  ] Обзор (движение) | {"events":21,"sumX":884,"sumY":28,"+x":21,"-x":0,"+y":13,"-y":3}
+[+01:08.691] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyA+ShiftLeft"}
+[+01:08.698] [TOUCH  ] Обзор (pointerup) | {"events":4,"sumX":21,"sumY":-1,"+x":4,"-x":0,"+y":1,"-y":2}
+[+01:08.890] [TOUCH  ] Обзор старт | {"id":40,"x":717,"y":251,"type":"touch"}
+[+01:09.017] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyA"}
+[+01:09.049] [TOUCH  ] Обзор (движение) | {"events":19,"sumX":724,"sumY":-45,"+x":19,"-x":0,"+y":2,"-y":12}
+[+01:09.073] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyA+ControlLeft"}
+[+01:09.127] [TOUCH  ] Обзор (pointerup) | {"events":12,"sumX":113,"sumY":1,"+x":12,"-x":0,"+y":2,"-y":1}
+[+01:09.142] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+01:09.163] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+01:09.206] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:09.282] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:09.349] [TOUCH  ] Обзор старт | {"id":41,"x":724,"y":253,"type":"touch"}
+[+01:09.481] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":417,"sumY":-29,"+x":14,"-x":0,"+y":3,"-y":7}
+[+01:09.548] [ENGINE ] [web][look] rel count=165 sum=(2983,-72) +x=165 -x=0 +y=29 -y=37 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:09.548] [ENGINE ] [web][mturn] count=174 sum=2983.0 +x=165 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+01:09.711] [TOUCH  ] Обзор (pointerup) | {"events":32,"sumX":395,"sumY":17,"+x":32,"-x":0,"+y":12,"-y":1}
+[+01:09.912] [TOUCH  ] Обзор старт | {"id":42,"x":725,"y":243,"type":"touch"}
+[+01:10.004] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+01:10.039] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+01:10.063] [TOUCH  ] Обзор (движение) | {"events":16,"sumX":866,"sumY":7,"+x":16,"-x":0,"+y":9,"-y":5}
+[+01:10.101] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyA"}
+[+01:10.113] [TOUCH  ] Обзор (pointerup) | {"events":6,"sumX":51,"sumY":1,"+x":6,"-x":0,"+y":2,"-y":1}
+[+01:10.171] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyS+KeyA+ShiftLeft"}
+[+01:10.329] [TOUCH  ] Обзор старт | {"id":43,"x":726,"y":245,"type":"touch"}
+[+01:10.466] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":574,"sumY":19,"+x":14,"-x":0,"+y":9,"-y":3}
+[+01:10.551] [TOUCH  ] Обзор (pointerup) | {"events":13,"sumX":115,"sumY":15,"+x":11,"-x":2,"+y":7,"-y":0}
+[+01:10.746] [TOUCH  ] Обзор старт | {"id":44,"x":720,"y":249,"type":"touch"}
+[+01:10.838] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyD"}
+[+01:10.904] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":629,"sumY":4,"+x":18,"-x":0,"+y":9,"-y":7}
+[+01:10.968] [TOUCH  ] Обзор (pointerup) | {"events":10,"sumX":116,"sumY":9,"+x":8,"-x":0,"+y":7,"-y":0}
+[+01:10.977] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:11.148] [TOUCH  ] Обзор старт | {"id":45,"x":716,"y":250,"type":"touch"}
+[+01:11.321] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":713,"sumY":-13,"+x":18,"-x":0,"+y":9,"-y":7}
+[+01:11.325] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:11.378] [TOUCH  ] Обзор (pointerup) | {"events":8,"sumX":116,"sumY":0,"+x":8,"-x":0,"+y":0,"-y":0}
+[+01:11.477] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyD+ShiftLeft"}
+[+01:11.595] [TOUCH  ] Обзор старт | {"id":46,"x":734,"y":239,"type":"touch"}
+[+01:11.625] [ENGINE ] [web][look] rel count=124 sum=(3584,51) +x=122 -x=1 +y=59 -y=24 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:11.625] [ENGINE ] [web][mturn] count=130 sum=3584.0 +x=122 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+01:11.732] [TOUCH  ] Обзор (движение) | {"events":16,"sumX":604,"sumY":17,"+x":16,"-x":0,"+y":10,"-y":4}
+[+01:11.818] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyD"}
+[+01:11.825] [TOUCH  ] Обзор (pointerup) | {"events":12,"sumX":74,"sumY":7,"+x":10,"-x":2,"+y":7,"-y":2}
+[+01:11.950] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+01:11.997] [TOUCH  ] Обзор старт | {"id":47,"x":749,"y":237,"type":"touch"}
+[+01:12.019] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+01:12.061] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyA+ControlLeft"}
+[+01:12.165] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+01:12.185] [TOUCH  ] Обзор (движение) | {"events":16,"sumX":246,"sumY":-81,"+x":16,"-x":0,"+y":0,"-y":16}
+[+01:12.193] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+01:12.214] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:12.249] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:12.324] [TOUCH  ] Обзор (pointerup) | {"events":16,"sumX":73,"sumY":-18,"+x":15,"-x":0,"+y":2,"-y":11}
+[+01:12.574] [TOUCH  ] Обзор старт | {"id":48,"x":728,"y":250,"type":"touch"}
+[+01:12.677] [TOUCH  ] Обзор (движение) | {"events":2,"sumX":60,"sumY":-14,"+x":2,"-x":0,"+y":0,"-y":2}
+[+01:13.038] [TOUCH  ] Обзор (движение) | {"events":40,"sumX":191,"sumY":11,"+x":17,"-x":20,"+y":18,"-y":2}
+[+01:13.339] [TOUCH  ] Обзор (pointerup) | {"events":41,"sumX":-351,"sumY":85,"+x":0,"-x":41,"+y":37,"-y":0}
+[+01:13.553] [TOUCH  ] Обзор старт | {"id":49,"x":874,"y":239,"type":"touch"}
+[+01:13.626] [ENGINE ] [web][look] rel count=136 sum=(766,13) +x=67 -x=65 +y=73 -y=30 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:13.627] [ENGINE ] [web][mturn] count=150 sum=766.0 +x=67 -x=65 sens=1.00 freelook=1 g_freelookon=0
+[+01:13.692] [TOUCH  ] Обзор (движение) | {"events":15,"sumX":-362,"sumY":-2,"+x":0,"-x":15,"+y":2,"-y":3}
+[+01:13.838] [TOUCH  ] Обзор (pointerup) | {"events":20,"sumX":-209,"sumY":-7,"+x":2,"-x":18,"+y":2,"-y":2}
+[+01:14.013] [TOUCH  ] Обзор старт | {"id":50,"x":873,"y":261,"type":"touch"}
+[+01:14.192] [TOUCH  ] Обзор (движение) | {"events":18,"sumX":-599,"sumY":-36,"+x":0,"-x":18,"+y":3,"-y":12}
+[+01:14.263] [TOUCH  ] Обзор (pointerup) | {"events":10,"sumX":-128,"sumY":22,"+x":0,"-x":10,"+y":9,"-y":0}
+[+01:14.478] [TOUCH  ] Обзор старт | {"id":51,"x":882,"y":243,"type":"touch"}
+[+01:14.615] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":-240,"sumY":3,"+x":0,"-x":12,"+y":6,"-y":4}
+[+01:14.969] [TOUCH  ] Обзор (движение) | {"events":51,"sumX":-357,"sumY":35,"+x":0,"-x":51,"+y":22,"-y":1}
+[+01:15.324] [TOUCH  ] Обзор (движение) | {"events":49,"sumX":624,"sumY":-34,"+x":33,"-x":14,"+y":9,"-y":24}
+[+01:15.450] [TOUCH  ] Обзор (pointerup) | {"events":18,"sumX":131,"sumY":9,"+x":17,"-x":1,"+y":7,"-y":0}
+[+01:15.644] [TOUCH  ] Обзор старт | {"id":52,"x":710,"y":255,"type":"touch"}
+[+01:15.693] [ENGINE ] [web][look] rel count=182 sum=(-1007,-25) +x=51 -x=129 +y=55 -y=44 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:15.693] [ENGINE ] [web][mturn] count=185 sum=-1007.0 +x=51 -x=129 sens=1.00 freelook=1 g_freelookon=0
+[+01:15.807] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":719,"sumY":-57,"+x":14,"-x":0,"+y":0,"-y":11}
+[+01:15.900] [TOUCH  ] Обзор (pointerup) | {"events":9,"sumX":179,"sumY":11,"+x":9,"-x":0,"+y":5,"-y":0}
+[+01:16.111] [TOUCH  ] Обзор старт | {"id":53,"x":704,"y":254,"type":"touch"}
+[+01:16.251] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":441,"sumY":-27,"+x":12,"-x":0,"+y":1,"-y":9}
+[+01:16.431] [TOUCH  ] Обзор (pointerup) | {"events":26,"sumX":378,"sumY":59,"+x":26,"-x":0,"+y":26,"-y":0}
+[+01:16.834] [TOUCH  ] Обзор старт | {"id":54,"x":868,"y":257,"type":"touch"}
+[+01:16.869] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-12,"sumY":-5,"+x":0,"-x":1,"+y":0,"-y":1}
+[+01:16.933] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:17.052] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyD+ShiftLeft"}
+[+01:17.223] [TOUCH  ] Обзор (движение) | {"events":48,"sumX":-585,"sumY":-44,"+x":9,"-x":38,"+y":18,"-y":21}
+[+01:17.584] [TOUCH  ] Обзор (движение) | {"events":41,"sumX":849,"sumY":34,"+x":40,"-x":0,"+y":21,"-y":6}
+[+01:17.693] [ENGINE ] [web][look] rel count=151 sum=(1561,-71) +x=105 -x=44 +y=69 -y=53 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:17.694] [ENGINE ] [web][mturn] count=156 sum=1561.0 +x=105 -x=44 sens=1.00 freelook=1 g_freelookon=0
+[+01:17.959] [TOUCH  ] Обзор (движение) | {"events":43,"sumX":-941,"sumY":1,"+x":0,"-x":41,"+y":25,"-y":15}
+[+01:18.314] [TOUCH  ] Обзор (движение) | {"events":47,"sumX":95,"sumY":6,"+x":30,"-x":14,"+y":18,"-y":12}
+[+01:18.668] [TOUCH  ] Обзор (движение) | {"events":48,"sumX":388,"sumY":16,"+x":31,"-x":15,"+y":24,"-y":19}
+[+01:18.870] [TOUCH  ] Обзор (pointerup) | {"events":12,"sumX":44,"sumY":5,"+x":11,"-x":0,"+y":4,"-y":0}
+[+01:19.262] [TOUCH  ] Обзор старт | {"id":55,"x":873,"y":242,"type":"touch"}
+[+01:19.314] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-10,"sumY":-1,"+x":0,"-x":1,"+y":0,"-y":1}
+[+01:19.675] [TOUCH  ] Обзор (движение) | {"events":47,"sumX":-554,"sumY":28,"+x":0,"-x":47,"+y":17,"-y":4}
+[+01:19.735] [TOUCH  ] Обзор (pointerup) | {"events":1,"sumX":3,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+01:19.743] [ENGINE ] [web][look] rel count=178 sum=(-616,110) +x=67 -x=105 +y=86 -y=33 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:19.743] [ENGINE ] [web][mturn] count=183 sum=-616.0 +x=67 -x=105 sens=1.00 freelook=1 g_freelookon=0
+[+01:19.924] [TOUCH  ] Обзор старт | {"id":56,"x":884,"y":245,"type":"touch"}
+[+01:20.085] [TOUCH  ] Обзор (движение) | {"events":19,"sumX":-651,"sumY":5,"+x":0,"-x":19,"+y":10,"-y":6}
+[+01:20.135] [TOUCH  ] Обзор (pointerup) | {"events":8,"sumX":-126,"sumY":22,"+x":0,"-x":8,"+y":7,"-y":0}
+[+01:20.321] [TOUCH  ] Обзор старт | {"id":57,"x":866,"y":246,"type":"touch"}
+[+01:20.488] [TOUCH  ] Обзор (движение) | {"events":20,"sumX":-470,"sumY":-21,"+x":0,"-x":20,"+y":5,"-y":6}
+[+01:20.648] [TOUCH  ] Обзор (pointerup) | {"events":23,"sumX":-109,"sumY":-6,"+x":0,"-x":23,"+y":0,"-y":5}
+[+01:20.940] [TOUCH  ] Обзор старт | {"id":58,"x":822,"y":241,"type":"touch"}
+[+01:21.002] [TOUCH  ] Обзор (движение) | {"events":4,"sumX":-66,"sumY":-11,"+x":0,"-x":4,"+y":0,"-y":4}
+[+01:21.177] [TOUCH  ] Обзор (pointerup) | {"events":26,"sumX":-346,"sumY":0,"+x":0,"-x":25,"+y":15,"-y":6}
+[+01:21.635] [TOUCH  ] Обзор старт | {"id":59,"x":697,"y":259,"type":"touch"}
+[+01:21.699] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":78,"sumY":-28,"+x":1,"-x":0,"+y":0,"-y":1}
+[+01:21.745] [ENGINE ] [web][look] rel count=88 sum=(-1467,-87) +x=4 -x=84 +y=27 -y=28 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:21.746] [ENGINE ] [web][mturn] count=92 sum=-1467.0 +x=4 -x=84 sens=1.00 freelook=1 g_freelookon=0
+[+01:21.879] [TOUCH  ] Обзор (pointerup) | {"events":21,"sumX":967,"sumY":-20,"+x":21,"-x":0,"+y":12,"-y":4}
+[+01:22.059] [TOUCH  ] Обзор старт | {"id":60,"x":825,"y":243,"type":"touch"}
+[+01:22.233] [TOUCH  ] Обзор (движение) | {"events":20,"sumX":-688,"sumY":57,"+x":0,"-x":20,"+y":14,"-y":0}
+[+01:22.254] [TOUCH  ] Обзор (pointerup) | {"events":3,"sumX":9,"sumY":3,"+x":2,"-x":1,"+y":2,"-y":0}
+[+01:22.533] [TOUCH  ] Обзор старт | {"id":61,"x":810,"y":248,"type":"touch"}
+[+01:22.608] [TOUCH  ] Обзор (движение) | {"events":8,"sumX":-114,"sumY":-1,"+x":0,"-x":8,"+y":1,"-y":1}
+[+01:23.101] [TOUCH  ] Обзор (движение) | {"events":27,"sumX":-285,"sumY":-6,"+x":0,"-x":26,"+y":0,"-y":5}
+[+01:23.455] [TOUCH  ] Обзор (движение) | {"events":13,"sumX":-15,"sumY":-2,"+x":0,"-x":11,"+y":0,"-y":2}
+[+01:23.753] [ENGINE ] [web][look] rel count=95 sum=(-309,61) +x=26 -x=63 +y=26 -y=19 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:23.753] [ENGINE ] [web][mturn] count=105 sum=-309.0 +x=26 -x=63 sens=1.00 freelook=1 g_freelookon=0
+[+01:23.811] [TOUCH  ] Обзор (движение) | {"events":21,"sumX":117,"sumY":-44,"+x":18,"-x":0,"+y":0,"-y":19}
+[+01:24.165] [TOUCH  ] Обзор (движение) | {"events":33,"sumX":190,"sumY":-36,"+x":32,"-x":1,"+y":0,"-y":21}
+[+01:24.456] [TOUCH  ] Обзор (pointerup) | {"events":42,"sumX":555,"sumY":63,"+x":41,"-x":0,"+y":20,"-y":3}
+[+01:24.700] [TOUCH  ] Обзор старт | {"id":62,"x":711,"y":246,"type":"touch"}
+[+01:24.811] [TOUCH  ] Обзор (движение) | {"events":3,"sumX":38,"sumY":-7,"+x":3,"-x":0,"+y":0,"-y":3}
+[+01:25.105] [TOUCH  ] Обзор (pointerup) | {"events":33,"sumX":201,"sumY":0,"+x":31,"-x":0,"+y":5,"-y":4}
+[+01:25.166] [TOUCH  ] Стик завершён (pointerup)
+[+01:44.581] [TOUCH  ] Стик старт | {"id":63,"x":115,"y":341}
+[+01:44.646] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyD+ControlLeft"}
+[+01:44.658] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:44.692] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:44.789] [TOUCH  ] Обзор старт | {"id":64,"x":861,"y":243,"type":"touch"}
+[+01:44.833] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-17,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+01:44.840] [ENGINE ] [web][look] rel count=117 sum=(1044,-7) +x=113 -x=1 +y=22 -y=39 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:44.840] [ENGINE ] [web][mturn] count=119 sum=1044.0 +x=113 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+01:45.106] [TOUCH  ] Обзор (pointerup) | {"events":40,"sumX":-694,"sumY":93,"+x":0,"-x":40,"+y":21,"-y":0}
+[+01:45.305] [TOUCH  ] Обзор старт | {"id":65,"x":834,"y":263,"type":"touch"}
+[+01:45.459] [TOUCH  ] Обзор (движение) | {"events":16,"sumX":-317,"sumY":-145,"+x":0,"-x":16,"+y":0,"-y":16}
+[+01:45.575] [TOUCH  ] Обзор (pointerup) | {"events":16,"sumX":5,"sumY":-20,"+x":4,"-x":8,"+y":0,"-y":13}
+[+01:45.766] [TOUCH  ] Обзор старт | {"id":66,"x":876,"y":241,"type":"touch"}
+[+01:45.932] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":-208,"sumY":5,"+x":0,"-x":14,"+y":6,"-y":2}
+[+01:46.286] [TOUCH  ] Обзор (движение) | {"events":46,"sumX":-167,"sumY":17,"+x":0,"-x":45,"+y":15,"-y":0}
+[+01:46.481] [TOUCH  ] Обзор (pointerup) | {"events":29,"sumX":-180,"sumY":20,"+x":0,"-x":27,"+y":14,"-y":0}
+[+01:46.737] [TOUCH  ] Обзор старт | {"id":67,"x":870,"y":248,"type":"touch"}
+[+01:46.835] [TOUCH  ] Обзор (движение) | {"events":4,"sumX":-24,"sumY":0,"+x":0,"-x":4,"+y":1,"-y":1}
+[+01:46.843] [ENGINE ] [web][look] rel count=156 sum=(-1585,-29) +x=3 -x=146 +y=52 -y=28 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:46.843] [ENGINE ] [web][mturn] count=160 sum=-1585.0 +x=3 -x=146 sens=1.00 freelook=1 g_freelookon=0
+[+01:47.252] [TOUCH  ] Обзор (движение) | {"events":26,"sumX":-91,"sumY":-13,"+x":1,"-x":24,"+y":1,"-y":12}
+[+01:47.607] [TOUCH  ] Обзор (движение) | {"events":37,"sumX":55,"sumY":7,"+x":36,"-x":0,"+y":7,"-y":1}
+[+01:47.621] [TOUCH  ] Обзор (pointerup) | {"events":2,"sumX":13,"sumY":6,"+x":2,"-x":0,"+y":2,"-y":0}
+[+01:47.864] [TOUCH  ] Обзор старт | {"id":68,"x":752,"y":251,"type":"touch"}
+[+01:47.975] [TOUCH  ] Обзор (движение) | {"events":4,"sumX":76,"sumY":-19,"+x":4,"-x":0,"+y":0,"-y":4}
+[+01:48.290] [TOUCH  ] Обзор (pointerup) | {"events":45,"sumX":353,"sumY":16,"+x":45,"-x":0,"+y":18,"-y":3}
+[+01:48.324] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyA"}
+[+01:48.477] [TOUCH  ] Обзор старт | {"id":69,"x":719,"y":258,"type":"touch"}
+[+01:48.642] [TOUCH  ] Обзор (движение) | {"events":15,"sumX":272,"sumY":-25,"+x":15,"-x":0,"+y":0,"-y":9}
+[+01:48.850] [ENGINE ] [web][look] rel count=147 sum=(961,-7) +x=126 -x=19 +y=41 -y=27 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:48.850] [ENGINE ] [web][mturn] count=159 sum=961.0 +x=126 -x=19 sens=1.00 freelook=1 g_freelookon=0
+[+01:48.870] [TOUCH  ] Обзор (pointerup) | {"events":32,"sumX":297,"sumY":24,"+x":32,"-x":0,"+y":19,"-y":0}
+[+01:49.130] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+01:50.047] [TOUCH  ] Обзор старт | {"id":70,"x":853,"y":257,"type":"touch"}
+[+01:50.128] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-6,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+01:50.503] [TOUCH  ] Обзор (движение) | {"events":36,"sumX":-165,"sumY":-6,"+x":0,"-x":36,"+y":0,"-y":5}
+[+01:51.094] [TOUCH  ] Обзор (движение) | {"events":5,"sumX":-4,"sumY":0,"+x":1,"-x":4,"+y":0,"-y":0}
+[+01:51.107] [ENGINE ] [web][look] rel count=43 sum=(-159,-3) +x=4 -x=39 +y=1 -y=4 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:51.107] [ENGINE ] [web][mturn] count=55 sum=-159.0 +x=4 -x=39 sens=1.00 freelook=1 g_freelookon=0
+[+01:51.311] [TOUCH  ] Обзор (pointerup) | {"events":30,"sumX":399,"sumY":36,"+x":28,"-x":2,"+y":20,"-y":2}
+[+01:51.610] [TOUCH  ] Обзор старт | {"id":71,"x":880,"y":272,"type":"touch"}
+[+01:51.700] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-6,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+01:51.977] [TOUCH  ] Обзор (pointerup) | {"events":39,"sumX":-339,"sumY":-132,"+x":5,"-x":32,"+y":0,"-y":37}
+[+01:52.373] [TOUCH  ] Обзор старт | {"id":72,"x":890,"y":257,"type":"touch"}
+[+01:52.436] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-4,"sumY":-1,"+x":0,"-x":1,"+y":0,"-y":1}
+[+01:52.679] [TOUCH  ] Обзор (pointerup) | {"events":34,"sumX":-651,"sumY":72,"+x":0,"-x":34,"+y":27,"-y":4}
+[+01:52.901] [TOUCH  ] Обзор старт | {"id":73,"x":894,"y":253,"type":"touch"}
+[+01:53.033] [TOUCH  ] Обзор (движение) | {"events":11,"sumX":-267,"sumY":22,"+x":0,"-x":11,"+y":7,"-y":2}
+[+01:53.107] [ENGINE ] [web][look] rel count=122 sum=(-1132,21) +x=32 -x=87 +y=63 -y=42 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:53.108] [ENGINE ] [web][mturn] count=125 sum=-1132.0 +x=32 -x=87 sens=1.00 freelook=1 g_freelookon=0
+[+01:53.173] [TOUCH  ] Обзор (pointerup) | {"events":21,"sumX":-338,"sumY":27,"+x":0,"-x":21,"+y":14,"-y":2}
+[+01:53.438] [TOUCH  ] Обзор старт | {"id":74,"x":894,"y":257,"type":"touch"}
+[+01:53.524] [TOUCH  ] Обзор (движение) | {"events":2,"sumX":-30,"sumY":-6,"+x":0,"-x":2,"+y":0,"-y":2}
+[+01:53.879] [TOUCH  ] Обзор (движение) | {"events":45,"sumX":-315,"sumY":-17,"+x":0,"-x":45,"+y":2,"-y":9}
+[+01:54.047] [TOUCH  ] Обзор (pointerup) | {"events":24,"sumX":-249,"sumY":30,"+x":1,"-x":23,"+y":20,"-y":0}
+[+01:54.264] [TOUCH  ] Обзор старт | {"id":75,"x":878,"y":249,"type":"touch"}
+[+01:54.401] [TOUCH  ] Обзор (движение) | {"events":5,"sumX":-64,"sumY":-7,"+x":0,"-x":5,"+y":0,"-y":4}
+[+01:54.757] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":-305,"sumY":-17,"+x":0,"-x":50,"+y":4,"-y":15}
+[+01:55.109] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":-161,"sumY":30,"+x":0,"-x":50,"+y":25,"-y":0}
+[+01:55.118] [ENGINE ] [web][look] rel count=173 sum=(-1201,14) +x=1 -x=172 +y=51 -y=27 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:55.118] [ENGINE ] [web][mturn] count=176 sum=-1201.0 +x=1 -x=172 sens=1.00 freelook=1 g_freelookon=0
+[+01:55.244] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+01:55.349] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+01:55.464] [TOUCH  ] Обзор (движение) | {"events":24,"sumX":-26,"sumY":5,"+x":1,"-x":19,"+y":7,"-y":3}
+[+01:55.821] [TOUCH  ] Обзор (движение) | {"events":46,"sumX":406,"sumY":-54,"+x":42,"-x":0,"+y":0,"-y":31}
+[+01:56.004] [TOUCH  ] Обзор (pointerup) | {"events":24,"sumX":283,"sumY":22,"+x":23,"-x":0,"+y":11,"-y":0}
+[+01:56.307] [TOUCH  ] Обзор старт | {"id":76,"x":738,"y":250,"type":"touch"}
+[+01:56.355] [TOUCH  ] Обзор (движение) | {"events":2,"sumX":56,"sumY":-22,"+x":2,"-x":0,"+y":0,"-y":2}
+[+01:56.637] [TOUCH  ] Обзор (pointerup) | {"events":21,"sumX":651,"sumY":9,"+x":20,"-x":0,"+y":12,"-y":5}
+[+01:56.878] [TOUCH  ] Обзор старт | {"id":77,"x":739,"y":247,"type":"touch"}
+[+01:56.988] [TOUCH  ] Обзор (движение) | {"events":9,"sumX":275,"sumY":-3,"+x":9,"-x":0,"+y":1,"-y":4}
+[+01:57.122] [ENGINE ] [web][look] rel count=125 sum=(2021,6) +x=99 -x=18 +y=41 -y=40 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:57.122] [ENGINE ] [web][mturn] count=134 sum=2021.0 +x=99 -x=18 sens=1.00 freelook=1 g_freelookon=0
+[+01:57.192] [TOUCH  ] Обзор (pointerup) | {"events":25,"sumX":396,"sumY":52,"+x":25,"-x":0,"+y":15,"-y":0}
+[+01:57.446] [TOUCH  ] Обзор старт | {"id":78,"x":741,"y":261,"type":"touch"}
+[+01:57.553] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":17,"sumY":-4,"+x":1,"-x":0,"+y":0,"-y":1}
+[+01:57.911] [TOUCH  ] Обзор (движение) | {"events":47,"sumX":375,"sumY":-23,"+x":47,"-x":0,"+y":1,"-y":10}
+[+01:58.112] [TOUCH  ] Обзор (pointerup) | {"events":26,"sumX":231,"sumY":23,"+x":26,"-x":0,"+y":12,"-y":0}
+[+01:58.470] [TOUCH  ] Обзор старт | {"id":79,"x":809,"y":243,"type":"touch"}
+[+01:58.650] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-3,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+01:59.003] [TOUCH  ] Обзор (движение) | {"events":51,"sumX":-248,"sumY":20,"+x":0,"-x":51,"+y":13,"-y":0}
+[+01:59.089] [TOUCH  ] Стик завершён (pointerup)
+[+01:59.089] [TOUCH  ] Обзор (pointerup) | {"events":6,"sumX":1,"sumY":0,"+x":2,"-x":3,"+y":1,"-y":2}
+[+01:59.324] [TOUCH  ] Обзор старт | {"id":80,"x":852,"y":266,"type":"touch"}
+[+01:59.462] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-6,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+01:59.469] [ENGINE ] [web][look] rel count=138 sum=(389,19) +x=84 -x=54 +y=25 -y=11 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:59.469] [ENGINE ] [web][mturn] count=144 sum=389.0 +x=84 -x=54 sens=1.00 freelook=1 g_freelookon=0
+[+01:59.816] [TOUCH  ] Обзор (движение) | {"events":47,"sumX":-309,"sumY":-31,"+x":0,"-x":47,"+y":0,"-y":16}
+[+01:59.950] [TOUCH  ] Стик старт | {"id":81,"x":136,"y":332}
+[+01:59.958] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+01:59.993] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+02:00.041] [TOUCH  ] Обзор (pointerup) | {"events":6,"sumX":-3,"sumY":0,"+x":2,"-x":4,"+y":0,"-y":0}
+[+02:00.041] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+02:00.090] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS"}
+[+02:00.243] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyS+KeyA+ShiftLeft"}
+[+02:00.523] [TOUCH  ] Обзор старт | {"id":82,"x":872,"y":252,"type":"touch"}
+[+02:00.556] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-12,"sumY":-1,"+x":0,"-x":1,"+y":0,"-y":1}
+[+02:00.826] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyA"}
+[+02:00.826] [TOUCH  ] Обзор (pointerup) | {"events":39,"sumX":-488,"sumY":16,"+x":0,"-x":39,"+y":13,"-y":3}
+[+02:00.917] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+02:01.555] [TOUCH  ] Обзор старт | {"id":83,"x":707,"y":264,"type":"touch"}
+[+02:01.611] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":17,"sumY":-1,"+x":1,"-x":0,"+y":0,"-y":1}
+[+02:01.617] [ENGINE ] [web][look] rel count=89 sum=(-796,-18) +x=2 -x=87 +y=13 -y=19 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:01.617] [ENGINE ] [web][mturn] count=100 sum=-796.0 +x=2 -x=87 sens=1.00 freelook=1 g_freelookon=0
+[+02:01.826] [TOUCH  ] Обзор (pointerup) | {"events":31,"sumX":920,"sumY":93,"+x":31,"-x":0,"+y":21,"-y":4}
+[+02:02.048] [TOUCH  ] Обзор старт | {"id":84,"x":699,"y":271,"type":"touch"}
+[+02:02.182] [TOUCH  ] Обзор (движение) | {"events":11,"sumX":424,"sumY":-58,"+x":11,"-x":0,"+y":0,"-y":10}
+[+02:02.326] [TOUCH  ] Обзор (pointerup) | {"events":21,"sumX":461,"sumY":19,"+x":21,"-x":0,"+y":11,"-y":1}
+[+02:02.571] [TOUCH  ] Обзор старт | {"id":85,"x":697,"y":270,"type":"touch"}
+[+02:02.679] [TOUCH  ] Обзор (движение) | {"events":10,"sumX":186,"sumY":-13,"+x":10,"-x":0,"+y":0,"-y":4}
+[+02:02.895] [TOUCH  ] Обзор (pointerup) | {"events":32,"sumX":580,"sumY":54,"+x":31,"-x":0,"+y":25,"-y":0}
+[+02:03.105] [TOUCH  ] Обзор старт | {"id":86,"x":689,"y":277,"type":"touch"}
+[+02:03.174] [TOUCH  ] Стик завершён (pointerup)
+[+02:03.250] [TOUCH  ] Обзор (движение) | {"events":8,"sumX":206,"sumY":-21,"+x":8,"-x":0,"+y":0,"-y":7}
+[+02:03.576] [TOUCH  ] Обзор (pointerup) | {"events":45,"sumX":556,"sumY":5,"+x":45,"-x":0,"+y":6,"-y":2}
+[+02:03.878] [TOUCH  ] Обзор старт | {"id":87,"x":697,"y":282,"type":"touch"}
+[+02:03.950] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":10,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+02:03.962] [ENGINE ] [web][look] rel count=132 sum=(3343,78) +x=132 -x=0 +y=50 -y=25 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:03.962] [ENGINE ] [web][mturn] count=138 sum=3343.0 +x=132 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+02:03.965] [TOUCH  ] Стик старт | {"id":88,"x":124,"y":334}
+[+02:03.967] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+02:04.152] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:04.206] [TOUCH  ] Обзор (pointerup) | {"events":28,"sumX":382,"sumY":25,"+x":28,"-x":0,"+y":18,"-y":3}
+[+02:04.235] [TOUCH  ] Стик завершён (pointerup)
+[+02:06.132] [HUD    ] Тумблер «Присесть»: ВКЛ | {"key":"KeyX"}
+[+02:06.543] [TOUCH  ] Стик старт | {"id":90,"x":120,"y":362}
+[+02:06.553] [TOUCH  ] Обзор старт | {"id":91,"x":654,"y":320,"type":"touch"}
+[+02:06.588] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+02:06.600] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:06.655] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+02:06.666] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":3,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+02:06.673] [ENGINE ] [web][look] rel count=25 sum=(385,26) +x=25 -x=0 +y=15 -y=2 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:06.674] [ENGINE ] [web][mturn] count=27 sum=385.0 +x=25 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+02:06.951] [TOUCH  ] Стик завершён (pointerup)
+[+02:07.021] [TOUCH  ] Обзор (движение) | {"events":45,"sumX":136,"sumY":-52,"+x":44,"-x":0,"+y":1,"-y":31}
+[+02:07.374] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":191,"sumY":67,"+x":49,"-x":0,"+y":49,"-y":0}
+[+02:07.439] [TOUCH  ] Стик старт | {"id":92,"x":124,"y":375}
+[+02:07.495] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyD+ControlLeft"}
+[+02:07.516] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyD"}
+[+02:07.599] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyS+KeyD+ShiftLeft"}
+[+02:07.729] [TOUCH  ] Обзор (движение) | {"events":31,"sumX":107,"sumY":6,"+x":20,"-x":7,"+y":12,"-y":8}
+[+02:07.751] [TOUCH  ] Стик завершён (pointerup)
+[+02:08.104] [TOUCH  ] Обзор (движение) | {"events":13,"sumX":-14,"sumY":-7,"+x":0,"-x":10,"+y":0,"-y":6}
+[+02:08.466] [TOUCH  ] Обзор (движение) | {"events":13,"sumX":-12,"sumY":-4,"+x":0,"-x":9,"+y":0,"-y":4}
+[+02:08.872] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-1,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+02:08.881] [ENGINE ] [web][look] rel count=140 sum=(407,12) +x=103 -x=24 +y=56 -y=46 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:08.881] [ENGINE ] [web][mturn] count=154 sum=407.0 +x=103 -x=24 sens=1.00 freelook=1 g_freelookon=0
+[+02:09.600] [TOUCH  ] Стик старт | {"id":96,"x":135,"y":362}
+[+02:09.607] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-1,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+02:09.660] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyD+ControlLeft"}
+[+02:09.682] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyD"}
+[+02:09.714] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyS+KeyD+ShiftLeft"}
+[+02:09.843] [TOUCH  ] Стик завершён (pointerup)
+[+02:09.965] [TOUCH  ] Обзор (движение) | {"events":25,"sumX":-55,"sumY":-6,"+x":0,"-x":24,"+y":0,"-y":5}
+[+02:10.037] [TOUCH  ] Стик старт | {"id":97,"x":133,"y":356}
+[+02:10.093] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+02:10.102] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+02:10.156] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+02:10.231] [TOUCH  ] Стик завершён (pointerup)
+[+02:10.327] [TOUCH  ] Обзор (движение) | {"events":30,"sumX":-44,"sumY":18,"+x":0,"-x":26,"+y":15,"-y":0}
+[+02:10.482] [TOUCH  ] Обзор (pointerup) | {"events":5,"sumX":3,"sumY":7,"+x":2,"-x":0,"+y":5,"-y":0}
+[+02:11.724] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:11.817] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:12.455] [TOUCH  ] Обзор старт | {"id":99,"x":687,"y":364,"type":"touch"}
+[+02:12.552] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-2,"sumY":-24,"+x":0,"-x":1,"+y":0,"-y":1}
+[+02:12.562] [ENGINE ] [web][look] rel count=52 sum=(-99,-5) +x=1 -x=45 +y=18 -y=6 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:12.563] [ENGINE ] [web][mturn] count=61 sum=-99.0 +x=1 -x=45 sens=1.00 freelook=1 g_freelookon=0
+[+02:12.677] [TOUCH  ] Стик старт | {"id":100,"x":130,"y":366}
+[+02:12.748] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+02:12.757] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:12.804] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+02:12.908] [TOUCH  ] Стик завершён (pointerup)
+[+02:12.920] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":7,"sumY":-41,"+x":7,"-x":2,"+y":2,"-y":6}
+[+02:13.275] [TOUCH  ] Обзор (движение) | {"events":23,"sumX":46,"sumY":14,"+x":22,"-x":0,"+y":8,"-y":0}
+[+02:13.642] [TOUCH  ] Обзор (движение) | {"events":37,"sumX":105,"sumY":65,"+x":32,"-x":0,"+y":33,"-y":0}
+[+02:13.644] [TOUCH  ] Обзор (pointerup) | {"events":1,"sumX":1,"sumY":1,"+x":1,"-x":0,"+y":1,"-y":0}
+[+02:14.037] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:14.126] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:14.522] [TOUCH  ] Обзор старт | {"id":102,"x":703,"y":353,"type":"touch"}
+[+02:14.620] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":18,"sumY":-20,"+x":1,"-x":0,"+y":0,"-y":1}
+[+02:14.632] [ENGINE ] [web][look] rel count=69 sum=(175,18) +x=59 -x=2 +y=39 -y=6 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:14.632] [ENGINE ] [web][mturn] count=88 sum=175.0 +x=59 -x=2 sens=1.00 freelook=1 g_freelookon=0
+[+02:14.787] [TOUCH  ] Обзор (pointerup) | {"events":7,"sumX":45,"sumY":-45,"+x":5,"-x":1,"+y":1,"-y":5}
+[+02:15.258] [TOUCH  ] Обзор старт | {"id":103,"x":592,"y":188,"type":"touch"}
+[+02:16.279] [HUD    ] Тумблер «Присесть»: ВЫКЛ | {"key":"KeyX"}
+[+02:16.949] [HUD    ] Тумблер «Присесть»: ВКЛ | {"key":"KeyX"}
+[+02:18.759] [TOUCH  ] Обзор старт | {"id":106,"x":682,"y":349,"type":"touch"}
+[+02:18.848] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":28,"sumY":-4,"+x":1,"-x":0,"+y":0,"-y":1}
+[+02:18.860] [ENGINE ] [web][look] rel count=7 sum=(73,-49) +x=6 -x=1 +y=0 -y=5 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:18.860] [ENGINE ] [web][mturn] count=9 sum=73.0 +x=6 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+02:19.332] [TOUCH  ] Обзор (движение) | {"events":22,"sumX":116,"sumY":-18,"+x":20,"-x":0,"+y":0,"-y":8}
+[+02:19.619] [TOUCH  ] Обзор (pointerup) | {"events":28,"sumX":56,"sumY":-20,"+x":26,"-x":0,"+y":1,"-y":18}
+[+02:20.249] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:20.679] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:20.871] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:20.966] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:21.202] [TOUCH  ] Обзор старт | {"id":109,"x":724,"y":301,"type":"touch"}
+[+02:21.299] [TOUCH  ] Стик старт | {"id":110,"x":128,"y":369}
+[+02:21.335] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":1,"sumY":2,"+x":1,"-x":0,"+y":1,"-y":0}
+[+02:21.345] [ENGINE ] [web][look] rel count=47 sum=(174,-35) +x=44 -x=0 +y=2 -y=23 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:21.346] [ENGINE ] [web][mturn] count=58 sum=174.0 +x=44 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+02:21.398] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+02:21.419] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:21.522] [TOUCH  ] Стик завершён (pointerup)
+[+02:21.751] [TOUCH  ] Обзор (движение) | {"events":26,"sumX":15,"sumY":57,"+x":12,"-x":1,"+y":22,"-y":0}
+[+02:22.126] [TOUCH  ] Стик старт | {"id":111,"x":127,"y":376}
+[+02:22.224] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+02:22.225] [TOUCH  ] Обзор старт | {"id":112,"x":720,"y":317,"type":"touch"}
+[+02:22.253] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS"}
+[+02:22.314] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-8,"sumY":10,"+x":0,"-x":1,"+y":1,"-y":0}
+[+02:22.316] [TOUCH  ] Стик завершён (pointerup)
+[+02:22.660] [TOUCH  ] Обзор (pointerup) | {"events":43,"sumX":-21,"sumY":113,"+x":11,"-x":15,"+y":41,"-y":0}
+[+02:22.919] [HUD    ] Кнопка «Удар» нажата | {"mouse":0}
+[+02:23.012] [HUD    ] Кнопка «Удар» отпущена | {"mouse":0}
+[+02:23.486] [HUD    ] Кнопка «Удар» нажата | {"mouse":0}
+[+02:23.571] [HUD    ] Кнопка «Удар» отпущена | {"mouse":0}
+[+02:24.092] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:24.102] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:24.606] [HUD    ] Кнопка «Блок» нажата | {"mouse":2}
+[+02:24.707] [HUD    ] Кнопка «Блок» отпущена | {"mouse":2}
+[+02:24.871] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:24.961] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:25.617] [TOUCH  ] Обзор старт | {"id":118,"x":663,"y":354,"type":"touch"}
+[+02:25.691] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":36,"sumY":-8,"+x":1,"-x":0,"+y":0,"-y":1}
+[+02:25.702] [ENGINE ] [web][look] rel count=65 sum=(23,170) +x=23 -x=15 +y=58 -y=1 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:25.702] [ENGINE ] [web][mturn] count=61 sum=23.0 +x=23 -x=15 sens=1.00 freelook=1 g_freelookon=0
+[+02:25.951] [TOUCH  ] Обзор (pointerup) | {"events":31,"sumX":993,"sumY":-34,"+x":31,"-x":0,"+y":15,"-y":9}
+[+02:26.167] [TOUCH  ] Обзор старт | {"id":119,"x":674,"y":344,"type":"touch"}
+[+02:26.303] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":670,"sumY":-139,"+x":12,"-x":0,"+y":0,"-y":12}
+[+02:26.437] [TOUCH  ] Обзор (pointerup) | {"events":20,"sumX":340,"sumY":-101,"+x":20,"-x":0,"+y":0,"-y":20}
+[+02:26.626] [TOUCH  ] Обзор старт | {"id":120,"x":673,"y":340,"type":"touch"}
+[+02:26.737] [TOUCH  ] Стик старт | {"id":121,"x":133,"y":370}
+[+02:26.790] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":520,"sumY":47,"+x":14,"-x":0,"+y":9,"-y":3}
+[+02:26.902] [TOUCH  ] Обзор (pointerup) | {"events":15,"sumX":306,"sumY":42,"+x":15,"-x":0,"+y":13,"-y":0}
+[+02:26.953] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+KeyA+ControlLeft"}
+[+02:26.987] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyS+KeyA"}
+[+02:27.008] [TOUCH  ] Стик завершён (pointerup)
+[+02:27.075] [TOUCH  ] Обзор старт | {"id":122,"x":691,"y":307,"type":"touch"}
+[+02:27.255] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":163,"sumY":21,"+x":12,"-x":0,"+y":13,"-y":0}
+[+02:27.292] [TOUCH  ] Обзор (pointerup) | {"events":4,"sumX":-4,"sumY":2,"+x":0,"-x":3,"+y":2,"-y":0}
+[+02:27.482] [TOUCH  ] Обзор старт | {"id":123,"x":602,"y":307,"type":"touch"}
+[+02:27.976] [HUD    ] Кнопка «Блок» нажата | {"mouse":2}
+[+02:28.060] [HUD    ] Кнопка «Блок» отпущена | {"mouse":2}
+[+02:28.371] [TOUCH  ] Стик старт | {"id":125,"x":135,"y":365}
+[+02:28.456] [TOUCH  ] Стик завершён (pointerup)
+[+02:28.834] [HUD    ] Кнопка «Блок» нажата | {"mouse":2}
+[+02:28.909] [HUD    ] Кнопка «Блок» отпущена | {"mouse":2}
+[+02:29.321] [TOUCH  ] Стик старт | {"id":127,"x":131,"y":361}
+[+02:29.409] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyA+ControlLeft"}
+[+02:29.421] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:29.454] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+02:29.466] [TOUCH  ] Обзор старт | {"id":128,"x":676,"y":299,"type":"touch"}
+[+02:29.559] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":3,"sumY":1,"+x":1,"-x":0,"+y":1,"-y":0}
+[+02:29.569] [ENGINE ] [web][look] rel count=104 sum=(2991,-162) +x=99 -x=1 +y=49 -y=41 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:29.570] [ENGINE ] [web][mturn] count=105 sum=2991.0 +x=99 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+02:29.915] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":332,"sumY":41,"+x":50,"-x":0,"+y":29,"-y":2}
+[+02:30.124] [TOUCH  ] Обзор (pointerup) | {"events":29,"sumX":175,"sumY":27,"+x":29,"-x":0,"+y":20,"-y":0}
+[+02:30.307] [TOUCH  ] Обзор старт | {"id":129,"x":698,"y":269,"type":"touch"}
+[+02:30.478] [TOUCH  ] Обзор (движение) | {"events":13,"sumX":107,"sumY":147,"+x":13,"-x":0,"+y":13,"-y":0}
+[+02:30.638] [TOUCH  ] Обзор (pointerup) | {"events":23,"sumX":245,"sumY":133,"+x":23,"-x":0,"+y":23,"-y":0}
+[+02:30.888] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:30.985] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:31.410] [TOUCH  ] Обзор старт | {"id":131,"x":668,"y":307,"type":"touch"}
+[+02:31.474] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyD"}
+[+02:31.483] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":6,"sumY":1,"+x":1,"-x":0,"+y":1,"-y":0}
+[+02:31.537] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+KeyD+ControlLeft"}
+[+02:31.574] [ENGINE ] [web][look] rel count=123 sum=(999,379) +x=123 -x=0 +y=93 -y=2 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:31.574] [ENGINE ] [web][mturn] count=125 sum=999.0 +x=123 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+02:31.648] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW+KeyA"}
+[+02:31.702] [TOUCH  ] Стик завершён (pointerup)
+[+02:31.833] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":357,"sumY":28,"+x":50,"-x":0,"+y":20,"-y":10}
+[+02:31.945] [TOUCH  ] Стик старт | {"id":132,"x":135,"y":352}
+[+02:31.974] [TOUCH  ] Стик завершён (pointerup)
+[+02:32.015] [TOUCH  ] Обзор (pointerup) | {"events":27,"sumX":516,"sumY":-20,"+x":27,"-x":0,"+y":0,"-y":12}
+[+02:32.258] [TOUCH  ] Обзор старт | {"id":133,"x":678,"y":314,"type":"touch"}
+[+02:32.368] [TOUCH  ] Обзор (движение) | {"events":8,"sumX":394,"sumY":35,"+x":8,"-x":0,"+y":8,"-y":0}
+[+02:32.473] [TOUCH  ] Обзор (pointerup) | {"events":16,"sumX":490,"sumY":94,"+x":16,"-x":0,"+y":16,"-y":0}
+[+02:32.674] [TOUCH  ] Обзор старт | {"id":134,"x":667,"y":328,"type":"touch"}
+[+02:32.825] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":342,"sumY":-18,"+x":12,"-x":0,"+y":2,"-y":10}
+[+02:33.216] [TOUCH  ] Обзор (движение) | {"events":39,"sumX":138,"sumY":-45,"+x":27,"-x":0,"+y":1,"-y":34}
+[+02:33.634] [TOUCH  ] Обзор старт | {"id":135,"x":724,"y":359,"type":"touch"}
+[+02:33.649] [TOUCH  ] Стик старт | {"id":136,"x":144,"y":356}
+[+02:33.689] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-3,"sumY":-24,"+x":0,"-x":1,"+y":0,"-y":1}
+[+02:33.705] [ENGINE ] [web][look] rel count=131 sum=(2099,21) +x=118 -x=1 +y=32 -y=65 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:33.705] [ENGINE ] [web][mturn] count=129 sum=2099.0 +x=118 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+02:33.756] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+02:33.783] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+02:33.858] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+02:33.933] [TOUCH  ] Обзор (pointerup) | {"events":26,"sumX":114,"sumY":-486,"+x":18,"-x":8,"+y":2,"-y":24}
+[+02:34.148] [TOUCH  ] Обзор старт | {"id":137,"x":717,"y":343,"type":"touch"}
+[+02:34.285] [TOUCH  ] Обзор (движение) | {"events":12,"sumX":-17,"sumY":-236,"+x":3,"-x":5,"+y":0,"-y":12}
+[+02:34.467] [TOUCH  ] Обзор (pointerup) | {"events":23,"sumX":55,"sumY":-114,"+x":23,"-x":0,"+y":2,"-y":19}
+[+02:34.912] [TOUCH  ] Обзор старт | {"id":138,"x":715,"y":328,"type":"touch"}
+[+02:34.994] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-2,"sumY":-24,"+x":0,"-x":1,"+y":0,"-y":1}
+[+02:35.190] [TOUCH  ] Обзор (pointerup) | {"events":25,"sumX":65,"sumY":-195,"+x":23,"-x":2,"+y":4,"-y":20}
+[+02:36.038] [TOUCH  ] Обзор старт | {"id":139,"x":691,"y":281,"type":"touch"}
+[+02:36.148] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":4,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+02:36.156] [ENGINE ] [web][look] rel count=80 sum=(218,-1057) +x=62 -x=13 +y=4 -y=70 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:36.156] [ENGINE ] [web][mturn] count=85 sum=218.0 +x=62 -x=13 sens=1.00 freelook=1 g_freelookon=0
+[+02:36.502] [TOUCH  ] Обзор (движение) | {"events":51,"sumX":438,"sumY":218,"+x":51,"-x":0,"+y":50,"-y":0}
+[+02:36.504] [TOUCH  ] Обзор (pointerup) | {"events":1,"sumX":3,"sumY":2,"+x":1,"-x":0,"+y":1,"-y":0}
+[+02:36.705] [TOUCH  ] Обзор старт | {"id":140,"x":719,"y":268,"type":"touch"}
+[+02:36.887] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":442,"sumY":318,"+x":14,"-x":0,"+y":14,"-y":0}
+[+02:36.939] [TOUCH  ] Обзор (pointerup) | {"events":4,"sumX":171,"sumY":81,"+x":4,"-x":0,"+y":4,"-y":0}
+[+02:37.143] [TOUCH  ] Обзор старт | {"id":141,"x":706,"y":287,"type":"touch"}
+[+02:37.290] [TOUCH  ] Обзор (движение) | {"events":14,"sumX":349,"sumY":23,"+x":14,"-x":0,"+y":13,"-y":0}
+[+02:37.644] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":238,"sumY":-94,"+x":48,"-x":0,"+y":4,"-y":35}
+[+02:37.728] [TOUCH  ] Обзор (pointerup) | {"events":8,"sumX":8,"sumY":-8,"+x":6,"-x":0,"+y":0,"-y":6}
+[+02:37.958] [TOUCH  ] Обзор старт | {"id":142,"x":711,"y":292,"type":"touch"}
+[+02:38.082] [TOUCH  ] Обзор (движение) | {"events":6,"sumX":112,"sumY":-33,"+x":6,"-x":0,"+y":0,"-y":6}
+[+02:38.158] [ENGINE ] [web][look] rel count=150 sum=(1833,482) +x=146 -x=0 +y=79 -y=55 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:38.158] [ENGINE ] [web][mturn] count=153 sum=1833.0 +x=146 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+02:38.477] [TOUCH  ] Обзор (pointerup) | {"events":36,"sumX":68,"sumY":-54,"+x":14,"-x":10,"+y":0,"-y":32}
+[+02:39.090] [TOUCH  ] Обзор старт | {"id":143,"x":779,"y":257,"type":"touch"}
+[+02:39.200] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-7,"sumY":7,"+x":0,"-x":1,"+y":1,"-y":0}
+[+02:39.604] [TOUCH  ] Обзор (движение) | {"events":43,"sumX":-97,"sumY":96,"+x":1,"-x":40,"+y":30,"-y":0}
+[+02:39.606] [TOUCH  ] Обзор (pointerup) | {"events":1,"sumX":1,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+02:39.689] [TOUCH  ] Стик завершён (pointerup)
+[+02:40.105] [TOUCH  ] Стик старт | {"id":144,"x":149,"y":344}
+[+02:40.188] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+02:40.199] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+02:40.233] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+02:40.950] [TOUCH  ] Обзор старт | {"id":145,"x":755,"y":293,"type":"touch"}
+[+02:41.036] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":-3,"sumY":0,"+x":0,"-x":1,"+y":0,"-y":0}
+[+02:41.046] [ENGINE ] [web][look] rel count=68 sum=(-114,76) +x=5 -x=49 +y=29 -y=22 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:41.046] [ENGINE ] [web][mturn] count=71 sum=-114.0 +x=5 -x=49 sens=1.00 freelook=1 g_freelookon=0
+[+02:41.429] [TOUCH  ] Обзор (движение) | {"events":32,"sumX":-83,"sumY":14,"+x":0,"-x":32,"+y":10,"-y":0}
+[+02:42.333] [TOUCH  ] Обзор (движение) | {"events":6,"sumX":-8,"sumY":0,"+x":0,"-x":6,"+y":0,"-y":0}
+[+02:42.812] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":1,"sumY":0,"+x":1,"-x":0,"+y":0,"-y":0}
+[+02:42.841] [TOUCH  ] Обзор (pointerup) | {"events":3,"sumX":4,"sumY":0,"+x":3,"-x":0,"+y":0,"-y":0}
+[+02:43.717] [TOUCH  ] Стик завершён (pointerup)
+[+02:44.349] [HUD    ] Кнопка «Оружие» нажата | {"key":"BracketLeft"}
+[+02:44.423] [HUD    ] Кнопка «Оружие» отпущена | {"key":"BracketLeft"}
+[+02:44.853] [HUD    ] Кнопка «Оружие» нажата | {"key":"BracketLeft"}
+[+02:44.941] [HUD    ] Кнопка «Оружие» отпущена | {"key":"BracketLeft"}
+[+02:45.267] [HUD    ] Кнопка «Оружие» нажата | {"key":"BracketLeft"}
+[+02:45.364] [HUD    ] Кнопка «Оружие» отпущена | {"key":"BracketLeft"}
+[+02:45.710] [HUD    ] Кнопка «Оружие» нажата | {"key":"BracketLeft"}
+[+02:45.787] [HUD    ] Кнопка «Оружие» отпущена | {"key":"BracketLeft"}
+[+02:47.501] [HUD    ] Кнопка «Предм.» нажата | {"key":"BracketRight"}
+[+02:47.589] [HUD    ] Кнопка «Предм.» отпущена | {"key":"BracketRight"}
+[+02:48.070] [HUD    ] Кнопка «Предм.» нажата | {"key":"BracketRight"}
+[+02:48.138] [HUD    ] Кнопка «Предм.» отпущена | {"key":"BracketRight"}
+[+02:48.585] [HUD    ] Кнопка «Предм.» нажата | {"key":"BracketRight"}
+[+02:48.661] [HUD    ] Кнопка «Предм.» отпущена | {"key":"BracketRight"}
+[+02:49.196] [HUD    ] Кнопка «Предм.» нажата | {"key":"BracketRight"}
+[+02:49.257] [HUD    ] Кнопка «Предм.» отпущена | {"key":"BracketRight"}
+[+02:50.840] [HUD    ] Кнопка «Действие» нажата | {"key":"KeyF"}
+[+02:50.937] [HUD    ] Кнопка «Действие» отпущена | {"key":"KeyF"}
+[+02:51.417] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:51.427] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:51.752] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:51.797] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:51.907] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:51.996] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:52.206] [HUD    ] Кнопка «Прыжок» нажата | {"key":"Space"}
+[+02:52.216] [HUD    ] Кнопка «Прыжок» отпущена | {"key":"Space"}
+[+02:52.344] [HUD    ] Кнопка «Блок» нажата | {"mouse":2}
+[+02:52.441] [HUD    ] Кнопка «Блок» отпущена | {"mouse":2}
+[+02:52.589] [HUD    ] Кнопка «Блок» нажата | {"mouse":2}
+[+02:52.698] [HUD    ] Кнопка «Блок» отпущена | {"mouse":2}
+[+02:53.356] [TOUCH  ] Стик старт | {"id":161,"x":106,"y":386}
+[+02:53.357] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyS+ControlLeft"}
+[+02:53.422] [TOUCH  ] Стик режим: ПОКОЙ | {"keys":"none"}
+[+02:53.434] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+02:53.456] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+02:53.478] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+ShiftLeft"}
+[+02:54.973] [TOUCH  ] Обзор старт | {"id":162,"x":721,"y":300,"type":"touch"}
+[+02:55.055] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":0,"sumY":8,"+x":0,"-x":0,"+y":1,"-y":0}
+[+02:55.063] [ENGINE ] [web][look] rel count=39 sum=(-81,20) +x=3 -x=35 +y=9 -y=0 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:55.076] [ENGINE ] [web][mturn] count=57 sum=-75.0 +x=4 -x=35 sens=1.00 freelook=1 g_freelookon=0
+[+02:55.430] [TOUCH  ] Обзор (движение) | {"events":41,"sumX":32,"sumY":231,"+x":18,"-x":0,"+y":41,"-y":0}
+[+02:55.786] [TOUCH  ] Обзор (движение) | {"events":27,"sumX":-46,"sumY":-177,"+x":0,"-x":24,"+y":0,"-y":26}
+[+02:56.100] [TOUCH  ] Обзор (pointerup) | {"events":46,"sumX":88,"sumY":-189,"+x":26,"-x":4,"+y":0,"-y":41}
+[+02:56.461] [TOUCH  ] Обзор старт | {"id":163,"x":742,"y":258,"type":"touch"}
+[+02:56.508] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":0,"sumY":12,"+x":0,"-x":0,"+y":1,"-y":0}
+[+02:56.904] [TOUCH  ] Обзор (движение) | {"events":24,"sumX":-29,"sumY":178,"+x":3,"-x":8,"+y":23,"-y":0}
+[+02:57.069] [ENGINE ] [web][look] rel count=153 sum=(97,35) +x=64 -x=33 +y=62 -y=82 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+02:57.079] [ENGINE ] [web][mturn] count=117 sum=95.0 +x=64 -x=33 sens=1.00 freelook=1 g_freelookon=0
+[+02:57.258] [TOUCH  ] Обзор (движение) | {"events":50,"sumX":148,"sumY":-72,"+x":50,"-x":0,"+y":0,"-y":46}
+[+02:57.614] [TOUCH  ] Обзор (движение) | {"events":36,"sumX":-84,"sumY":5,"+x":6,"-x":27,"+y":6,"-y":3}
+[+02:57.801] [TOUCH  ] Обзор (pointerup) | {"events":13,"sumX":-14,"sumY":-6,"+x":3,"-x":8,"+y":0,"-y":5}
+[+02:57.824] [TOUCH  ] Стик завершён (pointerup)

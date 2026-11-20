@@ -44,6 +44,7 @@ void RenderBackendInjectRelativeLook(int dx, int dy);
 void RenderBackendInjectKey(int sdlScancode, int down);
 void RenderBackendInjectMouseButton(int button, int down);
 void RenderBackendInjectPointer(float normX, float normY, int action, int button);
+void DarkWebDispatchGameAction(int actionId, int down);
 
 static int g_darkWebTargetFps = 0; // 0 = native VSync (60/120Hz), 30 or 60 = paced cap
 static float g_darkWebMouseSens = 1.0f;
@@ -514,6 +515,12 @@ void cUnixGameShell::DrainWebInputQueue()
         {
             m_lookAccumX += static_cast<float>(dark_web_event_f1());
             m_lookAccumY += static_cast<float>(dark_web_event_f2());
+        }
+        else if (type == 5)
+        {
+            const int actionId = dark_web_event_i1();
+            const int down = dark_web_event_i2();
+            DarkWebDispatchGameAction(actionId, down);
         }
     }
 

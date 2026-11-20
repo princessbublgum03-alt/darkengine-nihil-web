@@ -2004,9 +2004,9 @@
     <!-- Compact Top HUD Bar -->
     <div class="hud-topbar">
       <div class="hud-topbar-group hud-topbar-left">
-        <button type="button" class="hud-chip-btn" data-key="KeyM" aria-label="Открыть карту">Карта</button>
-        <button type="button" class="hud-chip-btn" data-key="BracketLeft" aria-label="Переключить оружие">Оружие</button>
-        <button type="button" class="hud-chip-btn" data-key="BracketRight" aria-label="Переключить предмет">Предм.</button>
+        <button type="button" class="hud-chip-btn" data-action="automap" aria-label="Открыть карту">Карта</button>
+        <button type="button" class="hud-chip-btn" data-action="weapon_next" aria-label="Переключить оружие">Оружие</button>
+        <button type="button" class="hud-chip-btn" data-action="item_next" aria-label="Переключить предмет">Предм.</button>
       </div>
       <div class="hud-topbar-group">
         <button type="button" class="hud-chip-btn" id="hudInputModeBtn" aria-pressed="true" aria-label="Переключить режим курсора и управления">Курсор</button>
@@ -2112,9 +2112,9 @@
 
       <!-- Left Stealth Action Buttons -->
       <div class="touch-cluster-left">
-        <button type="button" class="touch-act-btn" data-key="KeyQ" aria-label="Наклон влево">Накл. L</button>
-        <button type="button" class="touch-act-btn" id="crouchBtn" data-key="KeyX" data-toggle="true" aria-pressed="false" aria-label="Присесть">Присесть</button>
-        <button type="button" class="touch-act-btn" data-key="KeyE" aria-label="Наклон вправо">Накл. R</button>
+        <button type="button" class="touch-act-btn" data-action="lean_left" aria-label="Наклон влево">Накл. L</button>
+        <button type="button" class="touch-act-btn" id="crouchBtn" data-action="crouch" data-toggle="true" aria-pressed="false" aria-label="Присесть">Присесть</button>
+        <button type="button" class="touch-act-btn" data-action="lean_right" aria-label="Наклон вправо">Накл. R</button>
       </div>
 
       <!-- Right Swipe Camera Look Zone -->
@@ -2122,10 +2122,10 @@
 
       <!-- Right Action Buttons Cluster -->
       <div class="touch-cluster-right">
-        <button type="button" class="touch-act-btn is-primary-act" data-mouse="0" aria-label="Атака или удар">Удар</button>
-        <button type="button" class="touch-act-btn" data-mouse="2" aria-label="Блок или использовать предмет">Блок</button>
-        <button type="button" class="touch-act-btn" data-key="KeyF" aria-label="Взаимодействовать">Действие</button>
-        <button type="button" class="touch-act-btn" data-key="Space" aria-label="Прыжок">Прыжок</button>
+        <button type="button" class="touch-act-btn is-primary-act" data-action="attack" aria-label="Атака или удар оружием">Удар</button>
+        <button type="button" class="touch-act-btn" data-action="block" aria-label="Блок оружием">Блок</button>
+        <button type="button" class="touch-act-btn" data-action="use_item" aria-label="Взаимодействие или использовать предмет">Действие</button>
+        <button type="button" class="touch-act-btn" data-action="jump" aria-label="Прыжок">Прыжок</button>
       </div>
     </div>
   </section>
@@ -2172,6 +2172,50 @@
           };
         },
 
+        // Canonical engine action IDs matching DarkWebDispatchGameAction in gen_bind.cpp.
+        // Independent of DARK.BND / USER.BND keyboard/mouse layouts across Thief 1 / Gold / 2.
+        GAME_ACTIONS: {
+          attack: 1,
+          block: 2,
+          use_item: 3,
+          jump: 4,
+          crouch: 5,
+          lean_left: 6,
+          lean_right: 7,
+          lean_forward: 8,
+          weapon_next: 9,
+          weapon_prev: 10,
+          weapon_clear: 11,
+          item_next: 12,
+          item_prev: 13,
+          automap: 14,
+          sim_menu: 15,
+          quick_save: 16,
+          quick_load: 17,
+          drop_item: 18
+        },
+
+        GAME_ACTION_LABELS: {
+          attack: 'Удар / Оружие',
+          block: 'Блок',
+          use_item: 'Действие / Предмет',
+          jump: 'Прыжок',
+          crouch: 'Присесть',
+          lean_left: 'Наклон влево',
+          lean_right: 'Наклон вправо',
+          lean_forward: 'Наклон вперёд',
+          weapon_next: 'Смена оружия',
+          weapon_prev: 'Пред. оружие',
+          weapon_clear: 'Убрать оружие',
+          item_next: 'Смена предмета',
+          item_prev: 'Пред. предмет',
+          automap: 'Карта',
+          sim_menu: 'Меню паузы',
+          quick_save: 'Быстрое сохранение',
+          quick_load: 'Быстрая загрузка',
+          drop_item: 'Бросить предмет'
+        },
+
         classifyTouchGesture(gesture) {
           const g = gesture || {};
           const dx = Number(g.dx) || 0;
@@ -2184,15 +2228,15 @@
             if (dist >= 46) {
               if (Math.abs(dx) >= Math.abs(dy)) {
                 return dx < 0
-                  ? { action: 'lean-left', key: 'KeyQ', holdMs: 260, label: 'НАКЛОН ВЛЕВО' }
-                  : { action: 'lean-right', key: 'KeyE', holdMs: 260, label: 'НАКЛОН ВПРАВО' };
+                  ? { action: 'lean-left', gameAction: 'lean_left', holdMs: 260, label: 'НАКЛОН ВЛЕВО' }
+                  : { action: 'lean-right', gameAction: 'lean_right', holdMs: 260, label: 'НАКЛОН ВПРАВО' };
               }
               return dy < 0
-                ? { action: 'cycle-weapon', key: 'BracketLeft', holdMs: 90, label: 'СМЕНА ОРУЖИЯ' }
-                : { action: 'map', key: 'KeyM', holdMs: 90, label: 'КАРТА' };
+                ? { action: 'cycle-weapon', gameAction: 'weapon_next', holdMs: 90, label: 'СМЕНА ОРУЖИЯ' }
+                : { action: 'map', gameAction: 'automap', holdMs: 90, label: 'КАРТА' };
             }
             if (durationMs <= 280 && dist < 28) {
-              return { action: 'block-item', mouseButton: 2, holdMs: 140, label: 'БЛОК / ПРЕДМЕТ' };
+              return { action: 'block-item', gameAction: 'block', holdMs: 140, label: 'БЛОК' };
             }
             return null;
           }
@@ -2200,12 +2244,12 @@
           if (dist <= 16 && durationMs <= 240) {
             if (g.zone === 'left') {
               return g.isDoubleTap
-                ? { action: 'crouch', key: 'KeyX', holdMs: 90, label: 'ПРИСЕСТЬ' }
-                : { action: 'interact', key: 'KeyF', holdMs: 90, label: 'ДЕЙСТВИЕ' };
+                ? { action: 'crouch', gameAction: 'crouch', holdMs: 90, label: 'ПРИСЕСТЬ' }
+                : { action: 'interact', gameAction: 'use_item', holdMs: 110, label: 'ДЕЙСТВИЕ' };
             }
             return g.isDoubleTap
-              ? { action: 'jump', key: 'Space', holdMs: 110, label: 'ПРЫЖОК' }
-              : { action: 'attack', mouseButton: 0, holdMs: 110, label: 'УДАР' };
+              ? { action: 'jump', gameAction: 'jump', holdMs: 110, label: 'ПРЫЖОК' }
+              : { action: 'attack', gameAction: 'attack', holdMs: 110, label: 'УДАР' };
           }
           return null;
         },
@@ -2234,17 +2278,21 @@
           const keys = {
             KeyW: false, KeyS: false, KeyA: false, KeyD: false,
             ShiftLeft: false, ControlLeft: false,
-            Space: btnDown(0),
-            KeyX: btnDown(1),
-            KeyF: btnDown(2),
-            KeyM: btnDown(3),
-            KeyQ: btnDown(4),
-            KeyE: btnDown(5),
-            Escape: btnDown(9),
-            F5: btnDown(12),
-            F9: btnDown(13),
-            BracketLeft: btnDown(14),
-            BracketRight: btnDown(15)
+            Escape: btnDown(9)
+          };
+          const actions = {
+            jump: btnDown(0),
+            crouch: btnDown(1),
+            use_item: btnDown(2),
+            automap: btnDown(3),
+            lean_left: btnDown(4),
+            lean_right: btnDown(5),
+            block: btnDown(6),
+            attack: btnDown(7),
+            quick_save: btnDown(12),
+            quick_load: btnDown(13),
+            weapon_next: btnDown(14),
+            item_next: btnDown(15)
           };
 
           if (lMag > dz) {
@@ -2285,8 +2333,9 @@
 
           return {
             keys,
-            mouseLeft: btnDown(7),
-            mouseRight: btnDown(6),
+            actions,
+            mouseLeft: actions.attack,
+            mouseRight: actions.block,
             lookDx,
             lookDy,
             moveMode,
@@ -5790,6 +5839,26 @@
           setTimeout(() => dispatchMouseButton(button, false), holdMs || 110);
         }
 
+        function dispatchGameAction(actionName, down) {
+          const actionId = DarkWebCore.GAME_ACTIONS[actionName] || 0;
+          if (!actionId) return;
+          if (down) {
+            previewLastAction = DarkWebCore.GAME_ACTION_LABELS[actionName] || actionName;
+          }
+          if (!appState.isPreviewMode && appState.wasmState === 'ready') {
+            DarkWebCore.enqueueWebInputEvent(window.__darkWebInputQueue, [5, actionId, down ? 1 : 0, 0, 0]);
+          }
+        }
+
+        const HOLD_GAME_ACTIONS = new Set(['attack', 'block', 'use_item', 'jump', 'lean_left', 'lean_right', 'lean_forward']);
+
+        function pulseGameAction(actionName, holdMs) {
+          dispatchGameAction(actionName, true);
+          if (HOLD_GAME_ACTIONS.has(actionName)) {
+            setTimeout(() => dispatchGameAction(actionName, false), holdMs || 110);
+          }
+        }
+
         const lookBatches = Object.create(null);
 
         function getLookBatch(source) {
@@ -6009,8 +6078,7 @@
         let gamepadPollRaf = 0;
         let gamepadLastTs = 0;
         const prevPadKeys = Object.create(null);
-        let prevPadLmb = false;
-        let prevPadRmb = false;
+        const prevPadActions = Object.create(null);
 
         function getPrimaryGamepad() {
           if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return null;
@@ -6060,8 +6128,19 @@
                 if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ControlLeft'].includes(code)) {
                   logInput('GAMEPAD', 'Кнопка ' + code + ' ' + (isDown ? 'нажата' : 'отпущена'));
                 }
-                if (isDown && (code === 'F5' || code === 'F9')) {
-                  showInputToast(code === 'F5' ? 'БЫСТРОЕ СОХРАНЕНИЕ (F5)' : 'БЫСТРАЯ ЗАГРУЗКА (F9)');
+              }
+            }
+
+            for (const [act, isDown] of Object.entries(mapped.actions || {})) {
+              if (Boolean(prevPadActions[act]) !== isDown) {
+                prevPadActions[act] = isDown;
+                dispatchGameAction(act, isDown);
+                const label = DarkWebCore.GAME_ACTION_LABELS[act] || act;
+                logInput('GAMEPAD', 'Действие «' + label + '» ' + (isDown ? 'нажато' : 'отпущено'), { action: act });
+                if (isDown && act === 'attack') {
+                  triggerGamepadRumble(pad, 0.18, 0.42, 60);
+                } else if (isDown && (act === 'quick_save' || act === 'quick_load')) {
+                  showInputToast(act === 'quick_save' ? 'БЫСТРОЕ СОХРАНЕНИЕ' : 'БЫСТРАЯ ЗАГРУЗКА');
                   triggerGamepadRumble(pad, 0.2, 0.25, 45);
                 }
               }
@@ -6072,17 +6151,6 @@
               logInput('GAMEPAD', 'Левый стик: ' + (mapped.moveLabel || mapped.moveMode));
             }
 
-            if (mapped.mouseLeft !== prevPadLmb) {
-              prevPadLmb = mapped.mouseLeft;
-              dispatchMouseButton(0, mapped.mouseLeft);
-              logInput('GAMEPAD', 'Триггер ЛКМ (Удар) ' + (mapped.mouseLeft ? 'нажат' : 'отпущен'));
-              if (mapped.mouseLeft) triggerGamepadRumble(pad, 0.18, 0.42, 60);
-            }
-            if (mapped.mouseRight !== prevPadRmb) {
-              prevPadRmb = mapped.mouseRight;
-              dispatchMouseButton(2, mapped.mouseRight);
-              logInput('GAMEPAD', 'Триггер ПКМ (Блок) ' + (mapped.mouseRight ? 'нажат' : 'отпущен'));
-            }
             if (mapped.lookDx !== 0 || mapped.lookDy !== 0) {
               prevPadLookActive = true;
               dispatchMouseLook(mapped.lookDx, mapped.lookDy, true, 'GAMEPAD');
@@ -6126,8 +6194,12 @@
               dispatchKey(k, false);
             }
           }
-          if (prevPadLmb) { prevPadLmb = false; dispatchMouseButton(0, false); }
-          if (prevPadRmb) { prevPadRmb = false; dispatchMouseButton(2, false); }
+          for (const act of Object.keys(prevPadActions)) {
+            if (prevPadActions[act]) {
+              prevPadActions[act] = false;
+              dispatchGameAction(act, false);
+            }
+          }
           prevPadMoveMode = 'idle';
           if (prevPadLookActive) { prevPadLookActive = false; flushInputLookBatch('GAMEPAD', 'отключён'); }
           refreshGamepadConnection();
@@ -6178,12 +6250,13 @@
         function executeGestureAction(result) {
           if (!result) return;
           logInput('GESTURE', 'Жест: ' + (result.label || result.action), {
-            action: result.action,
+            action: result.gameAction || result.action,
             key: result.key || null,
             mouseButton: result.mouseButton !== undefined ? result.mouseButton : null
           });
-          if (result.key) pulseKey(result.key, result.holdMs);
-          if (result.mouseButton !== undefined) pulseMouseButton(result.mouseButton, result.holdMs);
+          if (result.gameAction) pulseGameAction(result.gameAction, result.holdMs);
+          else if (result.key) pulseKey(result.key, result.holdMs);
+          else if (result.mouseButton !== undefined) pulseMouseButton(result.mouseButton, result.holdMs);
           triggerHaptic(14);
           showInputToast(result.label);
         }
@@ -6220,7 +6293,7 @@
           if (activeGesturePointers.size === 2) {
             // Switch cleanly into 2-finger gesture mode
             if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
-            if (gRightHoldActive) { gRightHoldActive = false; dispatchMouseButton(2, false); }
+            if (gRightHoldActive) { gRightHoldActive = false; dispatchGameAction('block', false); }
             resetGestureMove();
             gLookPointerId = null;
             const pts = Array.from(activeGesturePointers.values());
@@ -6247,10 +6320,10 @@
               const pt = activeGesturePointers.get(e.pointerId);
               if (pt && !pt.moved && !gTwoFingerActive) {
                 gRightHoldActive = true;
-                dispatchMouseButton(2, true);
-                logInput('GESTURE', 'Удержание справа: Блок / Предмет (ПКМ)');
+                dispatchGameAction('block', true);
+                logInput('GESTURE', 'Удержание справа: Блок', { action: 'block' });
                 triggerHaptic(18);
-                showInputToast('БЛОК / ПРЕДМЕТ (УДЕРЖ.)');
+                showInputToast('БЛОК (УДЕРЖ.)');
               }
             }, 260);
           }
@@ -6337,8 +6410,8 @@
             }
             if (gRightHoldActive) {
               gRightHoldActive = false;
-              dispatchMouseButton(2, false);
-              logInput('GESTURE', 'Удержание справа отпущено (ПКМ)');
+              dispatchGameAction('block', false);
+              logInput('GESTURE', 'Удержание справа отпущено (Блок)', { action: 'block' });
               return;
             }
           }
@@ -6527,14 +6600,17 @@
         lookZone.addEventListener('pointercancel', endLook);
         lookZone.addEventListener('lostpointercapture', endLook);
 
-        // Action & Top HUD Buttons
-        document.querySelectorAll('[data-key], [data-mouse]').forEach((btn) => {
+        // Action & Top HUD Buttons (scoped strictly to #game-stage so launcher buttons are never intercepted)
+        gameStage.querySelectorAll('[data-action], [data-key], [data-mouse]').forEach((btn) => {
           const isToggle = btn.dataset.toggle === 'true';
-          const keyCode = btn.dataset.key;
+          const actionName = btn.dataset.action || '';
+          const keyCode = btn.dataset.key || '';
           const mouseBtn = btn.dataset.mouse !== undefined ? Number(btn.dataset.mouse) : null;
-          const btnLabel = (btn.textContent || btn.getAttribute('aria-label') || keyCode || ('mouse' + mouseBtn)).trim();
+          if (actionName && !DarkWebCore.GAME_ACTIONS[actionName]) return;
+          const btnLabel = (btn.textContent || btn.getAttribute('aria-label') || actionName || keyCode || ('mouse' + mouseBtn)).trim();
+          const logMeta = actionName ? { action: actionName } : (keyCode ? { key: keyCode } : { mouse: mouseBtn });
 
-          if (isToggle && keyCode) {
+          if (isToggle && (actionName || keyCode)) {
             btn.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
             btn.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
             btn.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -6544,9 +6620,13 @@
               const next = btn.getAttribute('aria-pressed') !== 'true';
               btn.setAttribute('aria-pressed', String(next));
               btn.classList.toggle('is-toggled', next);
-              logInput('HUD', 'Тумблер «' + btnLabel + '»: ' + (next ? 'ВКЛ' : 'ВЫКЛ'), { key: keyCode });
-              dispatchKey(keyCode, true);
-              setTimeout(() => dispatchKey(keyCode, false), 90);
+              logInput('HUD', 'Тумблер «' + btnLabel + '»: ' + (next ? 'ВКЛ' : 'ВЫКЛ'), logMeta);
+              if (actionName) {
+                dispatchGameAction(actionName, true);
+              } else {
+                dispatchKey(keyCode, true);
+                setTimeout(() => dispatchKey(keyCode, false), 90);
+              }
             });
             return;
           }
@@ -6559,20 +6639,21 @@
             e.preventDefault();
             e.stopPropagation();
             btn.classList.add('is-pressed');
-            logInput('HUD', 'Кнопка «' + btnLabel + '» нажата', keyCode ? { key: keyCode } : { mouse: mouseBtn });
-            if (keyCode) dispatchKey(keyCode, true);
-            if (mouseBtn !== null) dispatchMouseButton(mouseBtn, true);
+            logInput('HUD', 'Кнопка «' + btnLabel + '» нажата', logMeta);
+            if (actionName) dispatchGameAction(actionName, true);
+            else if (keyCode) dispatchKey(keyCode, true);
+            else if (mouseBtn !== null) dispatchMouseButton(mouseBtn, true);
           });
 
           const release = (e) => {
             if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
             const wasPressed = btn.classList.contains('is-pressed');
             btn.classList.remove('is-pressed');
-            if (wasPressed) {
-              logInput('HUD', 'Кнопка «' + btnLabel + '» отпущена', keyCode ? { key: keyCode } : { mouse: mouseBtn });
-            }
-            if (keyCode) dispatchKey(keyCode, false);
-            if (mouseBtn !== null) dispatchMouseButton(mouseBtn, false);
+            if (!wasPressed) return;
+            logInput('HUD', 'Кнопка «' + btnLabel + '» отпущена', logMeta);
+            if (actionName) dispatchGameAction(actionName, false);
+            else if (keyCode) dispatchKey(keyCode, false);
+            else if (mouseBtn !== null) dispatchMouseButton(mouseBtn, false);
           };
 
           btn.addEventListener('pointerup', release);

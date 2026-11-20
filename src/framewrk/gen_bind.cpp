@@ -1857,3 +1857,61 @@ void InitIBVars ()
 
 }
 
+#ifdef __EMSCRIPTEN__
+// Canonical, DARK.BND-independent gameplay action dispatcher for web touch
+// buttons, touch gestures, and gamepad controls. Prevents retail Thief 1/2
+// keyboard/mouse binding differences (e.g. '['/'/' both cycling items,
+// mouse1 being +use_item instead of attack, 'F' unbound) from breaking HUD controls.
+extern "C" void DarkWebDispatchGameAction(int actionId, int down)
+{
+   if (!g_pInputBinder || !g_inpbnd_handler)
+      return;
+
+   ulong ctx = 0;
+   g_pInputBinder->GetContext(&ctx);
+   if ((ctx & (HK_GAME_MODE | HK_GAME2_MODE)) == 0)
+      return;
+
+   const char *cmd = NULL;
+   switch (actionId)
+   {
+      case 1:  cmd = down ? "+use_weapon" : "-use_weapon"; break;
+      case 2:  cmd = down ? "+block" : "-block"; break;
+      case 3:  cmd = down ? "+use_item" : "-use_item"; break;
+      case 4:  cmd = down ? "+jump" : "-jump"; break;
+      case 5:  cmd = down ? "crouch" : NULL; break;
+      case 6:  cmd = down ? "+leanleft" : "-leanleft"; break;
+      case 7:  cmd = down ? "+leanright" : "-leanright"; break;
+      case 8:  cmd = down ? "+leanforward" : "-leanforward"; break;
+      case 9:  cmd = down ? "next_weapon" : NULL; break;
+      case 10: cmd = down ? "prev_weapon" : NULL; break;
+      case 11: cmd = down ? "clear_weapon" : NULL; break;
+      case 12: cmd = down ? "next_item" : NULL; break;
+      case 13: cmd = down ? "prev_item" : NULL; break;
+      case 14: cmd = down ? "automap" : NULL; break;
+      case 15: cmd = down ? "sim_menu" : NULL; break;
+      case 16: cmd = down ? "quick_save" : NULL; break;
+      case 17: cmd = down ? "quick_load" : NULL; break;
+      case 18: cmd = down ? "drop_item" : NULL; break;
+      default: return;
+   }
+
+   if (!cmd)
+      return;
+
+   static int s_verboseInput = -1;
+   if (s_verboseInput < 0)
+   {
+      const char *env = getenv("DARK_WEB_VERBOSE_LOG");
+      s_verboseInput = (env && env[0] == '1') ? 1 : 0;
+   }
+   if (s_verboseInput == 1)
+   {
+      fprintf(stderr, "[web][input] action=%d down=%d cmd=%s\n", actionId, down ? 1 : 0, cmd);
+   }
+
+   g_pInputBinder->ProcessCmd(cmd);
+}
+#endif
+
+

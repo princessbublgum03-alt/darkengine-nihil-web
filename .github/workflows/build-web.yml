@@ -232,9 +232,106 @@ jobs:
           print(f'[wasm-ang-fix] Patched {total_lines} line(s) across {total_files} file(s).')
           PY
 
-      - name: Настраиваем проект (CMake + Ninja + Clang -O3 WASM 2.0)
+      - name: Кэш FFmpeg 6.1.2 для WebAssembly (ролики Indeo 5 / AVI)
+        id: cache-ffmpeg-wasm
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ffmpeg-wasm-install
+          key: ffmpeg-wasm-6.1.2-v1-${{ runner.os }}
+
+      - name: Собираем статический FFmpeg 6.1.2 для WebAssembly (если нет в кэше)
+        if: steps.cache-ffmpeg-wasm.outputs.cache-hit != 'true'
         run: |
-          COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -sUSE_SDL=2 -sUSE_LIBPNG=1"
+          FFMPEG_PREFIX="${{ runner.temp }}/ffmpeg-wasm-install"
+          if [ -f "${FFMPEG_PREFIX}/lib/libavformat.a" ] && [ -f "${FFMPEG_PREFIX}/lib/libavcodec.a" ]; then
+            echo "FFmpeg WASM already present at ${FFMPEG_PREFIX}"
+            exit 0
+          fi
+          FFMPEG_BUILD="${{ runner.temp }}/ffmpeg-wasm-src"
+          rm -rf "${FFMPEG_BUILD}" "${FFMPEG_PREFIX}"
+          mkdir -p "${FFMPEG_BUILD}" "${FFMPEG_PREFIX}"
+          curl -fsSL https://ffmpeg.org/releases/ffmpeg-6.1.2.tar.xz -o "${FFMPEG_BUILD}/ffmpeg.tar.xz"
+          tar -xf "${FFMPEG_BUILD}/ffmpeg.tar.xz" -C "${FFMPEG_BUILD}" --strip-components=1
+          cd "${FFMPEG_BUILD}"
+          emconfigure ./configure \
+            --prefix="${FFMPEG_PREFIX}" \
+            --target-os=none \
+            --arch=x86_32 \
+            --enable-cross-compile \
+            --cc=emcc \
+            --cxx=em++ \
+            --ar=emar \
+            --ranlib=emranlib \
+            --nm=emnm \
+            --extra-cflags="-O3 -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext" \
+            --disable-everything \
+            --disable-programs \
+            --disable-doc \
+            --disable-debug \
+            --disable-runtime-cpudetect \
+            --disable-autodetect \
+            --disable-network \
+            --disable-pthreads \
+            --disable-w32threads \
+            --disable-os2threads \
+            --disable-asm \
+            --disable-x86asm \
+            --disable-inline-asm \
+            --disable-stripping \
+            --disable-shared \
+            --enable-static \
+            --enable-avformat \
+            --enable-avcodec \
+            --enable-avutil \
+            --enable-swscale \
+            --enable-swresample \
+            --enable-protocol=file \
+            --enable-demuxer=avi,mov,matroska,ogg,asf \
+            --enable-parser=mpeg4video,h264,vp8,vp9,mpegaudio,aac \
+            --enable-decoder=indeo5,indeo4,indeo3,indeo2,cinepak,msvideo1,mpeg4,h264,vp8,vp9,theora,pcm_u8,pcm_s16le,pcm_s16be,pcm_s24le,pcm_s32le,pcm_f32le,adpcm_ms,adpcm_ima_wav,mp3,mp3float,mp2,mp2float,vorbis,aac
+          make -j$(nproc)
+          make install
+          ls -lh "${FFMPEG_PREFIX}/lib"
+
+      - name: Проверяем Asyncify-совместимость unixsrc/movie/movie.cpp для Emscripten
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          p = pathlib.Path('unixsrc/movie/movie.cpp')
+          if not p.exists():
+              print('[movie-audit] unixsrc/movie/movie.cpp not found, skipping')
+              raise SystemExit(0)
+          text = p.read_text(encoding='utf-8', errors='surrogateescape')
+          changed = False
+          # Under Emscripten Asyncify, std::this_thread::sleep_for / usleep in
+          # movie frame pacing can stall or fail to pump browser audio/video;
+          # SDL_Delay routes through Emscripten's Asyncify sleep cleanly.
+          if '__EMSCRIPTEN__' not in text and 'sleep_for' in text:
+              helper = (
+                  '#if defined(__EMSCRIPTEN__)\n'
+                  '#include <emscripten.h>\n'
+                  '#define DARK_MOVIE_SLEEP_MS(ms) emscripten_sleep((unsigned int)((ms) > 0 ? (ms) : 1))\n'
+                  '#endif\n'
+              )
+              text = helper + text
+              text = re.sub(
+                  r'std::this_thread::sleep_for\s*\(\s*std::chrono::milliseconds\s*\(([^)]+)\)\s*\)',
+                  r'emscripten_sleep((unsigned int)((\1) > 0 ? (\1) : 1))',
+                  text
+              )
+              changed = True
+          if changed:
+              p.write_text(text, encoding='utf-8', errors='surrogateescape')
+              print('[movie-audit] Patched sleep_for in unixsrc/movie/movie.cpp for Emscripten Asyncify')
+          else:
+              print('[movie-audit] unixsrc/movie/movie.cpp checked (no sleep_for patch needed)')
+          PY
+
+      - name: Настраиваем проект (CMake + Ninja + Clang -O3 WASM 2.0 + FFmpeg)
+        run: |
+          FFMPEG_PREFIX="${{ runner.temp }}/ffmpeg-wasm-install"
+          FFMPEG_LIBS="-L${FFMPEG_PREFIX}/lib -lavformat -lavcodec -lswscale -lswresample -lavutil"
+          COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -DDARK_HAVE_FFMPEG=1 -I${FFMPEG_PREFIX}/include -sUSE_SDL=2 -sUSE_LIBPNG=1"
           LINK_OPT_FLAGS="-O3 -Wl,--gc-sections -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -sUSE_SDL=2 -sUSE_LIBPNG=1 -lopenal -sUSE_WEBGL2=1 -sFULL_ES3=1 -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sASSERTIONS=0 -sGL_ASSERTIONS=0 -sGL_TRACK_ERRORS=0 -sDISABLE_EXCEPTION_CATCHING=1 -sTEXTDECODER=2 -sEVAL_CTORS=0 -sINITIAL_MEMORY=134217728 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=1073741824 -sSTACK_SIZE=2097152 -sASYNCIFY -sASYNCIFY_STACK_SIZE=1048576 -sFORCE_FILESYSTEM=1 -lidbfs.js -sINVOKE_RUN=0 -sENVIRONMENT=web -sEXPORTED_RUNTIME_METHODS=FS,IDBFS,callMain,ccall,cwrap,UTF8ToString,stringToUTF8"
           emcmake cmake -S . -B build-web -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -244,7 +341,9 @@ jobs:
             -DDARK_EMSCRIPTEN_PORT_INCLUDE="$(em-config CACHE)/sysroot/include" \
             -DCMAKE_CXX_FLAGS="${COMMON_OPT_FLAGS}" \
             -DCMAKE_C_FLAGS="${COMMON_OPT_FLAGS}" \
-            -DCMAKE_EXE_LINKER_FLAGS="${LINK_OPT_FLAGS}"
+            -DCMAKE_EXE_LINKER_FLAGS="${LINK_OPT_FLAGS}" \
+            -DCMAKE_CXX_STANDARD_LIBRARIES="${FFMPEG_LIBS}" \
+            -DCMAKE_C_STANDARD_LIBRARIES="${FFMPEG_LIBS}"
 
       - name: Собираем веб-версию
         run: cmake --build build-web -j$(nproc)

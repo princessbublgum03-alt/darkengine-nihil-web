@@ -378,20 +378,20 @@ test('resolveTouchLayout switches cleanly between buttons, button-free gestures,
 });
 
 test('classifyTouchGesture recognizes all button-free smartphone Thief gestures accurately', () => {
-  assert.equal(Core.classifyTouchGesture({ zone: 'left', fingers: 1, dx: 2, dy: 3, durationMs: 90, isDoubleTap: false }).key, 'KeyF');
-  assert.equal(Core.classifyTouchGesture({ zone: 'left', fingers: 1, dx: 1, dy: 2, durationMs: 85, isDoubleTap: true }).key, 'KeyX');
-  assert.equal(Core.classifyTouchGesture({ zone: 'right', fingers: 1, dx: 0, dy: 4, durationMs: 100, isDoubleTap: false }).mouseButton, 0);
-  assert.equal(Core.classifyTouchGesture({ zone: 'right', fingers: 1, dx: 3, dy: 1, durationMs: 90, isDoubleTap: true }).key, 'Space');
+  assert.equal(Core.classifyTouchGesture({ zone: 'left', fingers: 1, dx: 2, dy: 3, durationMs: 90, isDoubleTap: false }).gameAction, 'use_item');
+  assert.equal(Core.classifyTouchGesture({ zone: 'left', fingers: 1, dx: 1, dy: 2, durationMs: 85, isDoubleTap: true }).gameAction, 'crouch');
+  assert.equal(Core.classifyTouchGesture({ zone: 'right', fingers: 1, dx: 0, dy: 4, durationMs: 100, isDoubleTap: false }).gameAction, 'attack');
+  assert.equal(Core.classifyTouchGesture({ zone: 'right', fingers: 1, dx: 3, dy: 1, durationMs: 90, isDoubleTap: true }).gameAction, 'jump');
 
-  // 2-finger gestures: lean left/right, weapon cycle, map, block/item tap
-  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: -75, dy: 8, durationMs: 180 }).key, 'KeyQ');
-  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 82, dy: -10, durationMs: 180 }).key, 'KeyE');
-  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 6, dy: -70, durationMs: 180 }).key, 'BracketLeft');
-  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: -4, dy: 74, durationMs: 180 }).key, 'KeyM');
-  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 4, dy: 5, durationMs: 140 }).mouseButton, 2);
+  // 2-finger gestures: lean left/right, weapon cycle, map, block tap
+  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: -75, dy: 8, durationMs: 180 }).gameAction, 'lean_left');
+  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 82, dy: -10, durationMs: 180 }).gameAction, 'lean_right');
+  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 6, dy: -70, durationMs: 180 }).gameAction, 'weapon_next');
+  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: -4, dy: 74, durationMs: 180 }).gameAction, 'automap');
+  assert.equal(Core.classifyTouchGesture({ fingers: 2, dx: 4, dy: 5, durationMs: 140 }).gameAction, 'block');
 });
 
-test('mapGamepadState enforces radial deadzone, stealth left-stick bands, right-stick curve + invertY, and Thief bindings', () => {
+test('mapGamepadState enforces radial deadzone, stealth left-stick bands, right-stick curve + invertY, and canonical Thief actions', () => {
   // Inside deadzone -> zero drift
   const neutral = Core.mapGamepadState([0.08, -0.09, 0.1, -0.05], [], { deadzone: 0.15, sensitivity: 1.2, invertY: false, dtSec: 1 / 60 });
   assert.equal(neutral.moveMode, 'idle');
@@ -400,19 +400,29 @@ test('mapGamepadState enforces radial deadzone, stealth left-stick bands, right-
 
   // Stealth creep + right stick look with Invert Y + triggers + face buttons
   const btns = new Array(16).fill({ pressed: false, value: 0 });
-  btns[0] = { pressed: true, value: 1 };  // A -> Space (Jump)
-  btns[4] = { pressed: true, value: 1 };  // LB -> KeyQ (Lean L)
-  btns[7] = { pressed: true, value: 0.9 }; // RT -> LMB (Attack)
-  btns[12] = { pressed: true, value: 1 }; // D-Pad Up -> F5 (Quick Save)
+  btns[0] = { pressed: true, value: 1 };  // A -> jump
+  btns[2] = { pressed: true, value: 1 };  // X -> use_item (Frob/Action)
+  btns[4] = { pressed: true, value: 1 };  // LB -> lean_left
+  btns[6] = { pressed: true, value: 0.9 }; // LT -> block
+  btns[7] = { pressed: true, value: 0.9 }; // RT -> attack
+  btns[12] = { pressed: true, value: 1 }; // D-Pad Up -> quick_save
+  btns[14] = { pressed: true, value: 1 }; // D-Pad Left -> weapon_next
+  btns[15] = { pressed: true, value: 1 }; // D-Pad Right -> item_next
 
   const active = Core.mapGamepadState([0, -0.35, 0.8, 0.6], btns, { deadzone: 0.15, sensitivity: 1.5, invertY: true, dtSec: 1 / 60 });
   assert.equal(active.moveMode, 'creep');
   assert.equal(active.keys.KeyW, true);
   assert.equal(active.keys.ControlLeft, true);
-  assert.equal(active.keys.Space, true);
-  assert.equal(active.keys.KeyQ, true);
-  assert.equal(active.keys.F5, true);
+  assert.equal(active.actions.jump, true);
+  assert.equal(active.actions.use_item, true);
+  assert.equal(active.actions.lean_left, true);
+  assert.equal(active.actions.block, true);
+  assert.equal(active.actions.attack, true);
+  assert.equal(active.actions.quick_save, true);
+  assert.equal(active.actions.weapon_next, true);
+  assert.equal(active.actions.item_next, true);
   assert.equal(active.mouseLeft, true);
+  assert.equal(active.mouseRight, true);
   assert.ok(active.lookDx > 0, 'Right stick +X should pan right');
   assert.ok(active.lookDy < 0, 'Invert Y should negate positive right-stick Y');
 });
@@ -910,6 +920,81 @@ test('existing IDBFS savegames in /gamedata/saves never cause launchGame to skip
     'streamCacheToFS must preserve existing live IDBFS saves instead of overwriting them'
   );
 });
+
+test('canonical DARK.BND-independent action dispatch fixes mixed-up mobile HUD weapon/item/attack/block/interact controls', () => {
+  // 1. Canonical action ID table matches DarkWebDispatchGameAction in gen_bind.cpp
+  assert.equal(Core.GAME_ACTIONS.attack, 1);
+  assert.equal(Core.GAME_ACTIONS.block, 2);
+  assert.equal(Core.GAME_ACTIONS.use_item, 3);
+  assert.equal(Core.GAME_ACTIONS.jump, 4);
+  assert.equal(Core.GAME_ACTIONS.crouch, 5);
+  assert.equal(Core.GAME_ACTIONS.lean_left, 6);
+  assert.equal(Core.GAME_ACTIONS.lean_right, 7);
+  assert.equal(Core.GAME_ACTIONS.weapon_next, 9);
+  assert.equal(Core.GAME_ACTIONS.item_next, 12);
+  assert.equal(Core.GAME_ACTIONS.automap, 14);
+
+  // 2. HTML HUD buttons must use canonical data-action instead of DARK.BND-colliding keys/mouse buttons
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  for (const attr of [
+    'data-action="automap"',
+    'data-action="weapon_next"',
+    'data-action="item_next"',
+    'data-action="lean_left"',
+    'data-action="crouch"',
+    'data-action="lean_right"',
+    'data-action="attack"',
+    'data-action="block"',
+    'data-action="use_item"',
+    'data-action="jump"'
+  ]) {
+    assert.ok(html.includes(attr), `web/index.html HUD must bind ${attr}`);
+  }
+  assert.ok(!html.includes('data-key="BracketLeft"'), 'Weapon button must NOT send BracketLeft (which is prev_item in DARK.BND)');
+  assert.ok(!html.includes('data-key="BracketRight"'), 'Item button must NOT send BracketRight directly');
+  assert.ok(!html.includes('data-key="KeyF"'), 'Action button must NOT send unbound KeyF');
+  assert.ok(!html.includes('data-mouse="0"'), 'Attack button must NOT send mouse1 (which is +use_item in Thief 2 DARK.BND)');
+  assert.ok(!html.includes('data-mouse="2"'), 'Block button must NOT send mouse2 (which is +use_weapon in Thief 2 DARK.BND)');
+  assert.ok(html.includes("gameStage.querySelectorAll('[data-action], [data-key], [data-mouse]')"), 'HUD button wiring must be scoped to #game-stage so launcher buttons like #launchBtn are never intercepted on touchscreens');
+  assert.ok(html.includes('if (actionName && !DarkWebCore.GAME_ACTIONS[actionName]) return;'), 'HUD button wiring must ignore non-game data-action values');
+
+  // 3. C++ queue and gen_bind.cpp dispatcher contracts
+  const genBind = fs.readFileSync(new URL('./src/framewrk/gen_bind.cpp', import.meta.url), 'utf8');
+  const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
+  assert.ok(genBind.includes('extern "C" void DarkWebDispatchGameAction(int actionId, int down)'), 'gen_bind.cpp must export DarkWebDispatchGameAction');
+  for (const cmd of ['"+use_weapon"', '"+block"', '"+use_item"', '"+jump"', '"crouch"', '"+leanleft"', '"+leanright"', '"next_weapon"', '"next_item"', '"automap"']) {
+    assert.ok(genBind.includes(cmd), `DarkWebDispatchGameAction must dispatch canonical command ${cmd}`);
+  }
+  assert.ok(gameshell.includes('else if (type == 5)') && gameshell.includes('DarkWebDispatchGameAction(actionId, down);'), 'gameshell.cpp must drain type 5 canonical actions');
+});
+
+test('Emscripten FFmpeg 6.1.2 static build and Asyncify-safe movie rendering enable Indeo 5 / AVI cutscene playback', () => {
+  const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
+  const opengl = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
+
+  // 1. GitHub Actions compiles & caches minimal Emscripten FFmpeg with Indeo 5 + AVI + audio decoders
+  for (const needle of [
+    'ffmpeg-6.1.2.tar.xz',
+    '--enable-demuxer=avi,mov,matroska,ogg,asf',
+    '--enable-decoder=indeo5,',
+    '--enable-swscale',
+    '--enable-swresample',
+    '--disable-stripping',
+    '--disable-pthreads',
+    '-DDARK_HAVE_FFMPEG=1',
+    '-lavformat -lavcodec -lswscale -lswresample -lavutil',
+    '-DCMAKE_CXX_STANDARD_LIBRARIES='
+  ]) {
+    assert.ok(yml.includes(needle), `build-web.yml must include ${needle} for WASM cutscene playback`);
+  }
+
+  // 2. opengl.cpp yields to browser rAF on every movie frame and dismisses boot overlay on frame 1
+  assert.ok(opengl.includes('EM_ASYNC_JS(void, dark_web_yield_movie_frame'), 'opengl.cpp must define dark_web_yield_movie_frame under __EMSCRIPTEN__');
+  assert.ok(opengl.includes('dark_web_yield_movie_frame();'), 'DarkRenderPresentMovieFrame must yield to browser event loop after SDL_GL_SwapWindow');
+  assert.ok(opengl.includes('window.__onDarkFirstFrame'), 'dark_web_yield_movie_frame must notify launcher so intro cutscenes are not hidden behind bootOverlay');
+  assert.ok(opengl.includes('emscripten_sleep(1);'), 'DarkRenderPumpMovieEvents must yield periodically so movie loops never stall tap-to-skip');
+});
+
 
 
 

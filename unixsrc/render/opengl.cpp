@@ -41,6 +41,35 @@ extern "C" void DarkInputMouseRelative(int x, int y, uchar buttons);
 static void present_legacy_frame(const void *pixels, int width, int height,
    int rowBytes, int depth, const uint8_t *palette);
 
+#if defined(__EMSCRIPTEN__)
+static double g_lastMovieYieldMs = 0.0;
+
+// Yield one animation frame when presenting decoded cutscene video frames so
+// WebGL2 composites the new frame, audio continues streaming, and touch/key
+// skip events are delivered without ever stalling the browser main thread.
+EM_ASYNC_JS(void, dark_web_yield_movie_frame, (), {
+   if (!window.__darkFirstFrameRendered) {
+      window.__darkFirstFrameRendered = true;
+      if (typeof window.__onDarkFirstFrame === 'function') {
+         try { window.__onDarkFirstFrame(); } catch (_) {}
+      }
+   }
+   await new Promise(function(resolve) {
+      if (document.visibilityState === 'hidden') {
+         setTimeout(resolve, 32);
+         return;
+      }
+      var settled = false;
+      var timerId = setTimeout(function() {
+         if (!settled) { settled = true; resolve(); }
+      }, 48);
+      requestAnimationFrame(function() {
+         if (!settled) { settled = true; clearTimeout(timerId); resolve(); }
+      });
+   });
+});
+#endif
+
 #if defined(__ANDROID__)
 static void present_android_console_frame(const void *pixels, int width,
    int height, int rowBytes)
@@ -1005,7 +1034,7 @@ bool DarkRenderPumpMovieEvents(void)
             var ev = q[i];
             if (!ev) continue;
             var t = ev[0] | 0;
-            if ((t === 3 && (ev[1] | 0) === 1) || ((t === 1 || t === 2) && (ev[2] | 0) === 1)) {
+            if ((t === 3 && (ev[1] | 0) === 1) || ((t === 1 || t === 2 || t === 5) && (ev[2] | 0) === 1)) {
                q.length = 0;
                return 1;
             }
@@ -1014,6 +1043,13 @@ bool DarkRenderPumpMovieEvents(void)
       });
       if (skipped)
          stop = true;
+   }
+   if (!stop) {
+      const double nowMs = emscripten_get_now();
+      if (g_lastMovieYieldMs <= 0.0 || (nowMs - g_lastMovieYieldMs) >= 20.0) {
+         emscripten_sleep(1);
+         g_lastMovieYieldMs = emscripten_get_now();
+      }
    }
 #endif
    return stop;
@@ -1263,6 +1299,10 @@ bool DarkRenderPresentMovieFrame(const void *rgba, int width, int height,
    draw_vertices(GL_TRIANGLES, quad, 6, false, width, height, false, 0,
       false);
    SDL_GL_SwapWindow(g_window);
+#if defined(__EMSCRIPTEN__)
+   dark_web_yield_movie_frame();
+   g_lastMovieYieldMs = emscripten_get_now();
+#endif
    return true;
 }
 
