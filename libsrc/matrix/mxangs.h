@@ -94,9 +94,9 @@ struct sMxAngVec : mxs_angvec
 
    // Sets from a vector of degrees
    inline sMxAngVec &SetDeg(const sMxVector &_r) {
-      tx=(mxs_ang)(_r.x*(MX_ANG_PI/180.0f));
-      ty=(mxs_ang)(_r.y*(MX_ANG_PI/180.0f));
-      tz=(mxs_ang)(_r.z*(MX_ANG_PI/180.0f)); return *this;}
+      tx=(mxs_ang)(int)(_r.x*(MX_ANG_PI/180.0f));
+      ty=(mxs_ang)(int)(_r.y*(MX_ANG_PI/180.0f));
+      tz=(mxs_ang)(int)(_r.z*(MX_ANG_PI/180.0f)); return *this;}
 
    // Stuffs into a vector of degrees
    // Treats as unsigned so beware
@@ -135,15 +135,15 @@ struct sMxAngVec : mxs_angvec
    
    // Scalar Multiply
    inline sMxAngVec operator*(float s) const
-    { return sMxAngVec((mxs_ang)(tx*s),(mxs_ang)(ty*s),(mxs_ang)(tz*s)); }
+    { return sMxAngVec((mxs_ang)(int)(tx*s),(mxs_ang)(int)(ty*s),(mxs_ang)(int)(tz*s)); }
    sMxAngVec &operator*=(float s)
-    { tx=(mxs_ang)(tx*s); ty=(mxs_ang)(ty*s); tz=(mxs_ang)(tz*s); return *this; }
+    { tx=(mxs_ang)(int)(tx*s); ty=(mxs_ang)(int)(ty*s); tz=(mxs_ang)(int)(tz*s); return *this; }
 
    // Scalar Divide
    sMxAngVec operator/(float s) const
-    { return sMxAngVec((mxs_ang)(tx/s),(mxs_ang)(ty/s),(mxs_ang)(tz/s)); }
+    { return sMxAngVec((mxs_ang)(int)(tx/s),(mxs_ang)(int)(ty/s),(mxs_ang)(int)(tz/s)); }
    sMxAngVec &operator/=(float s)
-    { tx=(mxs_ang)(tx/s); ty=(mxs_ang)(ty/s); tz=(mxs_ang)(tz/s); return *this; }
+    { tx=(mxs_ang)(int)(tx/s); ty=(mxs_ang)(int)(ty/s); tz=(mxs_ang)(int)(tz/s); return *this; }
 };
 
 
@@ -192,15 +192,15 @@ struct sMxRadVec : sMxVector
 
 // sMxAngVec/sMxRadVec
 inline sMxAngVec::sMxAngVec(sMxRadVec _r) 
-{  tx=(mxs_ang)(_r.x*(MX_ANG_PI/(float)MX_REAL_PI));
-   ty=(mxs_ang)(_r.y*(MX_ANG_PI/(float)MX_REAL_PI));
-   tz=(mxs_ang)(_r.z*(MX_ANG_PI/(float)MX_REAL_PI));}
+{  tx=(mxs_ang)(int)(_r.x*(MX_ANG_PI/(float)MX_REAL_PI));
+   ty=(mxs_ang)(int)(_r.y*(MX_ANG_PI/(float)MX_REAL_PI));
+   tz=(mxs_ang)(int)(_r.z*(MX_ANG_PI/(float)MX_REAL_PI));}
 
 
 inline sMxAngVec &sMxAngVec::Set(sMxRadVec _r) 
-{  tx=(mxs_ang)(_r.x*(MX_ANG_PI/(float)MX_REAL_PI));
-   ty=(mxs_ang)(_r.y*(MX_ANG_PI/(float)MX_REAL_PI));
-   tz=(mxs_ang)(_r.z*(MX_ANG_PI/(float)MX_REAL_PI)); return *this;}
+{  tx=(mxs_ang)(int)(_r.x*(MX_ANG_PI/(float)MX_REAL_PI));
+   ty=(mxs_ang)(int)(_r.y*(MX_ANG_PI/(float)MX_REAL_PI));
+   tz=(mxs_ang)(int)(_r.z*(MX_ANG_PI/(float)MX_REAL_PI)); return *this;}
 
 #endif  // __MXANGS_H
 

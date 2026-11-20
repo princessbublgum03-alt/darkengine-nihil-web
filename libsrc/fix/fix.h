@@ -142,7 +142,7 @@ typedef ushort fixang;
 
 #define fixrad_to_fixang(fixradian) (fix_frac(fix_div((fixradian),fix_2pi)))
 #define fixang_to_fixrad(ang) fix_div(fix_mul(ang,fix_2pi),0x10000)
-#define degrees_to_fixang(d)    ((fixang)(((d)*FIXANG_PI)/180))
+#define degrees_to_fixang(d)    ((fixang)(int)(((d)*FIXANG_PI)/180))
 #define fixang_to_degrees(ang)  (((sint32)(ang)*180)/FIXANG_PI)
 
 // turns a fixed point into a float.

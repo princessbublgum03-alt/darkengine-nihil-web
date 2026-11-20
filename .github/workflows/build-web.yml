@@ -41,6 +41,197 @@ jobs:
       - name: Собираем порты Emscripten (SDL2, libpng)
         run: embuilder build sdl2 libpng
 
+      - name: Патчим преобразования отрицательных float->unsigned углов для WASM (-mnontrapping-fptoint)
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import pathlib
+
+          # Under WebAssembly -mnontrapping-fptoint, direct float->uint16 (mxs_ang/fixang)
+          # emits i32.trunc_sat_f32_u, clamping ANY negative float to 0 instead of
+          # wrapping modulo 65536 (which blocks rightward -tz camera rotation).
+          CAST_CTX = r'(^|[=(,?:+\-*/%&|^~!<>\[;{]|\breturn)(\s*)'
+          INT_GUARD = r'(?!\s*\(\s*(?:signed\s+|unsigned\s+)?(?:int|short|long|sint\d*|int\d+_t|int\d+)\b)'
+          EXPR_FOLLOW = r'(?=\(|[-+~]?(?:(?!(?:const|volatile|override|final|noexcept|throw)\b)[A-Za-z_]\w*|\d))'
+          RE_EXPLICIT_CAST = re.compile(
+              CAST_CTX + r'\(\s*(mxs_ang|fixang)\s*\)\s*' + INT_GUARD + EXPR_FOLLOW
+          )
+          RE_HEADMOVE_USHORT_CAST = re.compile(
+              CAST_CTX + r'\(\s*(ushort|uint16)\s*\)\s*' + INT_GUARD + EXPR_FOLLOW
+          )
+          RE_STATIC_CAST_START = re.compile(
+              r'static_cast\s*<\s*(mxs_ang|fixang)\s*>\s*\('
+          )
+          RE_MEMBER_COMPOUND = re.compile(
+              r'^(\s*)([A-Za-z_]\w*(?:(?:\.|->)[A-Za-z_]\w*)*(?:\.|->)t[xyz])\s*([+-])=\s*([^;]+);(\s*)$'
+          )
+          RE_MEMBER_ASSIGN = re.compile(
+              r'^(\s*)([A-Za-z_]\w*(?:(?:\.|->)[A-Za-z_]\w*)*(?:\.|->)t[xyz])\s*=\s*([^;=]+);(\s*)$'
+          )
+          RE_ANG_DECL = re.compile(
+              r'^(\s*(?:const\s+|static\s+|register\s+)?(mxs_ang|fixang)\s+([A-Za-z_]\w*)\s*=\s*)([^;={}]+);(\s*)$'
+          )
+          RE_ANG_VAR_DECL = re.compile(r'\b(?:mxs_ang|fixang)\s+([A-Za-z_]\w*)\b')
+          RE_ALREADY_INT_CAST = re.compile(
+              r'^\s*\(\s*(?:mxs_ang|fixang|unsigned\s+short|ushort)\s*\)\s*\(\s*(?:int|short|long)\s*\)'
+          )
+          RE_SAFE_CALL = re.compile(r'^\s*(?:mx_rad2ang|mx_deg2ang)\s*\(')
+          RE_ARITH_OR_FLOAT = re.compile(r'[\*/+\-]|\d+\.\d*')
+
+          CAMERA_PREFIXES = ('headmove', 'plyr', 'camera', 'phctrl', 'phcore', 'physapi')
+
+          def has_top_level_comma(expr: str) -> bool:
+              depth = 0
+              for ch in expr:
+                  if ch in '([':
+                      depth += 1
+                  elif ch in ')]':
+                      depth = max(0, depth - 1)
+                  elif ch == ',' and depth == 0:
+                      return True
+              return False
+
+          def split_code_and_comment(line: str):
+              in_str = None
+              esc = False
+              for i, ch in enumerate(line):
+                  if esc:
+                      esc = False
+                      continue
+                  if in_str:
+                      if ch == '\\':
+                          esc = True
+                      elif ch == in_str:
+                          in_str = None
+                      continue
+                  if ch in ('"', "'"):
+                      in_str = ch
+                  elif ch == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                      return line[:i], line[i:]
+              return line, ''
+
+          def rewrite_static_cast(code: str) -> str:
+              out = []
+              pos = 0
+              while True:
+                  m = RE_STATIC_CAST_START.search(code, pos)
+                  if not m:
+                      out.append(code[pos:])
+                      break
+                  open_idx = m.end() - 1
+                  rest = code[open_idx + 1:]
+                  if re.match(r'\s*static_cast\s*<\s*(?:int|short|long)\s*>', rest):
+                      out.append(code[pos:m.end()])
+                      pos = m.end()
+                      continue
+                  depth = 1
+                  i = open_idx + 1
+                  while i < len(code) and depth > 0:
+                      if code[i] == '(':
+                          depth += 1
+                      elif code[i] == ')':
+                          depth -= 1
+                      i += 1
+                  if depth != 0:
+                      out.append(code[pos:])
+                      break
+                  close_idx = i - 1
+                  inner = code[open_idx + 1:close_idx]
+                  out.append(code[pos:open_idx + 1])
+                  out.append(f'static_cast<int>({inner})')
+                  out.append(')')
+                  pos = close_idx + 1
+              return ''.join(out)
+
+          def patch_line(line: str, is_camera_file: bool, is_headmove_file: bool, ang_vars: set):
+              stripped = line.lstrip()
+              if not stripped or stripped.startswith('//') or stripped.startswith('/*') or stripped.startswith('*') or stripped.startswith('#include'):
+                  return line
+              eol = '\r\n' if line.endswith('\r\n') else ('\n' if line.endswith('\n') else '')
+              body = line[:-len(eol)] if eol else line
+              code, comment = split_code_and_comment(body)
+
+              # 1. Explicit (mxs_ang)/(fixang) C casts & static_cast<> everywhere in src/ & libsrc/
+              code = RE_EXPLICIT_CAST.sub(r'\1\2(\3)(int)', code)
+              if is_headmove_file:
+                  code = RE_HEADMOVE_USHORT_CAST.sub(r'\1\2(\3)(int)', code)
+              if 'static_cast' in code:
+                  code = rewrite_static_cast(code)
+
+              # 2. Implicit float->unsigned angle assignments in camera/headmove/player files
+              if is_camera_file and not stripped.startswith('#') and not body.rstrip().endswith('\\'):
+                  m = RE_MEMBER_COMPOUND.match(code)
+                  if m:
+                      indent, lhs, op, rhs, tail = m.groups()
+                      code = f'{indent}{lhs} = (unsigned short)((int)({lhs}) {op} (int)({rhs.strip()}));{tail}'
+                  else:
+                      m = RE_ANG_DECL.match(code)
+                      if m:
+                          prefix, typ, var, rhs, tail = m.groups()
+                          rhs_s = rhs.strip()
+                          if (not has_top_level_comma(rhs_s)
+                                  and not RE_ALREADY_INT_CAST.match(rhs_s)
+                                  and not RE_SAFE_CALL.match(rhs_s)
+                                  and RE_ARITH_OR_FLOAT.search(rhs_s)):
+                              code = f'{prefix}({typ})(int)({rhs_s});{tail}'
+                      else:
+                          m = RE_MEMBER_ASSIGN.match(code)
+                          if m:
+                              indent, lhs, rhs, tail = m.groups()
+                              rhs_s = rhs.strip()
+                              if (not RE_ALREADY_INT_CAST.match(rhs_s)
+                                      and not RE_SAFE_CALL.match(rhs_s)
+                                      and RE_ARITH_OR_FLOAT.search(rhs_s)):
+                                  code = f'{indent}{lhs} = (unsigned short)(int)({rhs_s});{tail}'
+                          elif ang_vars:
+                              m2 = re.match(r'^(\s*)([A-Za-z_]\w*)\s*([+-])=\s*([^;]+);(\s*)$', code)
+                              if m2 and m2.group(2) in ang_vars:
+                                  indent, var, op, rhs, tail = m2.groups()
+                                  code = f'{indent}{var} = (unsigned short)((int)({var}) {op} (int)({rhs.strip()}));{tail}'
+
+              return code + comment + eol
+
+          total_files = 0
+          total_lines = 0
+          for root_dir in ('src', 'libsrc'):
+              if not os.path.isdir(root_dir):
+                  continue
+              for dirpath, _, filenames in os.walk(root_dir):
+                  for fn in sorted(filenames):
+                      if not fn.endswith(('.c', '.cpp', '.h', '.hpp')):
+                          continue
+                      path = pathlib.Path(dirpath) / fn
+                      low = fn.lower()
+                      is_headmove = low.startswith('headmove')
+                      is_camera = low.startswith(CAMERA_PREFIXES)
+                      try:
+                          text = path.read_text(encoding='utf-8', errors='surrogateescape')
+                      except Exception:
+                          continue
+                      ang_vars = set(RE_ANG_VAR_DECL.findall(text)) if is_camera else set()
+                      lines = text.splitlines(keepends=True)
+                      new_lines = []
+                      changed_in_file = 0
+                      for idx, ln in enumerate(lines, 1):
+                          patched = patch_line(ln, is_camera, is_headmove, ang_vars)
+                          if patched != ln:
+                              changed_in_file += 1
+                              if is_camera or changed_in_file <= 5:
+                                  print(f'[wasm-ang-fix] {path}:{idx}: {ln.strip()}  ==>  {patched.strip()}')
+                          new_lines.append(patched)
+                      if changed_in_file:
+                          path.write_text(''.join(new_lines), encoding='utf-8', errors='surrogateescape')
+                          total_files += 1
+                          total_lines += changed_in_file
+                      if is_headmove:
+                          print(f'--- headmove audit: {path} ---')
+                          for idx, ln in enumerate(new_lines, 1):
+                              if re.search(r'RelPos|Turn|Gamepad|tz|tx|ty|mxs_ang|fixang|rad|deg|facing|ang', ln, re.I):
+                                  print(f'  {idx:4d}: {ln.rstrip()}')
+          print(f'[wasm-ang-fix] Patched {total_lines} line(s) across {total_files} file(s).')
+          PY
+
       - name: Настраиваем проект (CMake + Ninja + Clang -O3 WASM 2.0)
         run: |
           COMMON_OPT_FLAGS="-O3 -fno-strict-aliasing -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -fno-math-errno -fno-trapping-math -fomit-frame-pointer -DNDEBUG -sUSE_SDL=2 -sUSE_LIBPNG=1"

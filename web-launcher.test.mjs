@@ -831,6 +831,63 @@ test('separate Input Controls Log buffer tracks Touch, Gestures, HUD, PC, Gamepa
   assert.ok(readme.includes('Логи управления'), 'README must mention separate input logs');
 });
 
+test('WASM -mnontrapping-fptoint negative float->unsigned angle saturation is prevented across mxangs.h, fix.h, MTurnProc, and build-web.yml', async () => {
+  const { execFileSync } = await import('node:child_process');
+
+  // 1. mxangs.h must route EVERY float->mxs_ang cast through signed (int)
+  const mxangs = fs.readFileSync(new URL('./libsrc/matrix/mxangs.h', import.meta.url), 'utf8');
+  const unpatchedMxAngs = mxangs.match(/\(mxs_ang\)\s*(?!\(int\))\(/g);
+  assert.equal(unpatchedMxAngs, null, 'mxangs.h must have zero direct (mxs_ang)(...) casts without (int)');
+  assert.ok(mxangs.includes('tz=(mxs_ang)(int)(_r.z*(MX_ANG_PI/180.0f));'), 'sMxAngVec::SetDeg must wrap through (int)');
+  assert.ok(mxangs.includes('tz=(mxs_ang)(int)(_r.z*(MX_ANG_PI/(float)MX_REAL_PI));'), 'sMxAngVec(sMxRadVec) and Set(sMxRadVec) must wrap through (int)');
+  assert.ok(mxangs.includes('(mxs_ang)(int)(tz*s)'), 'sMxAngVec scalar multiply must wrap through (int)');
+  assert.ok(mxangs.includes('(mxs_ang)(int)(tz/s)'), 'sMxAngVec scalar divide must wrap through (int)');
+
+  // 2. fix.h degrees_to_fixang must cast through signed (int)
+  const fixH = fs.readFileSync(new URL('./libsrc/fix/fix.h', import.meta.url), 'utf8');
+  assert.ok(
+    fixH.includes('#define degrees_to_fixang(d)    ((fixang)(int)(((d)*FIXANG_PI)/180))'),
+    'degrees_to_fixang must cast through (int) before (fixang)'
+  );
+
+  // 3. MTurnProc verbose telemetry + Input Controls Log routing
+  const genBind = fs.readFileSync(new URL('./src/framewrk/gen_bind.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(genBind.includes('[web][mturn] count=%d'), 'MTurnProc must emit throttled [web][mturn] telemetry under __EMSCRIPTEN__');
+  assert.ok(html.includes('/^\\[web\\]\\[(look|input|mturn)\\]/i'), 'web/index.html must route [web][mturn] into Input Controls Log');
+
+  // 4. Extract and test the actual Python patch_line() from build-web.yml on tricky C/C++ cases
+  const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
+  const pyMatch = yml.match(/python3 - <<'PY'\n([\s\S]*?)\n\s+PY\b/);
+  assert.ok(pyMatch, 'build-web.yml must include the Python WASM angle-wrap portability step');
+  const rawPy = pyMatch[1];
+  const indent = rawPy.match(/^(\s*)/)[1].length;
+  const dedentedPy = rawPy
+    .split('\n')
+    .map((line) => line.slice(Math.min(indent, line.match(/^(\s*)/)[1].length)))
+    .join('\n');
+  const defsOnly = dedentedPy.split('total_files = 0')[0];
+
+  const pyTestHarness = `${defsOnly}
+assert patch_line('   ang = (mxs_ang)(-dx * 10.0f);\\n', False, False, set()) == '   ang = (mxs_ang)(int)(-dx * 10.0f);\\n'
+assert patch_line('   return (fixang)(-deg);\\n', False, False, set()) == '   return (fixang)(int)(-deg);\\n'
+assert patch_line('   a = static_cast<mxs_ang>(-delta * 100.0f); // yaw\\n', False, False, set()) == '   a = static_cast<mxs_ang>(static_cast<int>(-delta * 100.0f)); // yaw\\n'
+assert patch_line('   fac.tz -= delta_f;\\n', True, True, set()) == '   fac.tz = (unsigned short)((int)(fac.tz) - (int)(delta_f));\\n'
+assert patch_line('   cam->fac.tz += -delta_f; // right turn\\n', True, True, set()) == '   cam->fac.tz = (unsigned short)((int)(cam->fac.tz) + (int)(-delta_f)); // right turn\\n'
+assert patch_line('   mxs_ang d = -rel_x * scale;\\n', True, True, {'d'}) == '   mxs_ang d = (mxs_ang)(int)(-rel_x * scale);\\n'
+assert patch_line('   d -= rel_x * scale;\\n', True, True, {'d'}) == '   d = (unsigned short)((int)(d) - (int)(rel_x * scale));\\n'
+assert patch_line('   size_t n = sizeof(mxs_ang);\\n', True, True, set()) == '   size_t n = sizeof(mxs_ang);\\n'
+assert patch_line('   mxs_ang *p = (mxs_ang *)buf;\\n', True, True, set()) == '   mxs_ang *p = (mxs_ang *)buf;\\n'
+assert patch_line('   void foo (mxs_ang) const;\\n', True, True, set()) == '   void foo (mxs_ang) const;\\n'
+assert patch_line('   tz = (mxs_ang)(int)(-x);\\n', True, True, set()) == '   tz = (mxs_ang)(int)(-x);\\n'
+assert patch_line('   // (mxs_ang)(-dx)\\n', True, True, set()) == '   // (mxs_ang)(-dx)\\n'
+assert patch_line('   tx = (ushort)(-dx);\\n', True, True, set()) == '   tx = (ushort)(int)(-dx);\\n'
+print('PY_OK')
+`;
+  const pyOut = execFileSync('python3', ['-c', pyTestHarness], { encoding: 'utf8' });
+  assert.equal(pyOut.trim(), 'PY_OK');
+});
+
 
 
 

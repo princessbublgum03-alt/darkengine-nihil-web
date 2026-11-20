@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>    // for fabs
+#ifdef __EMSCRIPTEN__
+#include <stdio.h>
+#include <emscripten.h>
+#endif
 
 #include <event.h>
 #include <kbcntry.h>
@@ -602,7 +606,37 @@ static char *MTurnProc (const char *, const char *val, BOOL)
    {
       float dval = parse_float(val);
       float sens = parse_float(g_pInputBinder->ProcessCmd ("echo $mouse_sensitivity"));
-      headmoveSetRelPosX (dval * sens);
+      const float scaled = dval * sens;
+      headmoveSetRelPosX (scaled);
+#ifdef __EMSCRIPTEN__
+      {
+         const char *verbose = getenv("DARK_WEB_VERBOSE_LOG");
+         if (verbose && verbose[0] == '1')
+         {
+            static int s_count = 0;
+            static int s_pos = 0;
+            static int s_neg = 0;
+            static double s_sum = 0.0;
+            static double s_lastLogMs = 0.0;
+            s_count++;
+            s_sum += (double)scaled;
+            if (scaled > 0.0f) s_pos++;
+            else if (scaled < 0.0f) s_neg++;
+            const double nowMs = emscripten_get_now();
+            if (s_lastLogMs == 0.0 || (nowMs - s_lastLogMs) >= 2000.0)
+            {
+               fprintf(stderr,
+                  "[web][mturn] count=%d sum=%.1f +x=%d -x=%d sens=%.2f freelook=%d g_freelookon=%d\n",
+                  s_count, s_sum, s_pos, s_neg, (double)sens, (int)freelook, (int)g_freelookon);
+               s_count = 0;
+               s_pos = 0;
+               s_neg = 0;
+               s_sum = 0.0;
+               s_lastLogMs = nowMs;
+            }
+         }
+      }
+#endif
    }
 
    return NULL;
