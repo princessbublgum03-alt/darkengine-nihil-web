@@ -2394,6 +2394,17 @@
           };
         },
 
+        shouldHydrateCacheToFs(state) {
+          const s = state || {};
+          const cachedFiles = Number(s.cachedFiles) || 0;
+          if (cachedFiles <= 0) return false;
+          const memfsAssetCount = Number(s.memfsAssetCount) || 0;
+          if (memfsAssetCount <= 0) return true;
+          const hasRootConfig = Boolean(s.hasRootConfig);
+          if (!hasRootConfig && memfsAssetCount < Math.min(cachedFiles, 10)) return true;
+          return false;
+        },
+
         scaleHiDpiViewportRect(x, y, width, height, cssW, cssH, bufW, bufH, hasBoundFbo) {
           if (hasBoundFbo || cssW <= 0 || cssH <= 0 || bufW <= 0 || bufH <= 0) {
             return [x, y, width, height];
@@ -3367,7 +3378,24 @@
             let lastDisplayPath = '';
             for (const rec of chunk) {
               if (!rec || !rec.path || !rec.data) continue;
+              const relTarget = (rec.basePath && rec.chunkCount > 1) ? rec.basePath : rec.path;
               const view = rec.data instanceof Uint8Array ? rec.data : new Uint8Array(rec.data);
+
+              // Preserve live browser IDBFS saves in /gamedata/saves instead of overwriting with stale archive saves
+              if (/^saves\//i.test(relTarget)) {
+                const candidatePath = GAMEDATA_DIR + '/' + relTarget;
+                let saveExists = false;
+                try {
+                  saveExists = Boolean(FS.analyzePath && FS.analyzePath(candidatePath).exists);
+                } catch (_) {}
+                if (saveExists) {
+                  if (!(rec.basePath && rec.chunkCount > 1) || rec.chunkIndex === rec.chunkCount - 1) {
+                    filesDone += 1;
+                  }
+                  bytesDone += view.byteLength;
+                  continue;
+                }
+              }
 
               if (rec.basePath && rec.chunkCount > 1) {
                 const fullPath = GAMEDATA_DIR + '/' + rec.basePath;
@@ -3483,7 +3511,7 @@
         }
       }
 
-      function countFsTree(FS, dirPath, names) {
+      function countFsTree(FS, dirPath, names, excludePaths) {
         let count = 0;
         let bytes = 0;
         try {
@@ -3491,9 +3519,10 @@
           for (const entry of entries) {
             if (entry === '.' || entry === '..') continue;
             const full = dirPath + '/' + entry;
+            if (excludePaths && excludePaths.has(full)) continue;
             const st = FS.stat(full);
             if (FS.isDir(st.mode)) {
-              const sub = countFsTree(FS, full, names);
+              const sub = countFsTree(FS, full, names, excludePaths);
               count += sub.count;
               bytes += sub.bytes;
             } else {
@@ -5405,9 +5434,20 @@
             if (window.Module.FS) {
               const FS = window.Module.FS;
               ensureFsDir(FS, GAMEDATA_DIR);
-              const existing = countFsTree(FS, GAMEDATA_DIR);
+              // Exclude /gamedata/saves (IDBFS) when checking whether static game assets are already in MEMFS,
+              // otherwise existing browser savegames trick launchGame into skipping IndexedDB cache hydration!
+              const existing = countFsTree(FS, GAMEDATA_DIR, null, new Set([SAVES_DIR]));
+              let hasRootConfig = false;
+              try {
+                const preRoot = FS.readdir(GAMEDATA_DIR).map((n) => n.toLowerCase());
+                hasRootConfig = preRoot.includes('cam.cfg') || preRoot.includes('dark.cfg') || preRoot.includes('dark.gam') || preRoot.includes('install.cfg');
+              } catch (_) {}
 
-              if (existing.count === 0 && appState.cachedFiles > 0) {
+              if (DarkWebCore.shouldHydrateCacheToFs({
+                memfsAssetCount: existing.count,
+                hasRootConfig,
+                cachedFiles: appState.cachedFiles
+              })) {
                 const streamT0 = performance.now();
                 logDiag('info', 'FS', 'Потоковая загрузка кэша из IndexedDB в MEMFS (' + appState.cachedFiles + ' файлов, ' + DarkWebCore.formatMB(appState.cachedBytes) + ' МБ)...');
                 setBootOverlayState(true, {

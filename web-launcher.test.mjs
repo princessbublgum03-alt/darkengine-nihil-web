@@ -888,6 +888,29 @@ print('PY_OK')
   assert.equal(pyOut.trim(), 'PY_OK');
 });
 
+test('existing IDBFS savegames in /gamedata/saves never cause launchGame to skip IndexedDB cache hydration into MEMFS', () => {
+  // 1. Pure decision logic
+  assert.equal(Core.shouldHydrateCacheToFs({ memfsAssetCount: 0, hasRootConfig: false, cachedFiles: 3885 }), true);
+  assert.equal(Core.shouldHydrateCacheToFs({ memfsAssetCount: 1, hasRootConfig: false, cachedFiles: 3885 }), true);
+  assert.equal(Core.shouldHydrateCacheToFs({ memfsAssetCount: 3885, hasRootConfig: true, cachedFiles: 3885 }), false);
+  assert.equal(Core.shouldHydrateCacheToFs({ memfsAssetCount: 0, hasRootConfig: false, cachedFiles: 0 }), false);
+
+  // 2. HTML wiring contracts
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(
+    html.includes('countFsTree(FS, GAMEDATA_DIR, null, new Set([SAVES_DIR]))'),
+    'launchGame must exclude /gamedata/saves (IDBFS) when checking whether static assets are hydrated in MEMFS'
+  );
+  assert.ok(
+    html.includes('DarkWebCore.shouldHydrateCacheToFs('),
+    'launchGame must decide cache hydration using DarkWebCore.shouldHydrateCacheToFs'
+  );
+  assert.ok(
+    html.includes('if (/^saves\\//i.test(relTarget))'),
+    'streamCacheToFS must preserve existing live IDBFS saves instead of overwriting them'
+  );
+});
+
 
 
 
