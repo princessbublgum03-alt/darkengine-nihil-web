@@ -157,13 +157,10 @@ GLuint g_sceneProgram, g_sceneBuffer, g_sceneVertexArray;
 GLint g_viewportUniform, g_useTexture1Uniform, g_fogEnabledUniform;
 GLint g_fogColorUniform, g_alphaTestUniform, g_transparentBlackUniform;
 
-// Lossless GPU optimization state: persistent ring-buffer VBO, dirty-checked
-// GL state & uniform caches, and FIFO draw-call batching. Zero visual changes.
-constexpr size_t kSceneBufferMaxVertices = 32768;
-constexpr size_t kSceneBufferInitialBytes = kSceneBufferMaxVertices * sizeof(sRenderBackendVertex);
+// Lossless GPU optimization state: dirty-checked GL state & uniform caches
+// and fixed-array FIFO draw-call batching with exact-size GL_STREAM_DRAW
+// buffer orphaning (avoids ANGLE/Mali glBufferSubData shadow-copy stalls).
 constexpr size_t kMaxBatchVertices = 8192;
-size_t g_sceneBufferCapacity = 0;
-size_t g_sceneBufferOffset = 0;
 
 GLuint g_glProgram = 0;
 GLuint g_glVao = 0;
@@ -424,10 +421,6 @@ bool create_scene_pipeline()
    glBindVertexArray(g_sceneVertexArray);
    glGenBuffers(1, &g_sceneBuffer);
    glBindBuffer(GL_ARRAY_BUFFER, g_sceneBuffer);
-   g_sceneBufferCapacity = kSceneBufferInitialBytes;
-   g_sceneBufferOffset = 0;
-   glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(g_sceneBufferCapacity),
-      nullptr, GL_STREAM_DRAW);
    const GLsizei stride = sizeof(sRenderBackendVertex);
    const size_t offsets[] = {
       offsetof(sRenderBackendVertex, x), offsetof(sRenderBackendVertex, r),
@@ -455,8 +448,6 @@ void destroy_scene_pipeline()
    if (g_sceneVertexArray) glDeleteVertexArrays(1, &g_sceneVertexArray);
    if (g_sceneProgram) glDeleteProgram(g_sceneProgram);
    g_sceneBuffer = g_sceneVertexArray = g_sceneProgram = 0;
-   g_sceneBufferCapacity = 0;
-   g_sceneBufferOffset = 0;
    reset_gl_state_cache();
 }
 
@@ -755,27 +746,16 @@ bool draw_vertices(GLenum primitive, const sRenderBackendVertex *vertices,
       g_glArrayBuffer = g_sceneBuffer;
    }
 
+   // Always upload via exact-size glBufferData(..., GL_STREAM_DRAW) instead of
+   // glBufferSubData() into a large persistent VBO. On WebGL2 / ANGLE mobile
+   // tiler GPUs (ARM Mali-G610 / Adreno), calling glBufferSubData() on a VBO
+   // referenced by earlier glDrawArrays() in the same frame forces a full-VBO
+   // shadow copy or GPU pipeline flush on every draw call. Exact-size
+   // glBufferData() orphans only the current batch's bytes with zero stalls.
    const size_t bytes = static_cast<size_t>(count) * sizeof(*vertices);
-   GLint firstVertex = 0;
-   if (bytes > g_sceneBufferCapacity) {
-      g_sceneBufferCapacity = bytes;
-      glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes),
-         vertices, GL_STREAM_DRAW);
-      g_sceneBufferOffset = bytes;
-   } else {
-      if (g_sceneBufferOffset + bytes > g_sceneBufferCapacity) {
-         glBufferData(GL_ARRAY_BUFFER,
-            static_cast<GLsizeiptr>(g_sceneBufferCapacity), nullptr,
-            GL_STREAM_DRAW);
-         g_sceneBufferOffset = 0;
-      }
-      glBufferSubData(GL_ARRAY_BUFFER,
-         static_cast<GLintptr>(g_sceneBufferOffset),
-         static_cast<GLsizeiptr>(bytes), vertices);
-      firstVertex = static_cast<GLint>(g_sceneBufferOffset / sizeof(*vertices));
-      g_sceneBufferOffset += bytes;
-   }
-   glDrawArrays(primitive, firstVertex, count);
+   glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes),
+      vertices, GL_STREAM_DRAW);
+   glDrawArrays(primitive, 0, count);
    return true;
 }
 

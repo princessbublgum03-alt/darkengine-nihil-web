@@ -1044,8 +1044,9 @@ test('lossless performance optimizations preserve 100% graphics/physics fidelity
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
   const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
 
-  // 1. opengl.cpp: persistent ring-buffer VBO, dirty-checked GL state/uniform cache, fixed-array FIFO draw-call batching, no Emscripten double-yield SDL_Delay or glGetError roundtrip
-  assert.ok(opengl.includes('glBufferSubData(GL_ARRAY_BUFFER,'), 'opengl.cpp must stream vertices into a persistent ring-buffer VBO via glBufferSubData');
+  // 1. opengl.cpp: exact-size GL_STREAM_DRAW buffer orphaning (no ANGLE/Mali glBufferSubData stall), dirty-checked GL state/uniform cache, fixed-array FIFO draw-call batching, no Emscripten double-yield SDL_Delay or glGetError roundtrip
+  assert.ok(!/^\s*glBufferSubData\s*\(/m.test(opengl), 'opengl.cpp must NOT call glBufferSubData on a large persistent VBO (causes severe Mali/ANGLE shadow-copy stalls)');
+  assert.ok(opengl.includes('glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes),\n      vertices, GL_STREAM_DRAW);'), 'opengl.cpp draw_vertices must use exact-size GL_STREAM_DRAW buffer orphaning');
   assert.ok(opengl.includes('void flush_batch()'), 'opengl.cpp must batch consecutive compatible RenderBackendDraw calls');
   assert.ok(opengl.includes('sRenderBackendVertex g_batchVertices[kMaxBatchVertices];'), 'opengl.cpp must use a fixed static vertex batch array instead of std::vector under -fpack-struct=1');
   assert.ok(opengl.includes('std::memcpy(g_batchVertices + g_batchCount, vertices,'), 'RenderBackendDraw must copy consecutive compatible vertices via memcpy before flushing');

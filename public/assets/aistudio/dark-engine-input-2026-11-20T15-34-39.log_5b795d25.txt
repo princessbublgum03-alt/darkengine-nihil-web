@@ -1,0 +1,68 @@
+=== DARK ENGINE WEB INPUT LOG REPORT ===
+Generated: 2026-11-20T15:34:39.911Z
+URL: https://princessbublgum03-alt.github.io/darkengine-nihil-web/
+UserAgent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/160.0.0.0 Mobile Safari/537.36
+Viewport: 432x872 @2.50x
+InputMode: gameplay | TouchLayout: buttons (pref=buttons)
+Controls: sens=1.2x deadzone=15% invertY=off rawMouse=off pointerLock=no
+Gamepad: none
+Entries: 58 (touch=46, pc=0, gamepad=0, engine=12)
+-----------------------------------------
+[+00:32.531] [ENGINE ] Режим ввода движка: Меню (прямой курсор)
+[+00:37.181] [TOUCH  ] Касание 2D-меню (down) | {"x":566,"y":215,"normX":0.589,"normY":0.497}
+[+00:37.248] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":566,"y":215}
+[+00:37.862] [TOUCH  ] Касание 2D-меню (down) | {"x":584,"y":213,"normX":0.608,"normY":0.492}
+[+00:37.924] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":584,"y":213}
+[+00:38.958] [TOUCH  ] Касание 2D-меню (down) | {"x":699,"y":201,"normX":0.728,"normY":0.465}
+[+00:39.034] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":699,"y":201}
+[+00:40.495] [TOUCH  ] Касание 2D-меню (down) | {"x":566,"y":413,"normX":0.59,"normY":0.956}
+[+00:40.570] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":566,"y":413}
+[+00:40.936] [TOUCH  ] Касание 2D-меню (down) | {"x":581,"y":387,"normX":0.605,"normY":0.896}
+[+00:41.004] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":581,"y":387}
+[+00:41.494] [TOUCH  ] Касание 2D-меню (down) | {"x":569,"y":392,"normX":0.593,"normY":0.907}
+[+00:41.580] [TOUCH  ] Касание 2D-меню (pointerup) | {"x":569,"y":392}
+[+00:43.512] [ENGINE ] Режим ввода движка: 3D-игра (relative mouse)
+[+00:43.535] [ENGINE ] [web][mturn] count=1 sum=0.0 +x=0 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+00:45.137] [ENGINE ] [web][look] rel count=1 sum=(-458,96) +x=0 -x=1 +y=1 -y=0 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:45.215] [GESTURE] Обзор (pointerup) | {"events":3,"sumX":-524,"sumY":101,"+x":0,"-x":3,"+y":2,"-y":0}
+[+00:45.918] [GESTURE] Движение (жесты): БЕГ
+[+00:46.461] [GESTURE] Движение (жесты) завершено (pointerup)
+[+00:46.958] [GESTURE] Движение (жесты): КРАСТЬСЯ
+[+00:47.042] [GESTURE] Движение (жесты): ШАГ
+[+00:47.411] [GESTURE] Движение (жесты): БЕГ
+[+00:47.488] [GESTURE] Движение (жесты) завершено (pointerup)
+[+00:47.710] [GESTURE] Удержание справа: Блок | {"action":"block"}
+[+00:47.740] [GESTURE] Обзор (движение) | {"events":1,"sumX":-335,"sumY":42,"+x":0,"-x":1,"+y":1,"-y":0}
+[+00:47.740] [ENGINE ] [web][input] action=2 down=1 cmd=+block
+[+00:47.748] [ENGINE ] [web][look] rel count=2 sum=(-401,47) +x=0 -x=2 +y=2 -y=0 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+00:47.748] [ENGINE ] [web][mturn] count=4 sum=-859.0 +x=0 -x=3 sens=1.00 freelook=1 g_freelookon=0
+[+00:47.908] [GESTURE] Обзор (pointerup) | {"events":1,"sumX":-12,"sumY":-1,"+x":0,"-x":1,"+y":0,"-y":1}
+[+00:47.908] [GESTURE] Удержание справа отпущено (Блок) | {"action":"block"}
+[+00:47.975] [ENGINE ] [web][input] action=2 down=0 cmd=-block
+[+00:50.091] [GESTURE] Движение (жесты): ШАГ
+[+00:50.469] [GESTURE] Движение (жесты): БЕГ
+[+00:50.647] [GESTURE] Движение (жесты): ШАГ
+[+00:50.648] [GESTURE] Движение (жесты) завершено (pointerup)
+[+00:59.493] [TOUCH  ] Стик старт | {"id":23,"x":128,"y":351}
+[+00:59.589] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyW+ControlLeft"}
+[+00:59.620] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyW"}
+[+00:59.701] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyW+KeyA+ShiftLeft"}
+[+00:59.745] [TOUCH  ] Обзор старт | {"id":24,"x":762,"y":228,"type":"touch"}
+[+01:00.076] [ENGINE ] [web][look] rel count=2 sum=(218,-113) +x=1 -x=1 +y=0 -y=2 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:00.076] [ENGINE ] [web][mturn] count=4 sum=218.0 +x=1 -x=1 sens=1.00 freelook=1 g_freelookon=0
+[+01:00.108] [TOUCH  ] Обзор (pointerup) | {"events":3,"sumX":272,"sumY":-127,"+x":3,"-x":0,"+y":0,"-y":3}
+[+01:00.186] [TOUCH  ] Стик завершён (pointerup)
+[+01:02.397] [TOUCH  ] Обзор старт | {"id":27,"x":730,"y":193,"type":"touch"}
+[+01:02.455] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":39,"sumY":16,"+x":1,"-x":0,"+y":1,"-y":0}
+[+01:02.465] [TOUCH  ] Стик старт | {"id":28,"x":112,"y":352}
+[+01:02.471] [ENGINE ] [web][look] rel count=2 sum=(80,0) +x=2 -x=0 +y=1 -y=1 canvas=960x432 xcmd=mturn control: mouse_axisx
+[+01:02.471] [ENGINE ] [web][mturn] count=3 sum=80.0 +x=2 -x=0 sens=1.00 freelook=1 g_freelookon=0
+[+01:02.595] [TOUCH  ] Стик режим: КРАСТЬСЯ | {"keys":"KeyD+ControlLeft"}
+[+01:02.634] [TOUCH  ] Стик режим: ШАГ | {"keys":"KeyD"}
+[+01:02.698] [TOUCH  ] Стик режим: БЕГ | {"keys":"KeyD+ShiftLeft"}
+[+01:02.813] [TOUCH  ] Обзор (движение) | {"events":17,"sumX":379,"sumY":54,"+x":17,"-x":0,"+y":11,"-y":1}
+[+01:03.095] [TOUCH  ] Обзор (pointerup) | {"events":5,"sumX":97,"sumY":-22,"+x":5,"-x":0,"+y":0,"-y":2}
+[+01:03.364] [TOUCH  ] Обзор старт | {"id":29,"x":750,"y":209,"type":"touch"}
+[+01:03.447] [TOUCH  ] Обзор (движение) | {"events":1,"sumX":184,"sumY":-9,"+x":1,"-x":0,"+y":0,"-y":1}
+[+01:03.947] [TOUCH  ] Обзор (движение) | {"events":3,"sumX":397,"sumY":59,"+x":3,"-x":0,"+y":3,"-y":0}
+[+01:04.138] [TOUCH  ] Стик завершён (pointerup)
