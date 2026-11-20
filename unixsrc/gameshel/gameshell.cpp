@@ -99,12 +99,43 @@ EM_JS(void, dark_web_notify_canvas_resized, (int cssW, int cssH), {
 EM_JS(int, dark_web_pop_input_event_type, (), {
     var q = window.__darkWebInputQueue;
     if (!q || q.length === 0) {
+        window.__darkWebInputHead = 0;
         window.__darkWebCurEvent = null;
         return 0;
     }
-    var ev = q.shift();
+    var head = window.__darkWebInputHead | 0;
+    if (head < 0 || head >= q.length) {
+        q.length = 0;
+        window.__darkWebInputHead = 0;
+        window.__darkWebCurEvent = null;
+        return 0;
+    }
+    var ev = q[head];
+    q[head] = null;
+    head += 1;
+    if (head >= q.length) {
+        q.length = 0;
+        window.__darkWebInputHead = 0;
+    } else {
+        window.__darkWebInputHead = head;
+    }
     window.__darkWebCurEvent = ev;
     return (ev && ev.length > 0) ? (ev[0] | 0) : 0;
+});
+
+EM_JS(int, dark_web_canvas_size_rev, (), {
+    var s = window.__darkCanvasCssSize;
+    return s ? (s.rev | 0) : 0;
+});
+
+EM_JS(int, dark_web_canvas_css_w, (), {
+    var s = window.__darkCanvasCssSize;
+    return s ? (s.w | 0) : 0;
+});
+
+EM_JS(int, dark_web_canvas_css_h, (), {
+    var s = window.__darkCanvasCssSize;
+    return s ? (s.h | 0) : 0;
 });
 
 EM_JS(int, dark_web_event_i1, (), {
@@ -297,6 +328,7 @@ private:
     SDL_Window *m_lastSyncedWindow;
     int m_lastCssWidth;
     int m_lastCssHeight;
+    int m_lastCanvasSizeRev;
     int m_lastRelativeMouse;
     int m_lastWebConfigRev;
     float m_lookAccumX;
@@ -324,6 +356,7 @@ cUnixGameShell::cUnixGameShell(IUnknown *pOuterUnknown, int fFlags, int msecBloc
       m_lastSyncedWindow(NULL),
       m_lastCssWidth(0),
       m_lastCssHeight(0),
+      m_lastCanvasSizeRev(0),
       m_lastRelativeMouse(-1),
       m_lastWebConfigRev(0),
       m_lookAccumX(0.0f),
@@ -361,6 +394,7 @@ HRESULT cUnixGameShell::Init()
     m_lastSyncedWindow = NULL;
     m_lastCssWidth = 0;
     m_lastCssHeight = 0;
+    m_lastCanvasSizeRev = 0;
     m_lastRelativeMouse = -1;
     m_lastWebConfigRev = 0;
     m_lookAccumX = 0.0f;
@@ -416,13 +450,32 @@ void cUnixGameShell::SyncEmscriptenCanvasSize(bool forceSync)
     if (!win)
         return;
 
-    double cssW = 0.0;
-    double cssH = 0.0;
-    if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) != EMSCRIPTEN_RESULT_SUCCESS)
+    // Fast path: check cached ResizeObserver revision published by web/index.html
+    // so we NEVER trigger a synchronous DOM getBoundingClientRect() layout reflow
+    // on every frame during gameplay.
+    const int sizeRev = dark_web_canvas_size_rev();
+    if (!forceSync && sizeRev > 0 && sizeRev == m_lastCanvasSizeRev &&
+        win == m_lastSyncedWindow && m_lastCssWidth > 0 && m_lastCssHeight > 0)
+    {
         return;
+    }
 
-    const int w = static_cast<int>(cssW + 0.5);
-    const int h = static_cast<int>(cssH + 0.5);
+    int w = 0;
+    int h = 0;
+    if (sizeRev > 0)
+    {
+        w = dark_web_canvas_css_w();
+        h = dark_web_canvas_css_h();
+    }
+    if (w <= 0 || h <= 0)
+    {
+        double cssW = 0.0;
+        double cssH = 0.0;
+        if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) != EMSCRIPTEN_RESULT_SUCCESS)
+            return;
+        w = static_cast<int>(cssW + 0.5);
+        h = static_cast<int>(cssH + 0.5);
+    }
     if (w <= 0 || h <= 0)
         return;
 
@@ -430,6 +483,7 @@ void cUnixGameShell::SyncEmscriptenCanvasSize(bool forceSync)
     int sdlH = 0;
     SDL_GetWindowSize(win, &sdlW, &sdlH);
 
+    m_lastCanvasSizeRev = sizeRev;
     if (!forceSync && win == m_lastSyncedWindow &&
         w == m_lastCssWidth && h == m_lastCssHeight &&
         sdlW == w && sdlH == h)

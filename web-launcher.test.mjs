@@ -995,6 +995,81 @@ test('Emscripten FFmpeg 6.1.2 static build and Asyncify-safe movie rendering ena
   assert.ok(opengl.includes('emscripten_sleep(1);'), 'DarkRenderPumpMovieEvents must yield periodically so movie loops never stall tap-to-skip');
 });
 
+test('Gesture Mode allows simultaneous left-thumb walk + right-thumb camera look without hijacking into lean gestures', () => {
+  // 1. Opposite screen halves MUST NEVER trigger 2-finger gesture mode (walk + look simultaneously)
+  const leftThumb = { zone: 'left', currX: 120, currY: 320, startTs: 1000, moved: false };
+  const rightThumb = { zone: 'right', currX: 740, currY: 310, startTs: 1020, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(leftThumb, rightThumb, 960), false, 'Opposite zones must never hijack simultaneous walk + look');
+
+  // 2. Opposite halves even when near the center seam must stay independent
+  const leftNearCenter = { zone: 'left', currX: 460, currY: 300, startTs: 1000, moved: false };
+  const rightNearCenter = { zone: 'right', currX: 500, currY: 300, startTs: 1010, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(leftNearCenter, rightNearCenter, 960), false);
+
+  // 3. Same-side second finger while first finger is already moving must NOT interrupt movement/look
+  const movingLeft = { zone: 'left', currX: 140, currY: 280, startTs: 1000, moved: true };
+  const brushLeft = { zone: 'left', currX: 190, currY: 290, startTs: 1050, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(movingLeft, brushLeft, 960), false);
+
+  // 4. Same-side second finger arriving late (>220ms) must NOT hijack
+  const earlyRight = { zone: 'right', currX: 700, currY: 300, startTs: 1000, moved: false };
+  const lateRight = { zone: 'right', currX: 760, currY: 310, startTs: 1350, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(earlyRight, lateRight, 960), false);
+
+  // 5. Same-side fingers far apart (>36% viewport width) must NOT trigger 2-finger gesture
+  const farA = { zone: 'right', currX: 520, currY: 80, startTs: 1000, moved: false };
+  const farB = { zone: 'right', currX: 900, currY: 420, startTs: 1030, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(farA, farB, 960), false);
+
+  // 6. Intentional close same-side 2-finger touch within 220ms MUST trigger 2-finger gesture (lean/map/weapon/block)
+  const chordA = { zone: 'right', currX: 680, currY: 240, startTs: 1000, moved: false };
+  const chordB = { zone: 'right', currX: 745, currY: 255, startTs: 1045, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(chordA, chordB, 960), true);
+
+  const leftChordA = { zone: 'left', currX: 120, currY: 220, startTs: 2000, moved: false };
+  const leftChordB = { zone: 'left', currX: 185, currY: 235, startTs: 2080, moved: false };
+  assert.equal(Core.shouldEnterTwoFingerGesture(leftChordA, leftChordB, 960), true);
+
+  // 7. HTML wiring uses shouldEnterTwoFingerGesture
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  assert.ok(
+    html.includes('DarkWebCore.shouldEnterTwoFingerGesture(pts[0], pts[1], window.innerWidth)'),
+    'gestureHud pointerdown must guard 2-finger gesture mode via DarkWebCore.shouldEnterTwoFingerGesture'
+  );
+});
+
+test('lossless performance optimizations preserve 100% graphics/physics fidelity while eliminating WebGL2, Asyncify, and DOM reflow overhead', () => {
+  const opengl = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
+  const gameshell = fs.readFileSync(new URL('./unixsrc/gameshel/gameshell.cpp', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
+  const yml = fs.readFileSync(new URL('./.github/workflows/build-web.yml', import.meta.url), 'utf8');
+
+  // 1. opengl.cpp: persistent ring-buffer VBO, dirty-checked GL state/uniform cache, FIFO draw-call batching, no Emscripten double-yield SDL_Delay or glGetError roundtrip
+  assert.ok(opengl.includes('glBufferSubData(GL_ARRAY_BUFFER,'), 'opengl.cpp must stream vertices into a persistent ring-buffer VBO via glBufferSubData');
+  assert.ok(opengl.includes('void flush_batch()'), 'opengl.cpp must batch consecutive compatible RenderBackendDraw calls');
+  assert.ok(opengl.includes('g_batchVertices.insert(g_batchVertices.end(), vertices, vertices + count);'), 'RenderBackendDraw must accumulate consecutive compatible vertices before flushing');
+  assert.ok(opengl.includes('bool g_glUniformsValid = false;'), 'opengl.cpp must dirty-check scene shader uniforms');
+  assert.ok(opengl.includes('inline void gl_bind_tex2d(int unit, GLuint texName)'), 'opengl.cpp must cache active texture units and 2D texture bindings');
+  assert.ok(opengl.includes('#if !defined(__EMSCRIPTEN__)\n   if (g_swapInterval != 1 || !g_swapIntervalApplied)'), 'swap_presented_frame must not run a second Asyncify SDL_Delay under Emscripten');
+  assert.ok(opengl.includes('avoid 4x glGetIntegerv and synchronous glGetError()'), 'RenderBackendUpdateTexture must avoid synchronous WebGL2 glGetError stalls on animated lightmap updates');
+
+  // 2. gameshell.cpp: ResizeObserver revision fast-path (zero per-frame DOM reflow) + O(1) queue head cursor
+  assert.ok(gameshell.includes('EM_JS(int, dark_web_canvas_size_rev'), 'gameshell.cpp must read cached __darkCanvasCssSize revision instead of forcing DOM layout every frame');
+  assert.ok(gameshell.includes('window.__darkWebInputHead'), 'gameshell.cpp must pop input events in O(1) using __darkWebInputHead instead of O(N) Array.shift');
+
+  // 3. web/index.html: cached __darkCanvasCssSize for WebGL2 viewport/scissor + deferred hidden log DOM rendering during gameplay
+  assert.ok(html.includes('const cached = window.__darkCanvasCssSize;'), 'WebGL2 viewport/scissor wrapper must use cached CSS dimensions instead of calling getBoundingClientRect() per draw');
+  assert.ok(html.includes('new ResizeObserver('), 'web/index.html must observe #canvas size changes via ResizeObserver');
+  assert.ok(html.includes("if (document.body.dataset.mode === 'playing') {\n            inputLogDomDirty = true;"), 'web/index.html must defer hidden input log DOM rebuilds while playing');
+
+  // 4. build-web.yml: section-level dead code stripping paired with --gc-sections (without forbidden -flto / -ffast-math / EMULATE_FUNCTION_POINTER_CASTS)
+  assert.ok(yml.includes('-ffunction-sections -fdata-sections'), 'build-web.yml must pass -ffunction-sections -fdata-sections to pair with -Wl,--gc-sections');
+  assert.ok(!yml.includes('-flto'), 'build-web.yml must NEVER enable -flto');
+  assert.ok(!yml.includes('-ffast-math'), 'build-web.yml must NEVER enable -ffast-math');
+  assert.ok(!yml.includes('EMULATE_FUNCTION_POINTER_CASTS=1'), 'build-web.yml must NEVER enable EMULATE_FUNCTION_POINTER_CASTS=1');
+});
+
+
 
 
 

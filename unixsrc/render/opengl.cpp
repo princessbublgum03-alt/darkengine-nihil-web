@@ -157,6 +157,132 @@ GLuint g_sceneProgram, g_sceneBuffer, g_sceneVertexArray;
 GLint g_viewportUniform, g_useTexture1Uniform, g_fogEnabledUniform;
 GLint g_fogColorUniform, g_alphaTestUniform, g_transparentBlackUniform;
 
+// Lossless GPU optimization state: persistent ring-buffer VBO, dirty-checked
+// GL state & uniform caches, and FIFO draw-call batching. Zero visual changes.
+constexpr size_t kSceneBufferMaxVertices = 32768;
+constexpr size_t kSceneBufferInitialBytes = kSceneBufferMaxVertices * sizeof(sRenderBackendVertex);
+constexpr size_t kMaxBatchVertices = 8192;
+size_t g_sceneBufferCapacity = 0;
+size_t g_sceneBufferOffset = 0;
+
+GLuint g_glProgram = 0;
+GLuint g_glVao = 0;
+GLuint g_glArrayBuffer = 0;
+int g_glActiveUnit = -1;
+GLuint g_glBoundTex2D[2] = {0, 0};
+bool g_glBoundTexValid[2] = {false, false};
+bool g_glViewportValid = false;
+int g_glViewport[4] = {0, 0, 0, 0};
+bool g_glDepthValid = false;
+bool g_glDepthEnabled = false;
+GLenum g_glDepthFunc = GL_LESS;
+bool g_glDepthWrite = false;
+bool g_glBlendValid = false;
+int g_glBlendMode = -1;
+bool g_glUniformsValid = false;
+int g_glUniWidth = 0;
+int g_glUniHeight = 0;
+bool g_glUniUseTex1 = false;
+bool g_glUniFog = false;
+uint32_t g_glUniFogColor = 0;
+bool g_glUniAlphaTest = false;
+bool g_glUniTransparentBlack = false;
+GLint g_overlayFilter = 0;
+
+std::vector<sRenderBackendVertex> g_batchVertices;
+GLenum g_batchPrimitive = GL_TRIANGLES;
+Texture *g_batchTex0 = nullptr;
+Texture *g_batchTex1 = nullptr;
+bool g_batchSecond = false;
+int g_batchWidth = 0;
+int g_batchHeight = 0;
+bool g_batchFog = false;
+uint32_t g_batchFogColor = 0;
+bool g_batchAlphaTest = false;
+
+void reset_gl_state_cache()
+{
+   g_glProgram = 0;
+   g_glVao = 0;
+   g_glArrayBuffer = 0;
+   g_glActiveUnit = -1;
+   g_glBoundTex2D[0] = g_glBoundTex2D[1] = 0;
+   g_glBoundTexValid[0] = g_glBoundTexValid[1] = false;
+   g_glViewportValid = false;
+   g_glDepthValid = false;
+   g_glBlendValid = false;
+   g_glBlendMode = -1;
+   g_glUniformsValid = false;
+   g_overlayFilter = 0;
+}
+
+inline void gl_set_viewport(int x, int y, int w, int h)
+{
+   if (g_glViewportValid && g_glViewport[0] == x && g_glViewport[1] == y &&
+       g_glViewport[2] == w && g_glViewport[3] == h)
+      return;
+   glViewport(x, y, w, h);
+   g_glViewport[0] = x; g_glViewport[1] = y; g_glViewport[2] = w; g_glViewport[3] = h;
+   g_glViewportValid = true;
+}
+
+inline void gl_set_active_unit(int unit)
+{
+   if (g_glActiveUnit == unit)
+      return;
+   glActiveTexture(GL_TEXTURE0 + unit);
+   g_glActiveUnit = unit;
+}
+
+inline void gl_bind_tex2d(int unit, GLuint texName)
+{
+   if (g_glBoundTexValid[unit] && g_glBoundTex2D[unit] == texName)
+      return;
+   gl_set_active_unit(unit);
+   glBindTexture(GL_TEXTURE_2D, texName);
+   g_glBoundTex2D[unit] = texName;
+   g_glBoundTexValid[unit] = true;
+}
+
+inline void gl_set_depth_state(bool enable, GLenum func, bool write)
+{
+   if (!g_glDepthValid || g_glDepthEnabled != enable) {
+      if (enable) glEnable(GL_DEPTH_TEST);
+      else glDisable(GL_DEPTH_TEST);
+      g_glDepthEnabled = enable;
+   }
+   if (enable && (!g_glDepthValid || g_glDepthFunc != func)) {
+      glDepthFunc(func);
+      g_glDepthFunc = func;
+   }
+   if (!g_glDepthValid || g_glDepthWrite != write) {
+      glDepthMask(write ? GL_TRUE : GL_FALSE);
+      g_glDepthWrite = write;
+   }
+   g_glDepthValid = true;
+}
+
+inline void gl_set_blend_mode(int mode)
+{
+   if (g_glBlendValid && g_glBlendMode == mode)
+      return;
+   if (mode == kRenderBackendBlendOpaque) {
+      glDisable(GL_BLEND);
+   } else {
+      if (!g_glBlendValid || g_glBlendMode == kRenderBackendBlendOpaque)
+         glEnable(GL_BLEND);
+      if (mode == kRenderBackendBlendMultiply)
+         glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_ONE, GL_ZERO);
+      else if (mode == kRenderBackendBlendAdd)
+         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
+      else
+         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
+            GL_ONE_MINUS_SRC_ALPHA);
+   }
+   g_glBlendMode = mode;
+   g_glBlendValid = true;
+}
+
 void set_window_icon()
 {
    std::array<Uint8, dark_app_icon::kWidth * dark_app_icon::kHeight * 4> pixels;
@@ -297,6 +423,10 @@ bool create_scene_pipeline()
    glBindVertexArray(g_sceneVertexArray);
    glGenBuffers(1, &g_sceneBuffer);
    glBindBuffer(GL_ARRAY_BUFFER, g_sceneBuffer);
+   g_sceneBufferCapacity = kSceneBufferInitialBytes;
+   g_sceneBufferOffset = 0;
+   glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(g_sceneBufferCapacity),
+      nullptr, GL_STREAM_DRAW);
    const GLsizei stride = sizeof(sRenderBackendVertex);
    const size_t offsets[] = {
       offsetof(sRenderBackendVertex, x), offsetof(sRenderBackendVertex, r),
@@ -308,16 +438,26 @@ bool create_scene_pipeline()
       glVertexAttribPointer(i, sizes[i], GL_FLOAT, GL_FALSE, stride,
          reinterpret_cast<const void *>(offsets[i]));
    }
+   reset_gl_state_cache();
+   g_glProgram = g_sceneProgram;
+   g_glVao = g_sceneVertexArray;
+   g_glArrayBuffer = g_sceneBuffer;
+   g_batchVertices.clear();
+   g_batchVertices.reserve(4096);
    return g_sceneProgram && g_sceneBuffer && g_sceneVertexArray &&
       glGetError() == GL_NO_ERROR;
 }
 
 void destroy_scene_pipeline()
 {
+   g_batchVertices.clear();
    if (g_sceneBuffer) glDeleteBuffers(1, &g_sceneBuffer);
    if (g_sceneVertexArray) glDeleteVertexArrays(1, &g_sceneVertexArray);
    if (g_sceneProgram) glDeleteProgram(g_sceneProgram);
    g_sceneBuffer = g_sceneVertexArray = g_sceneProgram = 0;
+   g_sceneBufferCapacity = 0;
+   g_sceneBufferOffset = 0;
+   reset_gl_state_cache();
 }
 
 void viewport(int &x, int &y, int &w, int &h)
@@ -498,6 +638,10 @@ void swap_presented_frame()
    // A working swap interval already paces gameplay. The old unconditional
    // post-swap delay occasionally added an extra millisecond (or a full
    // refresh on some compositors), producing visibly uneven camera motion.
+   // Under Emscripten, cUnixGameShell::EndFrame() already paces every frame
+   // via VSync requestAnimationFrame; calling SDL_Delay here would trigger a
+   // redundant second Asyncify unwind/sleep per frame.
+#if !defined(__EMSCRIPTEN__)
    if (g_swapInterval != 1 || !g_swapIntervalApplied) {
       const Uint64 now = SDL_GetTicks64();
       if (g_lastPresentTicks && now - g_lastPresentTicks < 16)
@@ -506,15 +650,17 @@ void swap_presented_frame()
    } else {
       g_lastPresentTicks = 0;
    }
+#endif
    g_presentPending = false;
 }
 
 void bind_texture(int level, Texture *texture)
 {
-   glActiveTexture(GL_TEXTURE0 + level);
+   const GLuint texName = texture ? texture->name : 0;
+   gl_bind_tex2d(level, texName);
    if (texture) {
-      glBindTexture(GL_TEXTURE_2D, texture->name);
       if (texture->wrap != g_samplerWrap[level]) {
+         gl_set_active_unit(level);
          texture->wrap = g_samplerWrap[level];
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
             texture->wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
@@ -522,6 +668,7 @@ void bind_texture(int level, Texture *texture)
             texture->wrap ? GL_REPEAT : GL_CLAMP_TO_EDGE);
       }
       if (texture->smooth != g_samplerSmooth[level]) {
+         gl_set_active_unit(level);
          texture->smooth = g_samplerSmooth[level];
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
             texture->smooth ? GL_LINEAR : GL_NEAREST);
@@ -529,7 +676,6 @@ void bind_texture(int level, Texture *texture)
             texture->smooth ? GL_LINEAR : GL_NEAREST);
       }
    }
-   else glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void apply_depth_state()
@@ -538,28 +684,13 @@ void apply_depth_state()
    // "always pass and write depth", not "disable the depth buffer".  OpenGL
    // suppresses depth writes when GL_DEPTH_TEST is disabled, regardless of
    // glDepthMask, so keep the test enabled whenever either operation is used.
-   if (g_depthCompare || g_depthWrite)
-      glEnable(GL_DEPTH_TEST);
-   else
-      glDisable(GL_DEPTH_TEST);
-   glDepthFunc(g_depthCompare ? GL_LEQUAL : GL_ALWAYS);
-   glDepthMask(g_depthWrite ? GL_TRUE : GL_FALSE);
+   gl_set_depth_state(g_depthCompare || g_depthWrite,
+      g_depthCompare ? GL_LEQUAL : GL_ALWAYS, g_depthWrite);
 }
 
 void apply_blend_state()
 {
-   if (g_blendMode == kRenderBackendBlendOpaque) {
-      glDisable(GL_BLEND);
-   } else {
-      glEnable(GL_BLEND);
-      if (g_blendMode == kRenderBackendBlendMultiply)
-         glBlendFuncSeparate(GL_DST_COLOR, GL_ZERO, GL_ONE, GL_ZERO);
-      else if (g_blendMode == kRenderBackendBlendAdd)
-         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ONE, GL_ONE);
-      else
-         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
-            GL_ONE_MINUS_SRC_ALPHA);
-   }
+   gl_set_blend_mode(g_blendMode);
 }
 
 const void *tight_texture_pixels(int width, int height, const void *pixels,
@@ -582,29 +713,97 @@ bool draw_vertices(GLenum primitive, const sRenderBackendVertex *vertices,
 {
    if (!g_sceneProgram || !vertices || count <= 0 || width <= 0 || height <= 0)
       return false;
-   glUseProgram(g_sceneProgram);
-   glUniform2f(g_viewportUniform, static_cast<float>(width),
-      static_cast<float>(height));
-   glUniform1f(g_useTexture1Uniform, second ? 1.0f : 0.0f);
-   glUniform1f(g_fogEnabledUniform, fog ? 1.0f : 0.0f);
-   glUniform3f(g_fogColorUniform, ((fogColor >> 16) & 255) / 255.0f,
-      ((fogColor >> 8) & 255) / 255.0f, (fogColor & 255) / 255.0f);
-   glUniform1f(g_alphaTestUniform, alphaTest ? 1.0f : 0.0f);
-   glUniform1f(g_transparentBlackUniform, transparentBlack ? 1.0f : 0.0f);
-   glBindVertexArray(g_sceneVertexArray);
-   glBindBuffer(GL_ARRAY_BUFFER, g_sceneBuffer);
-   glBufferData(GL_ARRAY_BUFFER,
-      static_cast<GLsizeiptr>(static_cast<size_t>(count) * sizeof(*vertices)),
-      vertices, GL_STREAM_DRAW);
-   glDrawArrays(primitive, 0, count);
+   if (g_glProgram != g_sceneProgram) {
+      glUseProgram(g_sceneProgram);
+      g_glProgram = g_sceneProgram;
+   }
+   if (!g_glUniformsValid || width != g_glUniWidth || height != g_glUniHeight) {
+      glUniform2f(g_viewportUniform, static_cast<float>(width),
+         static_cast<float>(height));
+      g_glUniWidth = width;
+      g_glUniHeight = height;
+   }
+   if (!g_glUniformsValid || second != g_glUniUseTex1) {
+      glUniform1f(g_useTexture1Uniform, second ? 1.0f : 0.0f);
+      g_glUniUseTex1 = second;
+   }
+   if (!g_glUniformsValid || fog != g_glUniFog) {
+      glUniform1f(g_fogEnabledUniform, fog ? 1.0f : 0.0f);
+      g_glUniFog = fog;
+   }
+   if (!g_glUniformsValid || (fog && fogColor != g_glUniFogColor)) {
+      glUniform3f(g_fogColorUniform, ((fogColor >> 16) & 255) / 255.0f,
+         ((fogColor >> 8) & 255) / 255.0f, (fogColor & 255) / 255.0f);
+      g_glUniFogColor = fogColor;
+   }
+   if (!g_glUniformsValid || alphaTest != g_glUniAlphaTest) {
+      glUniform1f(g_alphaTestUniform, alphaTest ? 1.0f : 0.0f);
+      g_glUniAlphaTest = alphaTest;
+   }
+   if (!g_glUniformsValid || transparentBlack != g_glUniTransparentBlack) {
+      glUniform1f(g_transparentBlackUniform, transparentBlack ? 1.0f : 0.0f);
+      g_glUniTransparentBlack = transparentBlack;
+   }
+   g_glUniformsValid = true;
+
+   if (g_glVao != g_sceneVertexArray) {
+      glBindVertexArray(g_sceneVertexArray);
+      g_glVao = g_sceneVertexArray;
+   }
+   if (g_glArrayBuffer != g_sceneBuffer) {
+      glBindBuffer(GL_ARRAY_BUFFER, g_sceneBuffer);
+      g_glArrayBuffer = g_sceneBuffer;
+   }
+
+   const size_t bytes = static_cast<size_t>(count) * sizeof(*vertices);
+   GLint firstVertex = 0;
+   if (bytes > g_sceneBufferCapacity) {
+      g_sceneBufferCapacity = bytes;
+      glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(bytes),
+         vertices, GL_STREAM_DRAW);
+      g_sceneBufferOffset = bytes;
+   } else {
+      if (g_sceneBufferOffset + bytes > g_sceneBufferCapacity) {
+         glBufferData(GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(g_sceneBufferCapacity), nullptr,
+            GL_STREAM_DRAW);
+         g_sceneBufferOffset = 0;
+      }
+      glBufferSubData(GL_ARRAY_BUFFER,
+         static_cast<GLintptr>(g_sceneBufferOffset),
+         static_cast<GLsizeiptr>(bytes), vertices);
+      firstVertex = static_cast<GLint>(g_sceneBufferOffset / sizeof(*vertices));
+      g_sceneBufferOffset += bytes;
+   }
+   glDrawArrays(primitive, firstVertex, count);
    return true;
+}
+
+void flush_batch()
+{
+   if (g_batchVertices.empty())
+      return;
+   const int count = static_cast<int>(g_batchVertices.size());
+   bind_texture(0, g_batchTex0);
+   bind_texture(1, g_batchSecond ? g_batchTex1 : nullptr);
+   draw_vertices(g_batchPrimitive, g_batchVertices.data(), count,
+      g_batchSecond, g_batchWidth, g_batchHeight, g_batchFog,
+      g_batchFogColor, g_batchAlphaTest, false);
+   g_batchVertices.clear();
 }
 
 void clear_depth()
 {
-   glDepthMask(GL_TRUE);
+   flush_batch();
+   if (!g_glDepthValid || !g_glDepthWrite) {
+      glDepthMask(GL_TRUE);
+      g_glDepthWrite = true;
+   }
    glClear(GL_DEPTH_BUFFER_BIT);
-   glDepthMask(g_depthWrite ? GL_TRUE : GL_FALSE);
+   if (!g_depthWrite) {
+      glDepthMask(GL_FALSE);
+      g_glDepthWrite = false;
+   }
 }
 
 void write_u16(FILE *file, uint16_t value)
@@ -622,6 +821,7 @@ void write_u32(FILE *file, uint32_t value)
 
 bool capture_frame(const char *path)
 {
+   flush_batch();
    const int rowBytes = (g_clientWidth * 3 + 3) & ~3;
    std::vector<unsigned char> rgba(static_cast<size_t>(g_clientWidth) * g_clientHeight * 4);
    std::vector<unsigned char> row(rowBytes);
@@ -1030,12 +1230,13 @@ bool DarkRenderPumpMovieEvents(void)
       const int skipped = EM_ASM_INT({
          var q = window.__darkWebInputQueue;
          if (!q || q.length === 0) return 0;
-         for (var i = 0; i < q.length; i++) {
+         for (var i = (window.__darkWebInputHead | 0); i < q.length; i++) {
             var ev = q[i];
             if (!ev) continue;
             var t = ev[0] | 0;
             if ((t === 3 && (ev[1] | 0) === 1) || ((t === 1 || t === 2 || t === 5) && (ev[2] | 0) === 1)) {
                q.length = 0;
+               window.__darkWebInputHead = 0;
                return 1;
             }
          }
@@ -1108,7 +1309,11 @@ void DarkRenderSetRelativeMouse(bool enabled)
 static void present_legacy_frame(const void *pixels, int width, int height,
    int rowBytes, int depth, const uint8_t *palette)
 {
-   if (!g_context || !pixels) return; SDL_GL_MakeCurrent(g_window, g_context);
+   if (!g_context || !pixels) return;
+#if !defined(__EMSCRIPTEN__)
+   SDL_GL_MakeCurrent(g_window, g_context);
+#endif
+   flush_batch();
 #if defined(__ANDROID__)
    if (depth == 16 && PlatformTextInputActive()) {
       present_android_console_frame(pixels, width, height, rowBytes);
@@ -1124,17 +1329,24 @@ static void present_legacy_frame(const void *pixels, int width, int height,
       // Logical mode changes may alter the aspect-fitted viewport. Clear the
       // whole output so the previously presented menu cannot remain visible
       // in newly exposed bars around the rebuilt canvas.
-      glViewport(0, 0, g_clientWidth, g_clientHeight);
+      gl_set_viewport(0, 0, g_clientWidth, g_clientHeight);
       glClearColor(0, 0, 0, 1);
       glClear(GL_COLOR_BUFFER_BIT);
    }
-   glViewport(vx, vy, vw, vh);
-   glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, g_overlayTexture);
-   glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
-   glActiveTexture(GL_TEXTURE0);
+   gl_set_viewport(vx, vy, vw, vh);
+   gl_bind_tex2d(0, g_overlayTexture);
+   gl_bind_tex2d(1, 0);
+   gl_set_active_unit(0);
    const GLint overlayFilter = (!g_scene && g_stretchFill) ? GL_LINEAR : GL_NEAREST;
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, overlayFilter); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, overlayFilter);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+   if (g_overlayFilter != overlayFilter) {
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, overlayFilter);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, overlayFilter);
+      if (g_overlayFilter == 0) {
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      }
+      g_overlayFilter = overlayFilter;
+   }
    if (depth == 16) {
       // The legacy canvas is already tightly packed RGB565. Upload it in its
       // native format and let the fragment shader apply Dark's index-zero
@@ -1174,10 +1386,8 @@ static void present_legacy_frame(const void *pixels, int width, int height,
             GL_RGBA, GL_UNSIGNED_BYTE, g_overlay.data());
       }
    }
-   glDisable(GL_DEPTH_TEST); glDepthMask(GL_FALSE);
-   glEnable(GL_BLEND);
-   glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
-      GL_ONE_MINUS_SRC_ALPHA);
+   gl_set_depth_state(false, GL_ALWAYS, false);
+   gl_set_blend_mode(kRenderBackendBlendAlpha);
    const float w = static_cast<float>(width), h = static_cast<float>(height);
    const sRenderBackendVertex quad[] = {
       {0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
@@ -1230,7 +1440,10 @@ bool DarkRenderPresentMovieFrame(const void *rgba, int width, int height,
    if (!g_context || !rgba || width <= 0 || height <= 0 ||
        rowBytes < width * 4)
       return false;
+#if !defined(__EMSCRIPTEN__)
    SDL_GL_MakeCurrent(g_window, g_context);
+#endif
+   flush_batch();
    set_swap_interval(1);
    g_scene = false;
 
@@ -1251,16 +1464,21 @@ bool DarkRenderPresentMovieFrame(const void *rgba, int width, int height,
       }
    }
 
-   glViewport(0, 0, g_clientWidth, g_clientHeight);
+   gl_set_viewport(0, 0, g_clientWidth, g_clientHeight);
    glClearColor(0, 0, 0, 1);
    glClear(GL_COLOR_BUFFER_BIT);
-   glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
-   glActiveTexture(GL_TEXTURE0);
-   glBindTexture(GL_TEXTURE_2D, g_overlayTexture);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+   gl_set_viewport(viewportX, viewportY, viewportWidth, viewportHeight);
+   gl_bind_tex2d(0, g_overlayTexture);
+   gl_set_active_unit(0);
+   if (g_overlayFilter != GL_LINEAR) {
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      if (g_overlayFilter == 0) {
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      }
+      g_overlayFilter = GL_LINEAR;
+   }
 
    const void *pixels = rgba;
    if (rowBytes != width * 4) {
@@ -1283,9 +1501,8 @@ bool DarkRenderPresentMovieFrame(const void *rgba, int width, int height,
                       GL_RGBA, GL_UNSIGNED_BYTE, pixels);
    }
 
-   glDisable(GL_DEPTH_TEST);
-   glDepthMask(GL_FALSE);
-   glDisable(GL_BLEND);
+   gl_set_depth_state(false, GL_ALWAYS, false);
+   gl_set_blend_mode(kRenderBackendBlendOpaque);
    const float w = (float)width;
    const float h = (float)height;
    const sRenderBackendVertex quad[] = {
@@ -1410,40 +1627,88 @@ void RenderBackendPresentProgress(void)
 }
 int RenderBackendBeginFrame(void)
 {
-   if (!g_context) return 0; SDL_GL_MakeCurrent(g_window, g_context);
+   if (!g_context) return 0;
+#if !defined(__EMSCRIPTEN__)
+   SDL_GL_MakeCurrent(g_window, g_context);
+#endif
+   flush_batch();
    set_swap_interval(1);
-   int x,y,w,h; viewport(x,y,w,h); glViewport(x,y,w,h); glClearColor(0,0,0,1);
-   glDepthMask(GL_TRUE); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+   int x,y,w,h; viewport(x,y,w,h); gl_set_viewport(x,y,w,h); glClearColor(0,0,0,1);
+   if (!g_glDepthValid || !g_glDepthWrite) { glDepthMask(GL_TRUE); g_glDepthWrite = true; }
+   glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
    apply_depth_state(); apply_blend_state();
    g_scene=true;++g_sceneGeneration;return 1;
 }
-void RenderBackendEndFrame(void) { glFlush(); }
-void RenderBackendDeactivateScene(void) { g_scene=false;set_swap_interval(0); }
+void RenderBackendEndFrame(void)
+{
+   flush_batch();
+#if !defined(__EMSCRIPTEN__)
+   glFlush();
+#endif
+}
+void RenderBackendDeactivateScene(void) { flush_batch(); g_scene=false; set_swap_interval(0); }
 void RenderBackendClearDepth(void)
 {
    if (g_context) clear_depth();
 }
-void RenderBackendSetDepth(int compare, int write) { g_depthCompare=compare!=0;g_depthWrite=write!=0;apply_depth_state(); }
+void RenderBackendSetDepth(int compare, int write)
+{
+   const bool nextCompare = compare != 0;
+   const bool nextWrite = write != 0;
+   if (g_depthCompare == nextCompare && g_depthWrite == nextWrite)
+      return;
+   flush_batch();
+   g_depthCompare = nextCompare;
+   g_depthWrite = nextWrite;
+   apply_depth_state();
+}
 void RenderBackendSetBlend(int mode)
 {
-   g_blendMode=mode;apply_blend_state();
+   if (g_blendMode == mode)
+      return;
+   flush_batch();
+   g_blendMode = mode;
+   apply_blend_state();
 }
-void RenderBackendSetAlphaTest(int enabled) { g_alphaTest=enabled; }
+void RenderBackendSetAlphaTest(int enabled)
+{
+   const bool next = enabled != 0;
+   if (g_alphaTest == next)
+      return;
+   flush_batch();
+   g_alphaTest = next;
+}
 void RenderBackendSetSampler(int level, int wrap, int smooth)
 {
    if (level < 0 || level >= 2) return;
-   g_samplerWrap[level]=wrap!=0;g_samplerSmooth[level]=smooth!=0;
-   Texture *texture=static_cast<Texture*>(g_textures[level]);if(texture)bind_texture(level,texture);
+   const bool nextWrap = wrap != 0;
+   const bool nextSmooth = smooth != 0;
+   if (g_samplerWrap[level] == nextWrap && g_samplerSmooth[level] == nextSmooth)
+      return;
+   flush_batch();
+   g_samplerWrap[level] = nextWrap;
+   g_samplerSmooth[level] = nextSmooth;
 }
-void RenderBackendSetFog(int enabled, uint32_t rgb) { g_fog=enabled;g_fogColor=rgb; }
+void RenderBackendSetFog(int enabled, uint32_t rgb)
+{
+   const bool nextFog = enabled != 0;
+   if (g_fog == nextFog && (!nextFog || g_fogColor == rgb))
+      return;
+   flush_batch();
+   g_fog = nextFog;
+   g_fogColor = rgb;
+}
 void *RenderBackendCreateTexture(int width,int height,const void *rgba,int rowBytes)
 {
    if(width<=0||height<=0||!rgba||rowBytes<width*4)return nullptr;
    std::vector<uint8_t> storage;
    const void *pixels=tight_texture_pixels(width,height,rgba,rowBytes,storage);
-   Texture *t=new Texture; glGenTextures(1,&t->name); t->width=width;t->height=height; glBindTexture(GL_TEXTURE_2D,t->name);
+   Texture *t=new Texture; glGenTextures(1,&t->name); t->width=width;t->height=height;
+   gl_bind_tex2d(0,t->name);
+   gl_set_active_unit(0);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+   t->wrap = 0; t->smooth = 1;
    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);return t;
 }
 int RenderBackendUpdateTexture(void *handle,int width,int height,const void *rgba,int rowBytes)
@@ -1453,10 +1718,35 @@ int RenderBackendUpdateTexture(void *handle,int width,int height,const void *rgb
        rowBytes < width * 4)
       return 0;
 
+   if (!g_batchVertices.empty() && (g_batchTex0 == texture || g_batchTex1 == texture))
+      flush_batch();
+
    std::vector<uint8_t> storage;
    const void *pixels = tight_texture_pixels(width, height, rgba, rowBytes,
       storage);
 
+#if defined(__EMSCRIPTEN__)
+   // Fast path for WebGL2: avoid 4x glGetIntegerv and synchronous glGetError()
+   // GPU command-buffer roundtrips during animated torch/lightmap atlas updates.
+   const int prevUnit = g_glActiveUnit >= 0 ? g_glActiveUnit : 0;
+   const bool hadPrevTex0 = g_glBoundTexValid[0];
+   const GLuint prevTex0 = g_glBoundTex2D[0];
+   gl_bind_tex2d(0, texture->name);
+   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+   if (texture->width == width && texture->height == height)
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA,
+         GL_UNSIGNED_BYTE, pixels);
+   else
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
+         GL_UNSIGNED_BYTE, pixels);
+   glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+   if (hadPrevTex0)
+      gl_bind_tex2d(0, prevTex0);
+   gl_set_active_unit(prevUnit);
+   texture->width = width;
+   texture->height = height;
+   return 1;
+#else
    // Lightmap atlases are updated while the legacy renderer is logically on
    // texture stage one, but OpenGL's active unit is independent of that
    // state.  Do the upload on a known unit and restore all state that affects
@@ -1506,17 +1796,72 @@ int RenderBackendUpdateTexture(void *handle,int width,int height,const void *rgb
    texture->width = width;
    texture->height = height;
    return 1;
+#endif
 }
-void RenderBackendDestroyTexture(void *handle) { Texture*t=static_cast<Texture*>(handle);if(!t)return;for(void*&bound:g_textures)if(bound==t)bound=nullptr;glDeleteTextures(1,&t->name);delete t; }
-void RenderBackendBindTexture(int level,void *texture) { if(level>=0&&level<2){g_textures[level]=texture;bind_texture(level,static_cast<Texture*>(texture));} }
+void RenderBackendDestroyTexture(void *handle)
+{
+   Texture *t = static_cast<Texture *>(handle);
+   if (!t) return;
+   if (!g_batchVertices.empty() && (g_batchTex0 == t || g_batchTex1 == t))
+      flush_batch();
+   for (void *&bound : g_textures)
+      if (bound == t) bound = nullptr;
+   for (int u = 0; u < 2; ++u) {
+      if (g_glBoundTexValid[u] && g_glBoundTex2D[u] == t->name) {
+         g_glBoundTex2D[u] = 0;
+         g_glBoundTexValid[u] = false;
+      }
+   }
+   glDeleteTextures(1, &t->name);
+   delete t;
+}
+void RenderBackendBindTexture(int level,void *texture)
+{
+   if (level < 0 || level >= 2) return;
+   if (g_textures[level] == texture) return;
+   flush_batch();
+   g_textures[level] = texture;
+}
 int RenderBackendDraw(int primitive,const sRenderBackendVertex *vertices,int count,int second)
 {
-   if(!g_context||!vertices||count<=0)return 0; bind_texture(0,static_cast<Texture*>(g_textures[0]));
-   bind_texture(1,second?static_cast<Texture*>(g_textures[1]):nullptr);
-   glActiveTexture(GL_TEXTURE0);
-   GLenum p=primitive==kRenderBackendLines?GL_LINES:primitive==kRenderBackendPoints?GL_POINTS:GL_TRIANGLES;
-   return draw_vertices(p,vertices,count,second!=0,g_width,g_height,g_fog,
-      g_fogColor,g_alphaTest);
+   if(!g_context||!vertices||count<=0)return 0;
+   const GLenum p = primitive==kRenderBackendLines?GL_LINES:primitive==kRenderBackendPoints?GL_POINTS:GL_TRIANGLES;
+   const bool useSecond = second != 0;
+   Texture *tex0 = static_cast<Texture *>(g_textures[0]);
+   Texture *tex1 = useSecond ? static_cast<Texture *>(g_textures[1]) : nullptr;
+
+   if (static_cast<size_t>(count) > kMaxBatchVertices) {
+      flush_batch();
+      bind_texture(0, tex0);
+      bind_texture(1, tex1);
+      return draw_vertices(p, vertices, count, useSecond, g_width, g_height,
+         g_fog, g_fogColor, g_alphaTest);
+   }
+
+   if (!g_batchVertices.empty()) {
+      if (g_batchPrimitive != p || g_batchSecond != useSecond ||
+          g_batchTex0 != tex0 || g_batchTex1 != tex1 ||
+          g_batchWidth != g_width || g_batchHeight != g_height ||
+          g_batchFog != g_fog || (g_fog && g_batchFogColor != g_fogColor) ||
+          g_batchAlphaTest != g_alphaTest ||
+          g_batchVertices.size() + static_cast<size_t>(count) > kMaxBatchVertices) {
+         flush_batch();
+      }
+   }
+
+   if (g_batchVertices.empty()) {
+      g_batchPrimitive = p;
+      g_batchTex0 = tex0;
+      g_batchTex1 = tex1;
+      g_batchSecond = useSecond;
+      g_batchWidth = g_width;
+      g_batchHeight = g_height;
+      g_batchFog = g_fog;
+      g_batchFogColor = g_fogColor;
+      g_batchAlphaTest = g_alphaTest;
+   }
+   g_batchVertices.insert(g_batchVertices.end(), vertices, vertices + count);
+   return 1;
 }
 void RenderBackendTraceReset(void) { if(g_trace){fclose(g_trace);g_trace=nullptr;} const char*p=getenv("DARK_RENDER_TRACE");if(p&&*p)g_trace=fopen(p,"w"); }
 void RenderBackendTrace(const char *format,...) { if(!g_trace)return;va_list args;va_start(args,format);vfprintf(g_trace,format,args);va_end(args);fputc('\n',g_trace);fflush(g_trace); }

@@ -2032,7 +2032,8 @@
         <strong>Жесты (без кнопок):</strong><br />
         • Лево: тянуть = шаг/бег · тап = действие · 2×тап = присед<br />
         • Право: тянуть = обзор · тап = удар · удерж. = блок · 2×тап = прыжок<br />
-        • 2 пальца: свайп L/R = наклон · вверх = оружие · вниз = карта · тап = блок
+        • Лево + право одновременно: свободная ходьба и поворот камеры<br />
+        • 2 пальца рядом на одной стороне: L/R = наклон · вверх = оружие · вниз = карта · тап = блок
       </div>
       <div class="setting-group">
         <div class="setting-label-row">
@@ -2214,6 +2215,29 @@
           quick_save: 'Быстрое сохранение',
           quick_load: 'Быстрая загрузка',
           drop_item: 'Бросить предмет'
+        },
+
+        /**
+         * Determines whether two active pointers in Gesture Mode represent an
+         * intentional 2-finger gesture (lean / weapon / map / block) rather than
+         * simultaneous left-thumb movement + right-thumb camera look.
+         */
+        shouldEnterTwoFingerGesture(ptrA, ptrB, viewportWidth) {
+          if (!ptrA || !ptrB) return false;
+          // Opposite screen halves ALWAYS belong to simultaneous walk + look
+          if (ptrA.zone && ptrB.zone && ptrA.zone !== ptrB.zone) return false;
+          // Never hijack a finger that is already actively moving or turning
+          if (ptrA.moved || ptrB.moved) return false;
+          // Both fingers must touch down nearly together (intentional chord)
+          const dt = Math.abs((Number(ptrB.startTs) || 0) - (Number(ptrA.startTs) || 0));
+          if (dt > 220) return false;
+          // Both fingers must land close together on the same side
+          const dist = Math.hypot(
+            (Number(ptrA.currX) || 0) - (Number(ptrB.currX) || 0),
+            (Number(ptrA.currY) || 0) - (Number(ptrB.currY) || 0)
+          );
+          const maxSpread = Math.max(200, (Number(viewportWidth) || 800) * 0.36);
+          return dist <= maxSpread;
         },
 
         classifyTouchGesture(gesture) {
@@ -4027,9 +4051,15 @@
         }
 
         let diagRenderQueued = false;
+        let diagDomDirty = false;
         function renderDiagLogsNow() {
           diagRenderQueued = false;
           if (!diagPanel || !diagLogViewport) return;
+          if (document.body.dataset.mode === 'playing') {
+            diagDomDirty = true;
+            return;
+          }
+          diagDomDirty = false;
           const counts = diagLogger.countByLevel();
           if (diagCountBadge) {
             const errSuffix = counts.errors > 0 ? ' · ' + counts.errors + ' ош.' : (counts.warns > 0 ? ' · ' + counts.warns + ' пред.' : '');
@@ -4088,6 +4118,10 @@
         }
 
         diagRenderHook = () => {
+          if (document.body.dataset.mode === 'playing') {
+            diagDomDirty = true;
+            return;
+          }
           if (diagRenderQueued) return;
           diagRenderQueued = true;
           requestAnimationFrame(renderDiagLogsNow);
@@ -4100,6 +4134,8 @@
         // C++ pulls window.__darkWebInputQueue and window.__darkWebConfig
         // synchronously inside cUnixGameShell::DrainSdlEvents().
         window.__darkWebInputQueue = [];
+        window.__darkWebInputHead = 0;
+        window.__darkCanvasCssSize = { w: 0, h: 0, rev: 0 };
         window.__darkWebConfig = {
           rev: 0,
           targetFps: 0,
@@ -4183,9 +4219,15 @@
         }
 
         let inputLogRenderQueued = false;
+        let inputLogDomDirty = false;
         function renderInputLogsNow() {
           inputLogRenderQueued = false;
           if (!inputLogPanel || !inputLogViewport) return;
+          if (document.body.dataset.mode === 'playing') {
+            inputLogDomDirty = true;
+            return;
+          }
+          inputLogDomDirty = false;
           const counts = inputLogger.countBySource();
           if (inputLogCountBadge) {
             const parts = [counts.total + ' зап.'];
@@ -4249,6 +4291,10 @@
         }
 
         inputLogRenderHook = () => {
+          if (document.body.dataset.mode === 'playing') {
+            inputLogDomDirty = true;
+            return;
+          }
           if (inputLogRenderQueued) return;
           inputLogRenderQueued = true;
           requestAnimationFrame(renderInputLogsNow);
@@ -4413,36 +4459,70 @@
             if (ctx && !ctx.__darkViewportScaled) {
               ctx.__darkViewportScaled = true;
               let boundFbo = null;
+              let lastVp = null;
+              let lastSc = null;
+              let lastDbW = 0;
+              let lastDbH = 0;
               const nativeBindFramebuffer = ctx.bindFramebuffer.bind(ctx);
               const nativeViewport = ctx.viewport.bind(ctx);
               const nativeScissor = ctx.scissor.bind(ctx);
 
               ctx.bindFramebuffer = function (target, framebuffer) {
                 if (target === ctx.FRAMEBUFFER || target === ctx.DRAW_FRAMEBUFFER) {
-                  boundFbo = framebuffer || null;
+                  const nextFbo = framebuffer || null;
+                  if (nextFbo !== boundFbo) {
+                    boundFbo = nextFbo;
+                    lastVp = null;
+                    lastSc = null;
+                  }
                 }
                 return nativeBindFramebuffer(target, framebuffer);
               };
 
               const scaleRectForDefaultFb = (x, y, w, h) => {
-                const rect = canvas.getBoundingClientRect();
-                const cssW = rect.width || window.innerWidth;
-                const cssH = rect.height || window.innerHeight;
+                // Use cached ResizeObserver/resize CSS dimensions so glViewport/glScissor
+                // NEVER trigger a forced synchronous DOM layout reflow per frame.
+                const cached = window.__darkCanvasCssSize;
+                let cssW = cached && cached.w > 0 ? cached.w : 0;
+                let cssH = cached && cached.h > 0 ? cached.h : 0;
+                if (cssW <= 0 || cssH <= 0) {
+                  const rect = canvas.getBoundingClientRect();
+                  cssW = rect.width || window.innerWidth;
+                  cssH = rect.height || window.innerHeight;
+                }
+                const dbW = ctx.drawingBufferWidth;
+                const dbH = ctx.drawingBufferHeight;
+                if (dbW !== lastDbW || dbH !== lastDbH) {
+                  lastDbW = dbW;
+                  lastDbH = dbH;
+                  lastVp = null;
+                  lastSc = null;
+                }
                 return DarkWebCore.scaleHiDpiViewportRect(
                   x, y, w, h,
                   cssW, cssH,
-                  ctx.drawingBufferWidth, ctx.drawingBufferHeight,
+                  dbW, dbH,
                   boundFbo !== null
                 );
               };
 
               ctx.viewport = function (x, y, w, h) {
                 const scaled = scaleRectForDefaultFb(x, y, w, h);
+                if (lastVp && lastVp[0] === scaled[0] && lastVp[1] === scaled[1] &&
+                    lastVp[2] === scaled[2] && lastVp[3] === scaled[3]) {
+                  return;
+                }
+                lastVp = scaled;
                 return nativeViewport(scaled[0], scaled[1], scaled[2], scaled[3]);
               };
 
               ctx.scissor = function (x, y, w, h) {
                 const scaled = scaleRectForDefaultFb(x, y, w, h);
+                if (lastSc && lastSc[0] === scaled[0] && lastSc[1] === scaled[1] &&
+                    lastSc[2] === scaled[2] && lastSc[3] === scaled[3]) {
+                  return;
+                }
+                lastSc = scaled;
                 return nativeScissor(scaled[0], scaled[1], scaled[2], scaled[3]);
               };
             }
@@ -5232,12 +5312,26 @@
           return appState.isPreviewMode ? previewCanvas : canvas;
         }
 
+        function publishCanvasCssSize(cssW, cssH) {
+          const w = Math.max(0, Math.round(Number(cssW) || 0));
+          const h = Math.max(0, Math.round(Number(cssH) || 0));
+          if (w <= 0 || h <= 0) return;
+          const prev = window.__darkCanvasCssSize || { w: 0, h: 0, rev: 0 };
+          if (prev.w === w && prev.h === h && prev.rev > 0) return;
+          window.__darkCanvasCssSize = { w, h, rev: ((prev.rev | 0) + 1) || 1 };
+        }
+
         function applyCanvasResolution() {
           const target = getActiveCanvas();
           const rect = target.getBoundingClientRect();
+          const cssW = rect.width || window.innerWidth;
+          const cssH = rect.height || window.innerHeight;
+          if (target === canvas) {
+            publishCanvasCssSize(cssW, cssH);
+          }
           const dims = DarkWebCore.computeCanvasResolution(
-            rect.width || window.innerWidth,
-            rect.height || window.innerHeight,
+            cssW,
+            cssH,
             window.devicePixelRatio || 1,
             appState.quality
           );
@@ -5341,7 +5435,7 @@
 
         function triggerCleanReloadLaunch() {
           window.__darkEnginePaused = false;
-          if (Array.isArray(window.__darkWebInputQueue)) window.__darkWebInputQueue.length = 0;
+          if (Array.isArray(window.__darkWebInputQueue)) { window.__darkWebInputQueue.length = 0; window.__darkWebInputHead = 0; }
           const synced = syncSavesDirectToIdbfs();
           logDiag('info', 'BOOT', 'Перезапуск WASM-сессии (чистая перезагрузка с ?autolaunch=1)...');
           const navigate = () => {
@@ -5607,7 +5701,7 @@
 
             if (typeof window.Module.callMain === 'function') {
               const launchArgs = ['+skip_starting_checks'];
-              if (Array.isArray(window.__darkWebInputQueue)) window.__darkWebInputQueue.length = 0;
+              if (Array.isArray(window.__darkWebInputQueue)) { window.__darkWebInputQueue.length = 0; window.__darkWebInputHead = 0; }
               publishWebConfigToEngine();
               appState.wasmLaunched = true;
               appState.wasmTerminated = false;
@@ -5727,6 +5821,7 @@
           }
           if (Array.isArray(window.__darkWebInputQueue)) {
             window.__darkWebInputQueue.length = 0;
+            window.__darkWebInputHead = 0;
           }
           if (wasRealWasm) {
             window.__darkEnginePaused = true;
@@ -5736,6 +5831,8 @@
           hudDrawer.classList.remove('is-open');
           hudSettingsBtn.setAttribute('aria-expanded', 'false');
           document.body.dataset.mode = 'launcher';
+          if (diagDomDirty) renderDiagLogsNow();
+          if (inputLogDomDirty) renderInputLogsNow();
           reconcileLaunchState();
         }
 
@@ -6279,32 +6376,39 @@
           try { gestureHud.setPointerCapture(e.pointerId); } catch (_) {}
           const halfW = window.innerWidth * 0.5;
           const zone = e.clientX < halfW ? 'left' : 'right';
-          activeGesturePointers.set(e.pointerId, {
+          const ptrRec = {
             id: e.pointerId,
             zone,
+            role: null,
             startX: e.clientX,
             startY: e.clientY,
             currX: e.clientX,
             currY: e.clientY,
             startTs: performance.now(),
             moved: false
-          });
+          };
+          activeGesturePointers.set(e.pointerId, ptrRec);
 
           if (activeGesturePointers.size === 2) {
-            // Switch cleanly into 2-finger gesture mode
-            if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
-            if (gRightHoldActive) { gRightHoldActive = false; dispatchGameAction('block', false); }
-            resetGestureMove();
-            gLookPointerId = null;
             const pts = Array.from(activeGesturePointers.values());
-            gTwoFingerActive = true;
-            gTwoFingerStartX = (pts[0].currX + pts[1].currX) * 0.5;
-            gTwoFingerStartY = (pts[0].currY + pts[1].currY) * 0.5;
-            gTwoFingerStartTs = performance.now();
-            return;
+            if (DarkWebCore.shouldEnterTwoFingerGesture(pts[0], pts[1], window.innerWidth)) {
+              // Intentional close same-side 2-finger gesture (lean / weapon / map / block)
+              if (gRightHoldTimer) { clearTimeout(gRightHoldTimer); gRightHoldTimer = 0; }
+              if (gRightHoldActive) { gRightHoldActive = false; dispatchGameAction('block', false); }
+              resetGestureMove();
+              gLookPointerId = null;
+              pts[0].role = 'twofinger';
+              pts[1].role = 'twofinger';
+              gTwoFingerActive = true;
+              gTwoFingerStartX = (pts[0].currX + pts[1].currX) * 0.5;
+              gTwoFingerStartY = (pts[0].currY + pts[1].currY) * 0.5;
+              gTwoFingerStartTs = performance.now();
+              return;
+            }
           }
 
           if (zone === 'left' && gMovePointerId === null) {
+            ptrRec.role = 'move';
             gMovePointerId = e.pointerId;
             gMoveOriginX = e.clientX;
             gMoveOriginY = e.clientY;
@@ -6312,6 +6416,7 @@
             gestureGhostRing.style.top = e.clientY + 'px';
             gestureGhostRing.classList.add('is-visible');
           } else if (zone === 'right' && gLookPointerId === null) {
+            ptrRec.role = 'look';
             gLookPointerId = e.pointerId;
             gLookLastX = e.clientX;
             gLookLastY = e.clientY;
@@ -6416,7 +6521,8 @@
             }
           }
 
-          // Single-finger tap / double-tap classification
+          // Single-finger tap / double-tap classification (only for primary zone pointers)
+          if (pt.role !== 'move' && pt.role !== 'look') return;
           const dt = now - pt.startTs;
           const dx = pt.currX - pt.startX;
           const dy = pt.currY - pt.startY;
@@ -6900,6 +7006,16 @@
         document.addEventListener('webkitfullscreenchange', onViewportGeometryChange);
         if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
           window.visualViewport.addEventListener('resize', onViewportGeometryChange);
+        }
+        if (typeof ResizeObserver === 'function' && canvas) {
+          try {
+            const canvasResizeObserver = new ResizeObserver((entries) => {
+              const entry = entries && entries[0];
+              if (!entry || !entry.contentRect) return;
+              publishCanvasCssSize(entry.contentRect.width, entry.contentRect.height);
+            });
+            canvasResizeObserver.observe(canvas);
+          } catch (_) {}
         }
 
         // PC Keyboard protection (prevents browser F5 reload / Space scroll / Tab focus jump during Thief gameplay)
