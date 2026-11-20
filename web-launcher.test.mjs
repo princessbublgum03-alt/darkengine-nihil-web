@@ -753,20 +753,25 @@ test('3D mobile camera look turns cleanly both left and right without absolute-c
   assert.ok(q[0][3] < -60, 'Coalesced left swipes must stay negative');
   assert.equal(q[0][3], leftSlow.dx * 2);
 
-  // 3. C++ + HTML regression guards preventing right-half absolute mouse fallback
+  // 3. C++ + HTML regression guards preventing right-half absolute mouse fallback and right-edge cursor clamping
   const openglCpp = fs.readFileSync(new URL('./unixsrc/render/opengl.cpp', import.meta.url), 'utf8');
   const ibmapperCpp = fs.readFileSync(new URL('./libsrc/inputbnd/ibmapper.cpp', import.meta.url), 'utf8');
   const ibvarmanCpp = fs.readFileSync(new URL('./libsrc/inputbnd/ibvarman.cpp', import.meta.url), 'utf8');
+  const gamemodeC = fs.readFileSync(new URL('./src/framewrk/gamemode.c', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('./web/index.html', import.meta.url), 'utf8');
 
   assert.ok(openglCpp.includes('SDL_SetHint("SDL_TOUCH_MOUSE_EVENTS", "0");'), 'opengl.cpp must disable SDL2 touch->mouse synthesis under Emscripten');
   assert.ok(openglCpp.includes('else if (!g_relativeMouse)'), 'opengl.cpp must ignore absolute SDL_MOUSEMOTION while g_relativeMouse is active under Emscripten');
   assert.ok(/RenderBackendInjectPointer[\s\S]*?#if defined\(__EMSCRIPTEN__\)[\s\S]*?if \(g_relativeMouse\)[\s\S]*?return;/.test(openglCpp), 'RenderBackendInjectPointer must refuse absolute pointer events during 3D gameplay');
   assert.ok(/DarkRenderSetMousePosition[\s\S]*?\|\| g_relativeMouse/.test(openglCpp), 'DarkRenderSetMousePosition must skip SDL_WarpMouseInWindow during 3D gameplay on Emscripten');
-  assert.ok(ibmapperCpp.includes('if (DarkInputRelativeMouseActive())\n\t\t\treturn 1;'), 'ibmapper.cpp must never fall back to absolute (x - res_x/2) offset during Emscripten 3D gameplay');
+  assert.ok(/if \(DarkInputRelativeMouseActive\(\)\)[\s\S]*?mouse_put_xy\(res_x >> 1, res_y >> 1\);[\s\S]*?return 1;/.test(ibmapperCpp), 'ibmapper.cpp must recenter and never fall back to absolute (x - res_x/2) offset during Emscripten 3D gameplay');
+  assert.ok(/else if \(DarkInputRelativeMouseActive\(\)\)[\s\S]*?mouse_put_xy\(res_x >> 1, res_y >> 1\);/.test(ibmapperCpp), 'ibmapper.cpp must recenter internal cursor after consuming relative motion so right-edge clamping cannot block +dx turns');
+  assert.ok(/mouse_set_relative_mode\(TRUE\);[\s\S]*?#ifdef __EMSCRIPTEN__[\s\S]*?mouse_put_xy\(grd_canvas->bm\.w >> 1, grd_canvas->bm\.h >> 1\);/.test(gamemodeC), 'gamemode.c must recenter internal cursor on entering 3D mode after 2D menu taps or portrait resize');
   assert.ok(ibvarmanCpp.includes('const bool repeat_relative_axis ='), 'ibvarman.cpp must not deduplicate repeated non-zero mturn/mlook deltas under Emscripten');
   assert.ok(html.includes("if (effectiveMode !== 'menu')"), 'onCanvasPointerDown must gate injectDirectCanvasPointer strictly to 2D menu mode');
   assert.ok(html.includes("lookZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false })"), 'lookZone must block native touch leakage to Emscripten SDL2');
+  assert.ok(html.includes("lookZone.addEventListener('lostpointercapture', endLook);"), 'lookZone must release lookPointerId cleanly if browser steals capture at screen edge');
+  assert.ok(/\.touch-zone-right\s*\{[\s\S]*?width:\s*auto;[\s\S]*?z-index:\s*60;[\s\S]*?overscroll-behavior:\s*none;/.test(html), 'lookZone must span full non-joystick width with overscroll-behavior: none for unobstructed right/left swipes');
 });
 
 

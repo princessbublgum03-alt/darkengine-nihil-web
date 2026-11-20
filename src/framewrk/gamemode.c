@@ -729,6 +729,10 @@ static eLoopMessageResult LGAPI _LoopFunc(void* data, eLoopMessage msg, tLoopMes
          HotkeyContext = HK_GAME_MODE; 
          InstallIBHandler (HK_GAME_MODE, UI_EVENT_KBD_RAW | UI_EVENT_MOUSE | UI_EVENT_MOUSE_MOVE | UI_EVENT_JOY, TRUE);
          mouse_set_relative_mode(TRUE);
+#ifdef __EMSCRIPTEN__
+         if (grd_canvas && grd_canvas->bm.w > 0 && grd_canvas->bm.h > 0)
+            mouse_put_xy(grd_canvas->bm.w >> 1, grd_canvas->bm.h >> 1);
+#endif
          MissionPalSet();
          resume_mode();
          // i love the fall through, i love the control, i love it all

@@ -50,6 +50,7 @@
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       overflow-x: clip;
+      overscroll-behavior: none;
     }
 
     body {
@@ -62,6 +63,7 @@
 
     body[data-mode="playing"] {
       overflow: hidden;
+      overscroll-behavior: none;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -1027,6 +1029,7 @@
       background: #040406;
       z-index: 50;
       overflow: hidden;
+      overscroll-behavior: none;
     }
 
     body[data-mode="playing"] #game-stage {
@@ -1193,6 +1196,7 @@
       inset: 0;
       z-index: 60;
       pointer-events: none;
+      overscroll-behavior: none;
       contain: layout style;
     }
 
@@ -1207,6 +1211,7 @@
       z-index: 61;
       pointer-events: auto;
       touch-action: none;
+      overscroll-behavior: none;
       contain: layout style;
     }
 
@@ -1300,20 +1305,25 @@
       position: absolute;
       left: env(safe-area-inset-left, 0px);
       bottom: 0;
-      width: 46%;
-      height: 68%;
+      width: 44%;
+      height: min(42%, 176px);
+      z-index: 61;
       pointer-events: auto;
       touch-action: none;
+      overscroll-behavior: none;
     }
 
     .touch-zone-right {
       position: absolute;
+      left: env(safe-area-inset-left, 0px);
       right: env(safe-area-inset-right, 0px);
       top: calc(48px + env(safe-area-inset-top, 0px));
       bottom: 0;
-      width: 54%;
+      width: auto;
+      z-index: 60;
       pointer-events: auto;
       touch-action: none;
+      overscroll-behavior: none;
     }
 
     /* Floating Virtual Stick */
@@ -1373,7 +1383,7 @@
     .touch-cluster-left {
       position: absolute;
       left: calc(16px + env(safe-area-inset-left, 0px));
-      bottom: calc(174px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(184px + env(safe-area-inset-bottom, 0px));
       display: flex;
       gap: 8px;
       pointer-events: auto;
@@ -1457,11 +1467,13 @@
     /* Compact Landscape Smartphone Touch HUD (prevents joystick & cluster overlap on 844x390 / 872x432) */
     @media (max-height: 520px) {
       .touch-zone-left {
-        width: 42%;
-        height: 76%;
+        width: 40%;
+        height: min(56%, 144px);
       }
       .touch-zone-right {
-        width: 58%;
+        left: env(safe-area-inset-left, 0px);
+        right: env(safe-area-inset-right, 0px);
+        width: auto;
       }
       .stick-base {
         width: 104px;
@@ -1476,7 +1488,7 @@
       }
       .touch-cluster-left {
         left: calc(14px + env(safe-area-inset-left, 0px));
-        bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+        bottom: calc(150px + env(safe-area-inset-bottom, 0px));
         gap: 6px;
       }
       .touch-cluster-right {
@@ -5373,6 +5385,8 @@
           setTimeout(() => dispatchMouseButton(button, false), holdMs || 110);
         }
 
+        const lookDiagStats = { count: 0, sumX: 0, sumY: 0, posX: 0, negX: 0, posY: 0, negY: 0, lastTs: 0 };
+
         function dispatchMouseLook(dx, dy, skipScaling) {
           let scaledX;
           let scaledY;
@@ -5385,6 +5399,36 @@
             scaledY = touchDelta.dy;
           }
           if (scaledX === 0 && scaledY === 0) return;
+
+          if (appState.loggingEnabled) {
+            lookDiagStats.count += 1;
+            lookDiagStats.sumX += scaledX;
+            lookDiagStats.sumY += scaledY;
+            if (scaledX > 0) lookDiagStats.posX += 1;
+            else if (scaledX < 0) lookDiagStats.negX += 1;
+            if (scaledY > 0) lookDiagStats.posY += 1;
+            else if (scaledY < 0) lookDiagStats.negY += 1;
+            const nowTs = performance.now();
+            if (nowTs - lookDiagStats.lastTs >= 2000) {
+              lookDiagStats.lastTs = nowTs;
+              logEvent('DEBUG', 'INPUT', 'Камера look-дельты (JS -> WASM)', {
+                count: lookDiagStats.count,
+                sumX: Math.round(lookDiagStats.sumX),
+                sumY: Math.round(lookDiagStats.sumY),
+                posX: lookDiagStats.posX,
+                negX: lookDiagStats.negX,
+                posY: lookDiagStats.posY,
+                negY: lookDiagStats.negY
+              });
+              lookDiagStats.count = 0;
+              lookDiagStats.sumX = 0;
+              lookDiagStats.sumY = 0;
+              lookDiagStats.posX = 0;
+              lookDiagStats.negX = 0;
+              lookDiagStats.posY = 0;
+              lookDiagStats.negY = 0;
+            }
+          }
 
           previewYaw += scaledX * 0.14;
           previewPitch = Math.max(-75, Math.min(75, previewPitch + scaledY * 0.12));
@@ -5660,9 +5704,14 @@
           e.preventDefault();
           e.stopPropagation();
         };
+        const stopTouchEndLeak = (e) => {
+          e.stopPropagation();
+        };
 
         gestureHud.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
         gestureHud.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
+        gestureHud.addEventListener('touchend', stopTouchEndLeak, { passive: true });
+        gestureHud.addEventListener('touchcancel', stopTouchEndLeak, { passive: true });
         gestureHud.addEventListener('pointerdown', (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -5818,6 +5867,7 @@
 
         gestureHud.addEventListener('pointerup', endGesturePointer);
         gestureHud.addEventListener('pointercancel', endGesturePointer);
+        gestureHud.addEventListener('lostpointercapture', endGesturePointer);
 
         // Floating Virtual Joystick (Left)
         const stickZone = $('stickZone');
@@ -5832,6 +5882,8 @@
         function resetStick() {
           stickPointerId = null;
           stickBase.classList.remove('is-active');
+          stickBase.style.left = '';
+          stickBase.style.bottom = '';
           stickKnob.style.transform = 'translate3d(0px, 0px, 0px)';
           stickSpeedTag.textContent = 'ШАГ';
           previewMoveState = { x: 0, y: 0, speed: 'ПОКОЙ' };
@@ -5840,6 +5892,8 @@
 
         stickZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
         stickZone.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
+        stickZone.addEventListener('touchend', stopTouchEndLeak, { passive: true });
+        stickZone.addEventListener('touchcancel', stopTouchEndLeak, { passive: true });
         stickZone.addEventListener('pointerdown', (e) => {
           if (stickPointerId !== null) return;
           e.preventDefault();
@@ -5885,6 +5939,9 @@
           e.stopPropagation();
           if (e.pointerId === stickPointerId) resetStick();
         });
+        stickZone.addEventListener('lostpointercapture', (e) => {
+          if (e.pointerId === stickPointerId) resetStick();
+        });
 
         // Swipe Camera Look Zone (Right) — rAF-coalesced so 120–240Hz mobile
         // touchscreens dispatch at most one synthetic mousemove per frame.
@@ -5909,6 +5966,8 @@
 
         lookZone.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
         lookZone.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
+        lookZone.addEventListener('touchend', stopTouchEndLeak, { passive: true });
+        lookZone.addEventListener('touchcancel', stopTouchEndLeak, { passive: true });
         lookZone.addEventListener('pointerdown', (e) => {
           if (lookPointerId !== null) return;
           e.preventDefault();
@@ -5948,6 +6007,7 @@
         };
         lookZone.addEventListener('pointerup', endLook);
         lookZone.addEventListener('pointercancel', endLook);
+        lookZone.addEventListener('lostpointercapture', endLook);
 
         // Action & Top HUD Buttons
         document.querySelectorAll('[data-key], [data-mouse]').forEach((btn) => {
@@ -5973,6 +6033,8 @@
 
           btn.addEventListener('touchstart', blockNativeTouchLeak, { passive: false });
           btn.addEventListener('touchmove', blockNativeTouchLeak, { passive: false });
+          btn.addEventListener('touchend', stopTouchEndLeak, { passive: true });
+          btn.addEventListener('touchcancel', stopTouchEndLeak, { passive: true });
           btn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             e.stopPropagation();

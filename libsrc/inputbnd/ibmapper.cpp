@@ -49,6 +49,9 @@ typedef struct _input_code
 EXTERN int kbd_modifier_state;
 extern cIBVariableManager* g_IB_variable_manager;
 #if defined(__EMSCRIPTEN__)
+#include <cstdio>
+#include <cstdlib>
+#include <emscripten.h>
 extern "C" int DarkInputRelativeMouseActive(void);
 #endif
 cIBInputMapper* g_IB_input_mapper = nullptr;
@@ -1363,7 +1366,13 @@ int cIBInputMapper::ProcessMouseMove(uiMouseEvent* event)
 		// Never fall back to absolute cursor offsets (x - res_x/2), which turn any
 		// touch on the right half of the screen into a perpetual rightward spin.
 		if (DarkInputRelativeMouseActive())
+		{
+			auto old_mouse_mask = bindingMouseMask;
+			bindingMouseMask &= 254;
+			mouse_put_xy(res_x >> 1, res_y >> 1);
+			bindingMouseMask = old_mouse_mask;
 			return 1;
+		}
 #endif
 		auto old_mouse_mask = bindingMouseMask;
 		bindingMouseMask &= 254;
@@ -1375,6 +1384,50 @@ int cIBInputMapper::ProcessMouseMove(uiMouseEvent* event)
 		rel_x = x - (res_x >> 1);
 		rel_y = y - (res_y >> 1);
 	}
+#if defined(__EMSCRIPTEN__)
+	else if (DarkInputRelativeMouseActive())
+	{
+		// Keep Dark Engine's internal cursor pinned to the logical canvas center
+		// after every relative motion update so an edge-clamped cursor (left at
+		// the right edge after a 2D menu tap or portrait adaptive resize) can
+		// never block +dx (rightward) or -dx (leftward) camera rotation.
+		auto old_mouse_mask = bindingMouseMask;
+		bindingMouseMask &= 254;
+		mouse_put_xy(res_x >> 1, res_y >> 1);
+		bindingMouseMask = old_mouse_mask;
+	}
+
+	{
+		static int s_verboseLook = -1;
+		if (s_verboseLook < 0)
+		{
+			const char* env = std::getenv("DARK_WEB_VERBOSE_LOG");
+			s_verboseLook = (env && env[0] == '1') ? 1 : 0;
+		}
+		if (s_verboseLook == 1 && (rel_x != 0 || rel_y != 0))
+		{
+			static int s_cnt = 0, s_sumX = 0, s_sumY = 0;
+			static int s_posX = 0, s_negX = 0, s_posY = 0, s_negY = 0;
+			static double s_lastLogMs = 0.0;
+			++s_cnt;
+			s_sumX += rel_x;
+			s_sumY += rel_y;
+			if (rel_x > 0) ++s_posX; else if (rel_x < 0) ++s_negX;
+			if (rel_y > 0) ++s_posY; else if (rel_y < 0) ++s_negY;
+			const double nowMs = emscripten_get_now();
+			if (nowMs - s_lastLogMs >= 2000.0)
+			{
+				s_lastLogMs = nowMs;
+				std::fprintf(stderr,
+					"[web][look] rel count=%d sum=(%d,%d) +x=%d -x=%d +y=%d -y=%d canvas=%dx%d xcmd=%s\n",
+					s_cnt, s_sumX, s_sumY, s_posX, s_negX, s_posY, s_negY,
+					static_cast<int>(res_x), static_cast<int>(res_y),
+					x_cmd ? x_cmd : "(null)");
+				s_cnt = s_sumX = s_sumY = s_posX = s_negX = s_posY = s_negY = 0;
+			}
+		}
+	}
+#endif
 
 	char str[64] = {};
 	char final[64] = {};
